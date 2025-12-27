@@ -1,0 +1,37 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface UIState {
+  theme: 'light' | 'dark';
+  sidebarOpen: boolean;
+  toggleTheme: () => void;
+  toggleSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
+}
+
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      theme: 'light',
+      sidebarOpen: true,
+      toggleTheme: () =>
+        set((state) => {
+          const newTheme = state.theme === 'light' ? 'dark' : 'light';
+          document.documentElement.classList.toggle('dark', newTheme === 'dark');
+          return { theme: newTheme };
+        }),
+      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+    }),
+    {
+      name: 'ui-storage',
+      onRehydrateStorage: () => (state) => {
+        // Aplicar tema ao carregar
+        if (state?.theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      },
+    },
+  ),
+);
+
