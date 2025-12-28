@@ -200,10 +200,11 @@ export default function Debts() {
                       markAsPaid({ id: debt.id });
                     }
                   }}
-                  className="btn-primary flex items-center gap-2"
+                  className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2"
                 >
-                  <Check size={16} />
-                  Quitar Dívida
+                  <Check size={14} className="md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">Quitar Dívida</span>
+                  <span className="sm:hidden">Quitar</span>
                 </button>
               )}
               {!debt.isPersonalDebt && (
@@ -212,10 +213,11 @@ export default function Debts() {
                     e.stopPropagation();
                     sendLink(debt.id);
                   }}
-                  className="btn-secondary flex items-center gap-2"
+                  className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
                 >
-                  <Mail size={16} />
-                  Enviar Link
+                  <Mail size={14} className="md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">Enviar Link</span>
+                  <span className="sm:hidden">Link</span>
                 </button>
               )}
               <button
@@ -223,11 +225,11 @@ export default function Debts() {
                   e.stopPropagation();
                   handleEditClick(debt);
                 }}
-                className="btn-secondary flex items-center gap-2"
+                className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
                 disabled={debt.status === 'PAID'}
               >
-                <Edit size={16} />
-                Editar
+                <Edit size={14} className="md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Editar</span>
               </button>
               <button
                 onClick={(e) => {
@@ -236,11 +238,11 @@ export default function Debts() {
                     cancelDebt(debt.id);
                   }
                 }}
-                className="btn-danger flex items-center gap-2"
+                className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
                 disabled={debt.status === 'PAID'}
               >
-                <XCircle size={16} />
-                Cancelar
+                <XCircle size={14} className="md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Cancelar</span>
               </button>
             </div>
           </div>
@@ -251,31 +253,35 @@ export default function Debts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Dívidas</h1>
-          <p className="text-gray-600 dark:text-gray-400">Gerencie suas dívidas e cobranças</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Dívidas</h1>
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">Gerencie suas dívidas e cobranças</p>
         </div>
-        <Link to="/debts/new" className="btn-primary flex items-center gap-2">
-          <Plus size={20} />
-          Nova Dívida
+        <Link 
+          to="/debts/new" 
+          className="btn-primary flex items-center gap-2 flex-shrink-0 text-sm md:text-base px-3 md:px-4"
+        >
+          <Plus size={18} className="md:w-5 md:h-5" />
+          <span className="hidden sm:inline">Nova Dívida</span>
+          <span className="sm:hidden">Nova</span>
         </Link>
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party' | 'archived')}>
         {/* Mobile: Horizontal Scrollable Tabs */}
-        <div className="md:hidden overflow-x-auto -mx-4 px-4 pb-2">
-          <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="all" className="whitespace-nowrap">Todas</TabsTrigger>
-            <TabsTrigger value="personal" className="whitespace-nowrap flex items-center gap-1.5">
+        <div className="md:hidden overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+          <TabsList className="inline-flex w-max min-w-full">
+            <TabsTrigger value="all" className="whitespace-nowrap flex-shrink-0">Todas</TabsTrigger>
+            <TabsTrigger value="personal" className="whitespace-nowrap flex items-center gap-1.5 flex-shrink-0">
               <TrendingDown className="h-3.5 w-3.5" />
               Eu devo
             </TabsTrigger>
-            <TabsTrigger value="third-party" className="whitespace-nowrap flex items-center gap-1.5">
+            <TabsTrigger value="third-party" className="whitespace-nowrap flex items-center gap-1.5 flex-shrink-0">
               <TrendingUp className="h-3.5 w-3.5" />
               Me devem
             </TabsTrigger>
-            <TabsTrigger value="archived" className="whitespace-nowrap">Arquivadas</TabsTrigger>
+            <TabsTrigger value="archived" className="whitespace-nowrap flex-shrink-0">Arquivadas</TabsTrigger>
           </TabsList>
         </div>
         
@@ -327,16 +333,6 @@ export default function Debts() {
           )}
         </TabsContent>
       </Tabs>
-
-      {debts?.length === 0 && activeTab === 'all' && !isLoading && (
-        <div className="card text-center py-12">
-          <p className="text-gray-500 mb-4">Nenhuma dívida cadastrada</p>
-          <Link to="/debts/new" className="btn-primary inline-flex items-center gap-2">
-            <Plus size={20} />
-            Criar primeira dívida
-          </Link>
-        </div>
-      )}
 
       {/* Dialog de Edição */}
       <Dialog open={!!editingDebt} onOpenChange={(open) => !open && setEditingDebt(null)}>

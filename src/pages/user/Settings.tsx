@@ -174,21 +174,21 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-4">
+    <div className="space-y-6 animate-fade-in pb-4 overflow-x-hidden">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground mt-2">Gerencie suas preferências e conta</p>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Configurações</h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-2">Gerencie suas preferências e conta</p>
       </div>
 
       <Tabs defaultValue="perfil" className="space-y-4">
         {/* Mobile: Horizontal Scrollable Tabs */}
-        <div className="md:hidden overflow-x-auto -mx-4 px-4 pb-2">
-          <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="perfil" className="whitespace-nowrap">Perfil</TabsTrigger>
-            <TabsTrigger value="seguranca" className="whitespace-nowrap">Segurança</TabsTrigger>
-            <TabsTrigger value="pagamentos" className="whitespace-nowrap">Pagamentos</TabsTrigger>
-            <TabsTrigger value="pix" className="whitespace-nowrap">Chaves PIX</TabsTrigger>
-            <TabsTrigger value="notificacoes" className="whitespace-nowrap">Notificações</TabsTrigger>
+        <div className="md:hidden overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+          <TabsList className="inline-flex w-max min-w-full">
+            <TabsTrigger value="perfil" className="whitespace-nowrap flex-shrink-0">Perfil</TabsTrigger>
+            <TabsTrigger value="seguranca" className="whitespace-nowrap flex-shrink-0">Segurança</TabsTrigger>
+            <TabsTrigger value="pagamentos" className="whitespace-nowrap flex-shrink-0">Pagamentos</TabsTrigger>
+            <TabsTrigger value="pix" className="whitespace-nowrap flex-shrink-0">Chaves PIX</TabsTrigger>
+            <TabsTrigger value="notificacoes" className="whitespace-nowrap flex-shrink-0">Notificações</TabsTrigger>
           </TabsList>
         </div>
         
