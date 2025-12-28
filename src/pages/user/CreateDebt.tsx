@@ -48,6 +48,9 @@ interface DebtFormData {
   pixKeyValue?: string;
   pixKeyType?: string;
   pixKeyLabel?: string;
+  pixKeyIsThirdParty?: boolean;
+  pixKeyContactEmail?: string;
+  pixKeyContactName?: string;
 }
 
 export default function CreateDebt() {
@@ -178,6 +181,9 @@ export default function CreateDebt() {
         pixKeyValue: showNewPixKeyForm && data.pixKeyValue ? data.pixKeyValue : undefined,
         pixKeyType: showNewPixKeyForm && data.pixKeyType ? data.pixKeyType : undefined,
         pixKeyLabel: showNewPixKeyForm && data.pixKeyLabel ? data.pixKeyLabel : undefined,
+        pixKeyIsThirdParty: showNewPixKeyForm && isPersonalDebt ? (data.pixKeyIsThirdParty || false) : undefined,
+        pixKeyContactEmail: showNewPixKeyForm && data.pixKeyIsThirdParty && data.pixKeyContactEmail ? data.pixKeyContactEmail : undefined,
+        pixKeyContactName: showNewPixKeyForm && data.pixKeyIsThirdParty && data.pixKeyContactName ? data.pixKeyContactName : undefined,
       } as any,
       {
         onSuccess: () => {
@@ -899,6 +905,41 @@ export default function CreateDebt() {
                                 placeholder="Ex: PIX Principal"
                               />
                             </div>
+                            {isPersonalDebt && (
+                              <>
+                                <div className="flex items-center space-x-2 pt-2 border-t">
+                                  <Switch
+                                    id="pixKeyIsThirdParty"
+                                    checked={watch('pixKeyIsThirdParty') || false}
+                                    onCheckedChange={(checked) => setValue('pixKeyIsThirdParty' as any, checked)}
+                                  />
+                                  <Label htmlFor="pixKeyIsThirdParty" className="text-xs cursor-pointer">
+                                    Chave PIX de outra pessoa (terceiro)
+                                  </Label>
+                                </div>
+                                {watch('pixKeyIsThirdParty') && (
+                                  <>
+                                    <div>
+                                      <Label htmlFor="pixKeyContactEmail" className="text-xs">Email do Contato (Opcional)</Label>
+                                      <Input
+                                        id="pixKeyContactEmail"
+                                        type="email"
+                                        {...register('pixKeyContactEmail' as any)}
+                                        placeholder="contato@example.com"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="pixKeyContactName" className="text-xs">Nome do Contato (Opcional)</Label>
+                                      <Input
+                                        id="pixKeyContactName"
+                                        {...register('pixKeyContactName' as any)}
+                                        placeholder="João Silva"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                              </>
+                            )}
                           </div>
                         </Card>
                       )}
