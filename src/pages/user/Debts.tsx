@@ -130,8 +130,11 @@ export default function Debts() {
           return;
         }
         
-        // Garantir formato ISO 8601 completo
-        dueDateISO = date.toISOString();
+        // Garantir formato ISO 8601 completo (sem milissegundos para compatibilidade com IsDateString)
+        // Formato: YYYY-MM-DDTHH:mm:ssZ (sem .000)
+        const isoString = date.toISOString();
+        // Remover milissegundos para garantir compatibilidade
+        dueDateISO = isoString.replace(/\.\d{3}Z$/, 'Z');
       } catch (error) {
         console.error('Erro ao converter data:', error);
         toast.error('Data inválida');
@@ -170,7 +173,8 @@ export default function Debts() {
     
     // Só enviar dueDate se for uma string ISO 8601 válida
     // Se o campo foi limpo (string vazia), não enviar o campo (manter valor atual)
-    if (dueDateISO) {
+    if (dueDateISO && typeof dueDateISO === 'string' && dueDateISO.trim() !== '') {
+      // Garantir que é uma string válida ISO 8601
       updateData.dueDate = dueDateISO;
     }
     // Se data.dueDate estiver vazio, undefined ou null, não incluir no updateData
@@ -456,7 +460,7 @@ export default function Debts() {
 
       {/* Dialog de Edição */}
       <Dialog open={!!editingDebt} onOpenChange={(open) => !open && setEditingDebt(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto mx-4">
           <DialogHeader>
             <DialogTitle>Editar Dívida</DialogTitle>
             <DialogDescription>
@@ -613,15 +617,21 @@ export default function Debts() {
                 </div>
               )}
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setEditingDebt(null)}
+                className="w-full sm:w-auto"
+                disabled={isUpdatingDebt}
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isUpdatingDebt}>
+              <Button 
+                type="submit" 
+                disabled={isUpdatingDebt}
+                className="w-full sm:w-auto"
+              >
                 {isUpdatingDebt ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
