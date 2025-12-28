@@ -93,9 +93,9 @@ export default function Debts() {
   const onSubmitEdit = (data: EditDebtFormData) => {
     if (!editingDebt) return;
 
-    // Converter data para ISO 8601 corretamente (igual à criação)
-    let dueDate: string | undefined = undefined;
-    if (data.dueDate && data.dueDate.trim() !== '') {
+    // Converter data para ISO 8601 corretamente
+    let dueDateISO: string | undefined = undefined;
+    if (data.dueDate && typeof data.dueDate === 'string' && data.dueDate.trim() !== '') {
       try {
         // Garantir que seja uma string de data válida
         const dateString = String(data.dueDate).trim();
@@ -130,7 +130,8 @@ export default function Debts() {
           return;
         }
         
-        dueDate = date.toISOString();
+        // Garantir formato ISO 8601 completo
+        dueDateISO = date.toISOString();
       } catch (error) {
         console.error('Erro ao converter data:', error);
         toast.error('Data inválida');
@@ -167,13 +168,13 @@ export default function Debts() {
     }
     updateData.description = data.description.trim();
     
-    // Só enviar dueDate se for uma string válida (não vazia)
-    if (dueDate && dueDate.trim() !== '') {
-      updateData.dueDate = dueDate;
-    } else if (data.dueDate === '' || data.dueDate === undefined) {
-      // Se o campo foi limpo ou está vazio, não enviar o campo (manter o valor atual)
-      // Não fazer nada - não incluir dueDate no updateData
+    // Só enviar dueDate se for uma string ISO 8601 válida
+    // Se o campo foi limpo (string vazia), não enviar o campo (manter valor atual)
+    if (dueDateISO) {
+      updateData.dueDate = dueDateISO;
     }
+    // Se data.dueDate estiver vazio, undefined ou null, não incluir no updateData
+    // Isso mantém o valor atual da data no backend
     if (data.interestRate !== undefined && data.interestRate !== null) {
       updateData.interestRate = data.interestRate;
     }
