@@ -1,7 +1,6 @@
 import { Moon, Sun, Menu, LogOut } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuth } from '@/hooks/useAuth';
-import { NotificationBell } from '../notifications/NotificationBell';
 
 export const Header = () => {
   const { theme, toggleTheme, toggleSidebar } = useUIStore();
@@ -20,7 +19,6 @@ export const Header = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {user && <NotificationBell />}
           
           <button onClick={toggleTheme} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}

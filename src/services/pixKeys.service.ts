@@ -9,6 +9,9 @@ export interface PixKey {
   label: string;
   isDefault: boolean;
   isActive: boolean;
+  isThirdParty?: boolean;
+  contactEmail?: string;
+  contactName?: string;
   createdAt: string;
   updatedAt: string;
   account?: {
@@ -23,6 +26,9 @@ export interface CreatePixKeyDto {
   label?: string;
   accountId?: string;
   isDefault?: boolean;
+  isThirdParty?: boolean;
+  contactEmail?: string;
+  contactName?: string;
 }
 
 export interface UpdatePixKeyDto {

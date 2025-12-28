@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { connectSocket, getSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 
 export interface Notification {
   id: string;

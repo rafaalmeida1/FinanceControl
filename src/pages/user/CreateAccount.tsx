@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -39,7 +38,6 @@ export default function CreateAccount() {
     },
   });
 
-  const accountType = watch('type');
   const isDefault = watch('isDefault');
 
   const onSubmit = (data: AccountFormData) => {

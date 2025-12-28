@@ -50,7 +50,7 @@ export default function CompiledDebts() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-4">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dívidas Compiladas por PIX</h1>
         <p className="text-muted-foreground mt-2">

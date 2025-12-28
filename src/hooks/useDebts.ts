@@ -2,12 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import toast from 'react-hot-toast';
 
-export const useDebts = (type?: 'personal' | 'third-party' | 'all') => {
+export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: boolean) => {
   const queryClient = useQueryClient();
 
   const { data: debts, isLoading } = useQuery({
-    queryKey: ['debts', type],
-    queryFn: () => debtsService.getAll(type ? { type } : undefined),
+    queryKey: ['debts', type, archived],
+    queryFn: () => debtsService.getAll({ 
+      ...(type ? { type } : {}),
+      ...(archived !== undefined ? { archived } : {}),
+    }),
   });
 
   const createMutation = useMutation({
@@ -40,6 +43,18 @@ export const useDebts = (type?: 'personal' | 'third-party' | 'all') => {
     },
   });
 
+  const markAsPaidMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) => debtsService.markAsPaid(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast.success('Dívida marcada como paga!');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao marcar dívida como paga');
+    },
+  });
+
   return {
     debts,
     isLoading,
@@ -58,6 +73,7 @@ export const useDebts = (type?: 'personal' | 'third-party' | 'all') => {
     },
     cancelDebt: cancelMutation.mutate,
     sendLink: sendLinkMutation.mutate,
+    markAsPaid: markAsPaidMutation.mutate,
   };
 };
 

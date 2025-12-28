@@ -43,6 +43,17 @@ export const useCharges = () => {
     },
   });
 
+  const forceChargeMutation = useMutation({
+    mutationFn: (debtorEmail?: string) => chargesService.forceCharge(debtorEmail),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['charges'] });
+      toast.success('Cobranças enviadas com sucesso!');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao forçar cobrança');
+    },
+  });
+
   return {
     charges,
     isLoading,
@@ -50,6 +61,7 @@ export const useCharges = () => {
     createRecurring: createRecurringMutation.mutate,
     markPaid: markPaidMutation.mutate,
     cancelCharge: cancelMutation.mutate,
+    forceCharge: forceChargeMutation.mutate,
   };
 };
 

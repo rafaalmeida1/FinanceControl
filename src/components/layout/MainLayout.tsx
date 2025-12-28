@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { BottomNavigation } from './BottomNavigation';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -206,10 +207,13 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 lg:pl-60 pt-0">
-          <div className="container py-6 lg:py-8">{children}</div>
+        <main className="flex-1 lg:pl-60 pt-0 pb-16 md:pb-0">
+          <div className="container py-4 md:py-6 lg:py-8 px-4 md:px-6">{children}</div>
         </main>
       </div>
+      
+      {/* Bottom Navigation - Mobile Only */}
+      <BottomNavigation />
     </div>
   );
 };

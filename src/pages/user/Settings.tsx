@@ -174,20 +174,34 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-4">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e conta</p>
       </div>
 
       <Tabs defaultValue="perfil" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
-          <TabsTrigger value="perfil">Perfil</TabsTrigger>
-          <TabsTrigger value="seguranca">Segurança</TabsTrigger>
-          <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
-          <TabsTrigger value="pix">Chaves PIX</TabsTrigger>
-          <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
-        </TabsList>
+        {/* Mobile: Horizontal Scrollable Tabs */}
+        <div className="md:hidden overflow-x-auto -mx-4 px-4 pb-2">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="perfil" className="whitespace-nowrap">Perfil</TabsTrigger>
+            <TabsTrigger value="seguranca" className="whitespace-nowrap">Segurança</TabsTrigger>
+            <TabsTrigger value="pagamentos" className="whitespace-nowrap">Pagamentos</TabsTrigger>
+            <TabsTrigger value="pix" className="whitespace-nowrap">Chaves PIX</TabsTrigger>
+            <TabsTrigger value="notificacoes" className="whitespace-nowrap">Notificações</TabsTrigger>
+          </TabsList>
+        </div>
+        
+        {/* Desktop: Grid Tabs */}
+        <div className="hidden md:block">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="perfil">Perfil</TabsTrigger>
+            <TabsTrigger value="seguranca">Segurança</TabsTrigger>
+            <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
+            <TabsTrigger value="pix">Chaves PIX</TabsTrigger>
+            <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Aba: Perfil */}
         <TabsContent value="perfil">

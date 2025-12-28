@@ -7,7 +7,7 @@ export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
   const [useEmailAccess, setUseEmailAccess] = useState(false);
   const { login, register: registerUser, sendMagicLink, isLoading } = useAuth();
-  const { register, handleSubmit, watch } = useForm();
+  const { register, handleSubmit } = useForm();
 
   const onSubmit = (data: any) => {
     if (useEmailAccess) {

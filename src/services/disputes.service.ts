@@ -1,15 +1,10 @@
 import api from '@/lib/axios';
 
-export interface DisputeItem {
-  field: 'amount' | 'description' | 'dueDate';
-  currentValue: any;
-  correctValue: any;
-  reason: string;
-}
-
 export interface CreateDisputeDto {
   reason: string;
-  items: DisputeItem[];
+  correctAmount?: number;
+  correctDescription?: string;
+  correctDueDate?: string;
 }
 
 export interface Dispute {
@@ -18,7 +13,7 @@ export interface Dispute {
   debtorEmail: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   reason: string;
-  items: DisputeItem[];
+  items: any[]; // Formato legado para compatibilidade
   creditorResponse?: string;
   resolvedAt?: string;
   createdAt: string;

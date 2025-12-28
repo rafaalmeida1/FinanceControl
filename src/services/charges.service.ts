@@ -31,5 +31,10 @@ export const chargesService = {
     const response = await api.delete(`/charges/${id}`);
     return response.data;
   },
+
+  forceCharge: async (debtorEmail?: string): Promise<any> => {
+    const response = await api.post('/charges/force', debtorEmail ? { debtorEmail } : {});
+    return response.data;
+  },
 };
 

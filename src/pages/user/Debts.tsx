@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useDebts } from '@/hooks/useDebts';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp } from 'lucide-react';
+import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -44,11 +44,13 @@ interface EditDebtFormData {
 }
 
 export default function Debts() {
-  const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party'>('all');
-  const debtType = activeTab === 'all' ? undefined : activeTab === 'personal' ? 'personal' : 'third-party';
-  const { debts, isLoading, sendLink, cancelDebt, updateDebt } = useDebts(debtType);
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party' | 'archived'>('all');
+  const debtType = activeTab === 'all' ? undefined : activeTab === 'personal' ? 'personal' : activeTab === 'third-party' ? 'third-party' : undefined;
+  const archived = activeTab === 'archived' ? true : false;
+  const { debts, isLoading, sendLink, cancelDebt, updateDebt, markAsPaid } = useDebts(debtType, archived);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EditDebtFormData>();
+  const { register, handleSubmit, reset, watch, setValue } = useForm<EditDebtFormData>();
 
   const handleEditClick = (debt: Debt) => {
     if (debt.status === 'PAID') {
@@ -141,7 +143,7 @@ export default function Debts() {
     return (
       <div className="space-y-4">
         {debtsList.map((debt) => (
-          <div key={debt.id} className="card">
+          <div key={debt.id} className="card cursor-pointer hover:border-primary transition-colors" onClick={() => navigate(`/debts/${debt.id}`)}>
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
@@ -189,10 +191,27 @@ export default function Debts() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {debt.status !== 'PAID' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm('Deseja marcar esta dívida como paga? Todas as parcelas pendentes serão marcadas como pagas.')) {
+                      markAsPaid({ id: debt.id });
+                    }
+                  }}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Check size={16} />
+                  Quitar Dívida
+                </button>
+              )}
               {!debt.isPersonalDebt && (
                 <button
-                  onClick={() => sendLink(debt.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendLink(debt.id);
+                  }}
                   className="btn-secondary flex items-center gap-2"
                 >
                   <Mail size={16} />
@@ -200,7 +219,10 @@ export default function Debts() {
                 </button>
               )}
               <button
-                onClick={() => handleEditClick(debt)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditClick(debt);
+                }}
                 className="btn-secondary flex items-center gap-2"
                 disabled={debt.status === 'PAID'}
               >
@@ -208,12 +230,14 @@ export default function Debts() {
                 Editar
               </button>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (confirm('Deseja realmente cancelar esta dívida?')) {
                     cancelDebt(debt.id);
                   }
                 }}
                 className="btn-danger flex items-center gap-2"
+                disabled={debt.status === 'PAID'}
               >
                 <XCircle size={16} />
                 Cancelar
@@ -238,26 +262,46 @@ export default function Debts() {
         </Link>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party')}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">Todas</TabsTrigger>
-          <TabsTrigger value="personal" className="flex items-center gap-2">
-            <TrendingDown className="h-4 w-4" />
-            Eu devo
-          </TabsTrigger>
-          <TabsTrigger value="third-party" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Alguém me deve
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party' | 'archived')}>
+        {/* Mobile: Horizontal Scrollable Tabs */}
+        <div className="md:hidden overflow-x-auto -mx-4 px-4 pb-2">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="all" className="whitespace-nowrap">Todas</TabsTrigger>
+            <TabsTrigger value="personal" className="whitespace-nowrap flex items-center gap-1.5">
+              <TrendingDown className="h-3.5 w-3.5" />
+              Eu devo
+            </TabsTrigger>
+            <TabsTrigger value="third-party" className="whitespace-nowrap flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5" />
+              Me devem
+            </TabsTrigger>
+            <TabsTrigger value="archived" className="whitespace-nowrap">Arquivadas</TabsTrigger>
+          </TabsList>
+        </div>
+        
+        {/* Desktop: Grid Tabs */}
+        <div className="hidden md:block">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="all">Todas</TabsTrigger>
+            <TabsTrigger value="personal" className="flex items-center gap-2">
+              <TrendingDown className="h-4 w-4" />
+              Eu devo
+            </TabsTrigger>
+            <TabsTrigger value="third-party" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Alguém me deve
+            </TabsTrigger>
+            <TabsTrigger value="archived">Arquivadas</TabsTrigger>
+          </TabsList>
+        </div>
 
-        {/* <TabsContent value="all" className="mt-6">
+        <TabsContent value="all" className="mt-6">
           {isLoading ? (
             <div className="text-center py-12">Carregando...</div>
           ) : (
             renderDebtList(debts)
           )}
-        </TabsContent> */}
+        </TabsContent>
 
         <TabsContent value="personal" className="mt-6">
           {isLoading ? (
@@ -268,6 +312,14 @@ export default function Debts() {
         </TabsContent>
 
         <TabsContent value="third-party" className="mt-6">
+          {isLoading ? (
+            <div className="text-center py-12">Carregando...</div>
+          ) : (
+            renderDebtList(debts)
+          )}
+        </TabsContent>
+
+        <TabsContent value="archived" className="mt-6">
           {isLoading ? (
             <div className="text-center py-12">Carregando...</div>
           ) : (

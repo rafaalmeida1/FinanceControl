@@ -58,6 +58,12 @@ export interface Debt {
   updatedAt: string;
   charges?: Charge[];
   accessTokens?: DebtorAccessToken[];
+  pixKey?: {
+    id: string;
+    keyType: string;
+    keyValue: string;
+    label: string;
+  };
 }
 
 // Charge types

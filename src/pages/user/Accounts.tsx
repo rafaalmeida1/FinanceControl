@@ -18,19 +18,12 @@ import { useForm } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Account } from '@/types/api.types';
 
 export default function Accounts() {
   const { accounts, isLoading, updateAccount, deleteAccount, setDefaultAccount } = useAccounts();
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset } = useForm();
 
   const totalReceivable = accounts
     ?.filter((a) => a.type === 'RECEIVABLE')

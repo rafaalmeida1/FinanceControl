@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
 import { ArrowLeft, ArrowRight, Check, User, CreditCard, FileText, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authStore } from '@/stores/authStore';
+import { pixKeysService, PixKey } from '@/services/pixKeys.service';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,16 +32,22 @@ interface DebtFormData {
   description: string;
   
   // Step 2: Valores e Pagamento
-  totalAmount: number;
+  totalAmount: number | string;
   installments: number;
   dueDate: string;
   
   // Step 3: Opções de Cobrança
-  useGateway: boolean;
+  useGateway: boolean | string;
   preferredGateway: 'MERCADOPAGO';
   addInterest: boolean;
   interestRate?: number;
   penaltyRate?: number;
+  
+  // PIX Key fields
+  pixKeyId?: string;
+  pixKeyValue?: string;
+  pixKeyType?: string;
+  pixKeyLabel?: string;
 }
 
 export default function CreateDebt() {
@@ -59,7 +67,17 @@ export default function CreateDebt() {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [isPersonalDebt, setIsPersonalDebt] = useState(false);
+  const [isPersonalDebtForMyself, setIsPersonalDebtForMyself] = useState(true); // true = para mim mesmo, false = para outra pessoa
+  const [selectedPixKeyId, setSelectedPixKeyId] = useState<string | 'new' | null>(null);
+  const [showNewPixKeyForm, setShowNewPixKeyForm] = useState(false);
+  const [useCustomInstallments, setUseCustomInstallments] = useState(false);
   const totalSteps = 3;
+
+  // Buscar chaves PIX
+  const { data: pixKeys } = useQuery({
+    queryKey: ['pix-keys'],
+    queryFn: () => pixKeysService.getAll(),
+  });
 
   // Watch values for conditional rendering
   // Converter useGateway para boolean (vem como string do radio)
@@ -83,7 +101,7 @@ export default function CreateDebt() {
     if (data.dueDate) {
       try {
         // Garantir que seja uma string de data válida
-        const dateString = typeof data.dueDate === 'string' ? data.dueDate : data.dueDate.toString();
+        const dateString = String(data.dueDate || '');
         // Criar data no formato correto para ISO
         const [year, month, day] = dateString.split('-');
         const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59));
@@ -98,12 +116,40 @@ export default function CreateDebt() {
     // useGateway vem como string do radio, converter para boolean
     const shouldUseGateway = data.useGateway === true || data.useGateway === 'true';
     
+    // Lógica para dívida pessoal
+    let finalCreditorEmail: string | undefined;
+    let finalCreditorName: string | undefined;
+    let finalDebtorEmail: string;
+    let finalDebtorName: string | undefined;
+    
+    if (isPersonalDebt) {
+      // Você é sempre o devedor
+      finalDebtorEmail = user?.email || '';
+      finalDebtorName = user?.name || undefined;
+      
+      if (isPersonalDebtForMyself) {
+        // Para mim mesmo: credor = você mesmo
+        finalCreditorEmail = user?.email || '';
+        finalCreditorName = user?.name || undefined;
+      } else {
+        // Para outra pessoa: credor = data.creditorEmail
+        finalCreditorEmail = data.creditorEmail;
+        finalCreditorName = data.creditorName || undefined;
+      }
+    } else {
+      // Dívida de terceiro: você é credor, data.debtorEmail é o devedor
+      finalDebtorEmail = data.debtorEmail;
+      finalDebtorName = data.debtorName || undefined;
+      finalCreditorEmail = undefined; // Você é o credor (userId no backend)
+      finalCreditorName = undefined;
+    }
+    
     createDebt(
       {
-        debtorEmail: isPersonalDebt ? (user?.email || '') : data.debtorEmail,
-        debtorName: isPersonalDebt ? (user?.name || '') : (data.debtorName || undefined),
-        creditorEmail: isPersonalDebt ? data.creditorEmail : undefined,
-        creditorName: isPersonalDebt ? (data.creditorName || undefined) : undefined,
+        debtorEmail: finalDebtorEmail,
+        debtorName: finalDebtorName,
+        creditorEmail: finalCreditorEmail,
+        creditorName: finalCreditorName,
         description: data.description || undefined,
         totalAmount: parseFloat(data.totalAmount as any),
         installments: parseInt(data.installments as any) || 1,
@@ -113,6 +159,10 @@ export default function CreateDebt() {
         useGateway: shouldUseGateway,
         preferredGateway: shouldUseGateway ? data.preferredGateway : undefined,
         isPersonalDebt,
+        pixKeyId: selectedPixKeyId && selectedPixKeyId !== 'new' ? selectedPixKeyId : undefined,
+        pixKeyValue: showNewPixKeyForm && data.pixKeyValue ? data.pixKeyValue : undefined,
+        pixKeyType: showNewPixKeyForm && data.pixKeyType ? data.pixKeyType : undefined,
+        pixKeyLabel: showNewPixKeyForm && data.pixKeyLabel ? data.pixKeyLabel : undefined,
       } as any,
       {
         onSuccess: () => {
@@ -237,36 +287,80 @@ export default function CreateDebt() {
                         </div>
                       </div>
                       
+                      {/* Sub-opções quando "Eu devo" está ativado */}
+                      {isPersonalDebt && (
+                        <div className="space-y-3 pt-3 border-t">
+                          <Label className="text-sm font-medium">Você deve para:</Label>
+                          <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                checked={isPersonalDebtForMyself}
+                                onChange={() => setIsPersonalDebtForMyself(true)}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-sm">Mim mesmo</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                checked={!isPersonalDebtForMyself}
+                                onChange={() => setIsPersonalDebtForMyself(false)}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-sm">Outra pessoa</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Explicação clara */}
                       <Alert className={cn(
-                        isPersonalDebt ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800' : 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800'
+                        'border-2',
+                        isPersonalDebt 
+                          ? 'bg-orange-50 dark:bg-orange-950/50 border-orange-300 dark:border-orange-700' 
+                          : 'bg-blue-50 dark:bg-blue-950/50 border-blue-300 dark:border-blue-700'
                       )}>
                         <Info className={cn(
                           'h-4 w-4',
-                          isPersonalDebt ? 'text-orange-600 dark:text-orange-400' : 'text-blue-600 dark:text-blue-400'
+                          isPersonalDebt ? 'text-orange-700 dark:text-orange-300' : 'text-blue-700 dark:text-blue-300'
                         )} />
                         <AlertTitle className={cn(
-                          isPersonalDebt ? 'text-orange-800 dark:text-orange-200' : 'text-blue-800 dark:text-blue-200'
+                          isPersonalDebt ? 'text-orange-900 dark:text-orange-100' : 'text-blue-900 dark:text-blue-100'
                         )}>
-                          {isPersonalDebt ? '📝 Dívida Pessoal (Você está devendo)' : '💰 Dívida de Terceiro (Alguém deve para você)'}
+                          {isPersonalDebt 
+                            ? (isPersonalDebtForMyself 
+                              ? '📝 Dívida Pessoal (Para Mim Mesmo)' 
+                              : '📝 Dívida Pessoal (Eu devo para outra pessoa)')
+                            : '💰 Dívida de Terceiro (Alguém deve para você)'}
                         </AlertTitle>
                         <AlertDescription className={cn(
                           'mt-2',
-                          isPersonalDebt ? 'text-orange-700 dark:text-orange-300' : 'text-blue-700 dark:text-blue-300'
+                          isPersonalDebt ? 'text-orange-800 dark:text-orange-200' : 'text-blue-800 dark:text-blue-200'
                         )}>
                           {isPersonalDebt ? (
-                            <>
-                              <p className="font-semibold mb-1">Você está registrando uma dívida que VOCÊ deve para alguém.</p>
-                              <p className="text-sm">
-                                Você será o <strong>devedor</strong> e precisará informar o <strong>credor</strong> (quem vai receber).
-                                Esta dívida aparecerá na sua lista de dívidas pessoais.
-                              </p>
-                            </>
+                            isPersonalDebtForMyself ? (
+                              <>
+                                <p className="font-semibold mb-1">Dívida para você mesmo.</p>
+                                <p className="text-sm">
+                                  Você é o <strong>devedor</strong> e também o <strong>credor</strong> (o mesmo email será usado).
+                                  Esta dívida aparecerá na sua lista de dívidas pessoais.
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="font-semibold mb-1">Você deve para outra pessoa.</p>
+                                <p className="text-sm">
+                                  Você é o <strong>devedor</strong>. Precisará informar o <strong>credor</strong> (quem vai receber).
+                                  Esta dívida aparecerá na sua lista de dívidas pessoais.
+                                </p>
+                              </>
+                            )
                           ) : (
                             <>
-                              <p className="font-semibold mb-1">Você está registrando uma dívida que ALGUÉM deve para você.</p>
+                              <p className="font-semibold mb-1">Alguém deve para você.</p>
                               <p className="text-sm">
-                                Você será o <strong>credor</strong> (quem vai receber) e precisará informar o <strong>devedor</strong> (quem deve).
+                                Você é o <strong>credor</strong> (quem vai receber) e precisará informar o <strong>devedor</strong> (quem deve).
                                 Esta dívida aparecerá na sua lista de cobranças a receber.
                               </p>
                             </>
@@ -310,40 +404,66 @@ export default function CreateDebt() {
                       </div>
                     </>
                   ) : (
-                    // Dívida pessoal - você é o devedor, precisa informar o credor
+                    // Dívida pessoal
                     <>
-                      <div>
-                        <Label htmlFor="creditorEmail">
-                          Email do Credor (para quem você deve) *
-                        </Label>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Informe o email de quem vai receber o pagamento. Você será o devedor.
-                        </p>
-                        <Input 
-                          id="creditorEmail"
-                          {...register('creditorEmail', { 
-                            required: isPersonalDebt ? 'Email do credor é obrigatório' : false,
-                            pattern: {
-                              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                              message: 'Email inválido'
-                            }
-                          })} 
-                          type="email" 
-                          placeholder="credor@email.com"
-                        />
-                        {errors.creditorEmail && (
-                          <p className="text-sm text-destructive mt-1">{errors.creditorEmail.message}</p>
-                        )}
-                      </div>
+                      {isPersonalDebtForMyself ? (
+                        // Para mim mesmo
+                        <>
+                          <Alert className="bg-blue-50 dark:bg-blue-950/50 border-2 border-blue-300 dark:border-blue-700">
+                            <Info className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+                            <AlertTitle className="text-blue-900 dark:text-blue-100">
+                              Dívida Pessoal - Para Mim Mesmo
+                            </AlertTitle>
+                            <AlertDescription className="text-blue-800 dark:text-blue-200 mt-2">
+                              <p className="text-sm">
+                                Você é o devedor e também o credor (o mesmo email será usado).
+                                Seu email: <strong>{user?.email}</strong>
+                              </p>
+                            </AlertDescription>
+                          </Alert>
+                          
+                          {/* Campos ocultos */}
+                          <input type="hidden" {...register('creditorEmail')} value={user?.email || ''} />
+                          <input type="hidden" {...register('creditorName')} value={user?.name || ''} />
+                        </>
+                      ) : (
+                        // Para outra pessoa
+                        <>
+                          <div>
+                            <Label htmlFor="creditorEmail">
+                              Email do Credor (para quem você deve) *
+                            </Label>
+                            <Input 
+                              id="creditorEmail"
+                              {...register('creditorEmail', { 
+                                required: isPersonalDebt && !isPersonalDebtForMyself ? 'Email do credor é obrigatório' : false,
+                                pattern: {
+                                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                  message: 'Email inválido'
+                                }
+                              })} 
+                              type="email" 
+                              placeholder="credor@email.com"
+                            />
+                            {errors.creditorEmail && (
+                              <p className="text-sm text-destructive mt-1">{errors.creditorEmail.message}</p>
+                            )}
+                          </div>
 
-                      <div>
-                        <Label htmlFor="creditorName">Nome do Credor (opcional)</Label>
-                        <Input 
-                          id="creditorName"
-                          {...register('creditorName')} 
-                          placeholder="Banco XYZ, João Silva..."
-                        />
-                      </div>
+                          <div>
+                            <Label htmlFor="creditorName">Nome do Credor (opcional)</Label>
+                            <Input 
+                              id="creditorName"
+                              {...register('creditorName')} 
+                              placeholder="Banco XYZ, João Silva..."
+                            />
+                          </div>
+                        </>
+                      )}
+                      
+                      {/* Campos ocultos para devedor (sempre você) */}
+                      <input type="hidden" {...register('debtorEmail')} value={user?.email || ''} />
+                      <input type="hidden" {...register('debtorName')} value={user?.name || ''} />
                     </>
                   )}
 
@@ -398,26 +518,63 @@ export default function CreateDebt() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="installments">Número de Parcelas</Label>
-                      <Select
-                        defaultValue="1"
-                        onValueChange={(value) => setValue('installments', parseInt(value))}
-                      >
-                        <SelectTrigger id="installments">
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">À vista (1x)</SelectItem>
-                          <SelectItem value="2">2x</SelectItem>
-                          <SelectItem value="3">3x</SelectItem>
-                          <SelectItem value="4">4x</SelectItem>
-                          <SelectItem value="5">5x</SelectItem>
-                          <SelectItem value="6">6x</SelectItem>
-                          <SelectItem value="12">12x</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        {!useCustomInstallments ? (
+                          <Select
+                            value={String(installments || 1)}
+                            onValueChange={(value) => {
+                              if (value === 'custom') {
+                                setUseCustomInstallments(true);
+                                setValue('installments', 1);
+                              } else {
+                                setValue('installments', parseInt(value));
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="installments" className="flex-1">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">À vista (1x)</SelectItem>
+                              <SelectItem value="2">2x</SelectItem>
+                              <SelectItem value="3">3x</SelectItem>
+                              <SelectItem value="4">4x</SelectItem>
+                              <SelectItem value="5">5x</SelectItem>
+                              <SelectItem value="6">6x</SelectItem>
+                              <SelectItem value="12">12x</SelectItem>
+                              <SelectItem value="custom">Personalizar</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <>
+                            <Input
+                              type="number"
+                              min="1"
+                              max="120"
+                              placeholder="Ex: 24"
+                              value={installments || 1}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 1;
+                                setValue('installments', Math.min(Math.max(value, 1), 120));
+                              }}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setUseCustomInstallments(false);
+                                setValue('installments', 1);
+                              }}
+                            >
+                              Voltar
+                            </Button>
+                          </>
+                        )}
+                      </div>
                       {installments > 1 && totalAmount && (
                         <p className="text-sm text-muted-foreground mt-1">
-                          {installments}x de R$ {(totalAmount / installments).toFixed(2)}
+                          {Number(installments)}x de R$ {(Number(totalAmount) / Number(installments)).toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -511,21 +668,21 @@ export default function CreateDebt() {
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Credor:</span>
                           <span className="font-medium">
-                            {watch('creditorEmail')}
+                            {user?.email || 'Você mesmo'}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Valor Total:</span>
                         <span className="font-bold text-lg">
-                          R$ {parseFloat(watch('totalAmount') || '0').toFixed(2)}
+                          R$ {parseFloat(String(watch('totalAmount') || '0')).toFixed(2)}
                         </span>
                       </div>
                       {installments > 1 && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Parcelas:</span>
                           <span className="font-medium">
-                            {installments}x de R$ {(parseFloat(watch('totalAmount') || '0') / installments).toFixed(2)}
+                            {Number(installments)}x de R$ {(parseFloat(String(watch('totalAmount') || '0')) / Number(installments)).toFixed(2)}
                           </span>
                         </div>
                       )}
@@ -610,6 +767,77 @@ export default function CreateDebt() {
                       </Card>
                     </div>
                   )}
+
+                  {!useGateway && (
+                    <div className="animate-fade-in space-y-3">
+                      <Label className="text-base">Chave PIX para Recebimento *</Label>
+                      <Select
+                        value={selectedPixKeyId || ''}
+                        onValueChange={(value) => {
+                          if (value === 'new') {
+                            setShowNewPixKeyForm(true);
+                            setSelectedPixKeyId('new');
+                          } else {
+                            setShowNewPixKeyForm(false);
+                            setSelectedPixKeyId(value);
+                            setValue('pixKeyId', value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione ou crie uma chave PIX" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pixKeys?.filter(key => !key.isThirdParty).map((key: PixKey) => (
+                            <SelectItem key={key.id} value={key.id}>
+                              {key.label} - {key.keyValue.substring(0, 20)}...
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="new">+ Criar nova chave PIX</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {showNewPixKeyForm && (
+                        <Card className="bg-muted/50 p-4 space-y-3">
+                          <Label className="text-sm font-medium">Nova Chave PIX</Label>
+                          <div className="space-y-3">
+                            <div>
+                              <Label htmlFor="pixKeyType" className="text-xs">Tipo *</Label>
+                              <Select
+                                onValueChange={(value: any) => setValue('pixKeyType' as any, value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="CPF">CPF</SelectItem>
+                                  <SelectItem value="EMAIL">E-mail</SelectItem>
+                                  <SelectItem value="PHONE">Telefone</SelectItem>
+                                  <SelectItem value="RANDOM">Chave Aleatória</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="pixKeyValue" className="text-xs">Valor da Chave *</Label>
+                              <Input
+                                id="pixKeyValue"
+                                {...register('pixKeyValue' as any, { required: !useGateway })}
+                                placeholder="Digite a chave PIX"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="pixKeyLabel" className="text-xs">Nome/Apelido</Label>
+                              <Input
+                                id="pixKeyLabel"
+                                {...register('pixKeyLabel' as any)}
+                                placeholder="Ex: PIX Principal"
+                              />
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -628,13 +856,23 @@ export default function CreateDebt() {
               {currentStep < totalSteps ? (
                 <Button
                   type="button"
-                  onClick={nextStep}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    nextStep();
+                  }}
                 >
                   Próximo
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="submit">
+                <Button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSubmit(onSubmit)(e);
+                  }}
+                >
                   <Check className="mr-2 h-4 w-4" />
                   Criar Dívida
                 </Button>

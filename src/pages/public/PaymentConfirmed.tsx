@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function PaymentConfirmed() {
-  const { token } = useParams<{ token: string }>();
+  useParams<{ token: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   

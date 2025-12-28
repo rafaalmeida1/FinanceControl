@@ -7,8 +7,13 @@ export const debtsService = {
     return response.data;
   },
 
-  getAll: async (params?: { status?: string; search?: string; type?: 'personal' | 'third-party' | 'all' }): Promise<Debt[]> => {
-    const response = await api.get('/debts', { params });
+  getAll: async (params?: { status?: string; search?: string; type?: 'personal' | 'third-party' | 'all'; archived?: boolean }): Promise<Debt[]> => {
+    const queryParams: any = {};
+    if (params?.status) queryParams.status = params.status;
+    if (params?.search) queryParams.search = params.search;
+    if (params?.type && params.type !== 'all') queryParams.type = params.type;
+    if (params?.archived !== undefined) queryParams.archived = params.archived;
+    const response = await api.get('/debts', { params: queryParams });
     return response.data;
   },
 
@@ -43,6 +48,11 @@ export const debtsService = {
       params.pixKeyId = pixKeyId;
     }
     const response = await api.post('/debts/compiled-by-pix/send-email', null, { params });
+    return response.data;
+  },
+
+  markAsPaid: async (id: string, notes?: string): Promise<Debt> => {
+    const response = await api.post(`/debts/${id}/mark-paid`, { notes });
     return response.data;
   },
 };

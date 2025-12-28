@@ -1,28 +1,9 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { pixKeysService, PixKey, CreatePixKeyDto } from '@/services/pixKeys.service';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -30,47 +11,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Star, Loader2 } from 'lucide-react';
-import { pixKeysService, PixKey, CreatePixKeyDto } from '@/services/pixKeys.service';
-import { accountsService } from '@/services/accounts.service';
-
-const pixKeySchema = z.object({
-  keyType: z.enum(['CPF', 'EMAIL', 'PHONE', 'RANDOM']),
-  keyValue: z.string().min(1, 'Valor da chave é obrigatório'),
-  label: z.string().optional(),
-  accountId: z.string().optional(),
-  isDefault: z.boolean().optional(),
-});
-
-type PixKeyFormData = z.infer<typeof pixKeySchema>;
+import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, Copy, Star, StarOff } from 'lucide-react';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { useForm } from 'react-hook-form';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 
 export function PixKeysTab() {
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { register, handleSubmit, reset, watch, setValue } = useForm<CreatePixKeyDto>({
+    defaultValues: {
+      keyType: 'CPF',
+      isDefault: false,
+      isThirdParty: false,
+    },
+  });
 
   const { data: pixKeys, isLoading } = useQuery({
     queryKey: ['pix-keys'],
     queryFn: () => pixKeysService.getAll(),
-  });
-
-  const { data: accounts } = useQuery({
-    queryKey: ['accounts'],
-    queryFn: () => accountsService.getAll(),
-  });
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<PixKeyFormData>({
-    resolver: zodResolver(pixKeySchema),
-    defaultValues: {
-      keyType: 'EMAIL',
-      isDefault: false,
-    },
   });
 
   const createMutation = useMutation({
@@ -78,7 +40,7 @@ export function PixKeysTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pix-keys'] });
       toast.success('Chave PIX criada com sucesso!');
-      setIsDialogOpen(false);
+      setIsCreateDialogOpen(false);
       reset();
     },
     onError: (error: any) => {
@@ -108,192 +70,202 @@ export function PixKeysTab() {
     },
   });
 
-  const onSubmit = (data: PixKeyFormData) => {
-    createMutation.mutate({
-      keyType: data.keyType,
-      keyValue: data.keyValue,
-      label: data.label,
-      accountId: data.accountId,
-      isDefault: data.isDefault,
-    });
+  const handleCopy = (key: string) => {
+    navigator.clipboard.writeText(key);
+    toast.success('Chave PIX copiada!');
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Deseja realmente remover esta chave PIX?')) {
-      deleteMutation.mutate(id);
-    }
+  const onSubmit = (data: CreatePixKeyDto) => {
+    createMutation.mutate(data);
   };
 
-  const handleSetDefault = (id: string) => {
-    setDefaultMutation.mutate(id);
-  };
+  if (isLoading) {
+    return <div className="text-center py-12">Carregando...</div>;
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Chaves PIX</CardTitle>
-            <CardDescription>Gerencie suas chaves PIX para recebimento</CardDescription>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Chaves PIX</CardTitle>
+              <CardDescription>Gerencie suas chaves PIX para recebimento</CardDescription>
+            </div>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Chave PIX
+            </Button>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar Chave
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Nova Chave PIX</DialogTitle>
-                <DialogDescription>
-                  Adicione uma nova chave PIX para recebimento de pagamentos
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="keyType">Tipo de Chave *</Label>
-                  <Select
-                    defaultValue="EMAIL"
-                    onValueChange={(value) => setValue('keyType', value as any)}
-                  >
-                    <SelectTrigger id="keyType">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EMAIL">Email</SelectItem>
-                      <SelectItem value="CPF">CPF</SelectItem>
-                      <SelectItem value="PHONE">Telefone</SelectItem>
-                      <SelectItem value="RANDOM">Chave Aleatória</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="keyValue">Valor da Chave *</Label>
-                  <Input
-                    id="keyValue"
-                    {...register('keyValue')}
-                    placeholder="usuario@email.com"
-                  />
-                  {errors.keyValue && (
-                    <p className="text-sm text-destructive">{errors.keyValue.message}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="label">Apelido (opcional)</Label>
-                  <Input
-                    id="label"
-                    {...register('label')}
-                    placeholder="PIX Principal"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="accountId">Conta Associada (opcional)</Label>
-                  <Select onValueChange={(value) => setValue('accountId', value)}>
-                    <SelectTrigger id="accountId">
-                      <SelectValue placeholder="Selecione uma conta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts?.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isDefault"
-                    {...register('isDefault')}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="isDefault">Definir como padrão</Label>
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Criando...
-                      </>
-                    ) : (
-                      'Criar Chave'
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          </div>
-        ) : pixKeys && pixKeys.length > 0 ? (
-          <div className="space-y-3">
-            {pixKeys.map((key) => (
-              <div
-                key={key.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{key.label || key.keyValue}</span>
-                    {key.isDefault && (
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+        </CardHeader>
+        <CardContent>
+          {pixKeys && pixKeys.length > 0 ? (
+            <div className="space-y-4">
+              {pixKeys.map((key: PixKey) => (
+                <div key={key.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {key.isDefault && (
+                        <Badge variant="default">
+                          <Star className="h-3 w-3 mr-1" />
+                          Padrão
+                        </Badge>
+                      )}
+                      {key.isThirdParty && (
+                        <Badge variant="outline">Terceiro</Badge>
+                      )}
+                      <Badge variant={key.isActive ? 'default' : 'secondary'}>
+                        {key.isActive ? 'Ativa' : 'Inativa'}
+                      </Badge>
+                    </div>
+                    <p className="font-semibold">{key.label}</p>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      {key.keyType}: <span className="font-mono">{key.keyValue}</span>
+                    </p>
+                    {key.contactName && (
+                      <p className="text-sm text-muted-foreground">
+                        Contato: {key.contactName}
+                        {key.contactEmail && ` (${key.contactEmail})`}
+                      </p>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {key.keyType}: {key.keyValue}
-                  </p>
-                  {key.account && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Conta: {key.account.name}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {!key.isDefault && (
+                  <div className="flex items-center gap-2">
+                    {!key.isDefault && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDefaultMutation.mutate(key.id)}
+                      >
+                        <StarOff className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => handleSetDefault(key.id)}
-                      title="Definir como padrão"
+                      onClick={() => handleCopy(key.keyValue)}
                     >
-                      <Star className="h-4 w-4" />
+                      <Copy className="h-4 w-4" />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(key.id)}
-                    title="Remover"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm('Tem certeza que deseja remover esta chave PIX?')) {
+                          deleteMutation.mutate(key.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">Nenhuma chave PIX cadastrada</p>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Criar Primeira Chave PIX
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Chave PIX</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova chave PIX para recebimento de pagamentos
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="keyType">Tipo de Chave *</Label>
+                <Select
+                  value={watch('keyType')}
+                  onValueChange={(value) => setValue('keyType', value as any)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CPF">CPF</SelectItem>
+                    <SelectItem value="EMAIL">E-mail</SelectItem>
+                    <SelectItem value="PHONE">Telefone</SelectItem>
+                    <SelectItem value="RANDOM">Chave Aleatória</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>Nenhuma chave PIX cadastrada</p>
-            <p className="text-sm mt-1">Adicione sua primeira chave PIX para começar</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              <div>
+                <Label htmlFor="keyValue">Valor da Chave *</Label>
+                <Input
+                  id="keyValue"
+                  {...register('keyValue', { required: true })}
+                  placeholder="Ex: 11999999999"
+                />
+              </div>
+              <div>
+                <Label htmlFor="label">Rótulo (Opcional)</Label>
+                <Input
+                  id="label"
+                  {...register('label')}
+                  placeholder="Ex: PIX Principal"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isDefault"
+                  checked={watch('isDefault')}
+                  onCheckedChange={(checked) => setValue('isDefault', checked)}
+                />
+                <Label htmlFor="isDefault">Definir como padrão</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isThirdParty"
+                  checked={watch('isThirdParty')}
+                  onCheckedChange={(checked) => setValue('isThirdParty', checked)}
+                />
+                <Label htmlFor="isThirdParty">Chave de terceiro</Label>
+              </div>
+              {watch('isThirdParty') && (
+                <>
+                  <div>
+                    <Label htmlFor="contactEmail">Email do Contato (Opcional)</Label>
+                    <Input
+                      id="contactEmail"
+                      type="email"
+                      {...register('contactEmail')}
+                      placeholder="contato@example.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="contactName">Nome do Contato (Opcional)</Label>
+                    <Input
+                      id="contactName"
+                      {...register('contactName')}
+                      placeholder="João Silva"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? 'Criando...' : 'Criar Chave PIX'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
-

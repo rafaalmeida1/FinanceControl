@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 
 export const usePayment = () => {
   const processPaymentMutation = useMutation({
-    mutationFn: ({ chargeId, gateway }: { chargeId: string; gateway: 'STRIPE' | 'MERCADOPAGO' }) =>
+    mutationFn: ({ chargeId, gateway }: { chargeId: string; gateway: 'MERCADOPAGO' }) =>
       paymentsService.processPayment(chargeId, gateway),
     onSuccess: () => {
       toast.success('Pagamento iniciado!');

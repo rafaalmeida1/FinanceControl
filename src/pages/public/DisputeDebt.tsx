@@ -16,21 +16,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { disputesService } from '@/services/disputes.service';
-import { debtsService } from '@/services/debts.service';
 
 const disputeSchema = z.object({
   reason: z.string().min(10, 'Motivo deve ter pelo menos 10 caracteres'),
-  items: z.array(
-    z.object({
-      field: z.enum(['amount', 'description', 'dueDate']),
-      currentValue: z.any(),
-      correctValue: z.any(),
-      reason: z.string().min(5, 'Motivo do item é obrigatório'),
-    })
-  ).min(1, 'Adicione pelo menos um item contestado'),
-});
+  correctAmount: z.number().optional(),
+  correctDescription: z.string().optional(),
+  correctDueDate: z.string().optional(),
+}).refine(
+  (data) => data.correctAmount !== undefined || data.correctDescription !== undefined || data.correctDueDate !== undefined,
+  { message: 'Preencha pelo menos um campo que está incorreto' }
+);
 
 type DisputeFormData = z.infer<typeof disputeSchema>;
 
@@ -51,17 +48,16 @@ export default function DisputeDebt() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
-    watch,
+    // setValue,
   } = useForm<DisputeFormData>({
     resolver: zodResolver(disputeSchema),
     defaultValues: {
       reason: '',
-      items: [],
+      correctAmount: undefined,
+      correctDescription: undefined,
+      correctDueDate: undefined,
     },
   });
-
-  const items = watch('items');
 
   useEffect(() => {
     const loadDebt = async () => {
@@ -70,8 +66,6 @@ export default function DisputeDebt() {
       if (debtIdsParam) {
         setIsCompiled(true);
         setDebtIds(debtIdsParam.split(',').filter(id => id.trim()));
-        // Para contestação compilada, não precisamos carregar todas as dívidas aqui
-        // O formulário será preenchido pelo usuário
         setLoading(false);
         return;
       }
@@ -88,32 +82,7 @@ export default function DisputeDebt() {
           const { debtorAccessService } = await import('@/services/debtor-access.service');
           const debtData = await debtorAccessService.getDebt(token);
           setDebt(debtData.debt);
-          
-          // Pré-preencher itens com dados da dívida
-          const preFilledItems = [
-            {
-              field: 'amount' as const,
-              currentValue: debtData.debt.totalAmount,
-              correctValue: '',
-              reason: '',
-            },
-            {
-              field: 'description' as const,
-              currentValue: debtData.debt.description || '',
-              correctValue: '',
-              reason: '',
-            },
-            {
-              field: 'dueDate' as const,
-              currentValue: debtData.debt.dueDate || '',
-              correctValue: '',
-              reason: '',
-            },
-          ];
-          setValue('items', preFilledItems);
         } else if (debtId && email) {
-          // Fallback: tentar buscar diretamente (requer autenticação)
-          // Por enquanto, vamos mostrar erro
           toast.error('Token de acesso necessário');
         }
       } catch (error: any) {
@@ -125,25 +94,7 @@ export default function DisputeDebt() {
     };
 
     loadDebt();
-  }, [debtId, email, token, searchParams, setValue]);
-
-  const addItem = () => {
-    const currentItems = items || [];
-    setValue('items', [
-      ...currentItems,
-      {
-        field: 'amount',
-        currentValue: '',
-        correctValue: '',
-        reason: '',
-      },
-    ]);
-  };
-
-  const removeItem = (index: number) => {
-    const currentItems = items || [];
-    setValue('items', currentItems.filter((_, i) => i !== index));
-  };
+  }, [debtId, email, token, searchParams]);
 
   const onSubmit = async (data: DisputeFormData) => {
     if (isCompiled) {
@@ -155,25 +106,11 @@ export default function DisputeDebt() {
 
       setSubmitting(true);
       try {
-        // Preparar items - para contestação compilada, os valores já vêm do formulário
-        const formattedItems = data.items
-          .filter(item => item.correctValue && item.reason) // Filtrar apenas itens preenchidos
-          .map((item) => ({
-            field: item.field,
-            currentValue: item.currentValue,
-            correctValue: item.field === 'amount' ? parseFloat(item.correctValue) : item.correctValue,
-            reason: item.reason,
-          }));
-
-        if (formattedItems.length === 0) {
-          toast.error('Preencha pelo menos um item contestado');
-          setSubmitting(false);
-          return;
-        }
-
         await disputesService.createCompiledDispute(debtIds, email, {
           reason: data.reason,
-          items: formattedItems,
+          correctAmount: data.correctAmount,
+          correctDescription: data.correctDescription,
+          correctDueDate: data.correctDueDate,
         }, token || undefined);
 
         toast.success(`Contestação enviada para ${debtIds.length} dívida(s)! O credor será notificado.`);
@@ -196,40 +133,11 @@ export default function DisputeDebt() {
 
     setSubmitting(true);
     try {
-      // Preparar items com valores corretos
-      const formattedItems = data.items
-        .filter(item => item.correctValue && item.reason) // Filtrar apenas itens preenchidos
-        .map((item) => {
-          let currentValue = item.currentValue;
-          let correctValue = item.correctValue;
-
-          if (item.field === 'amount') {
-            currentValue = debt.totalAmount;
-            correctValue = parseFloat(correctValue);
-          } else if (item.field === 'dueDate') {
-            currentValue = debt.dueDate;
-            correctValue = correctValue;
-          } else {
-            currentValue = debt[item.field] || '';
-          }
-
-          return {
-            field: item.field,
-            currentValue,
-            correctValue,
-            reason: item.reason,
-          };
-        });
-
-      if (formattedItems.length === 0) {
-        toast.error('Preencha pelo menos um item contestado');
-        setSubmitting(false);
-        return;
-      }
-
       await disputesService.create(debtId, email, {
         reason: data.reason,
-        items: formattedItems,
+        correctAmount: data.correctAmount,
+        correctDescription: data.correctDescription,
+        correctDueDate: data.correctDueDate,
       }, token || undefined);
 
       toast.success('Contestação enviada com sucesso! O credor será notificado.');
@@ -245,15 +153,15 @@ export default function DisputeDebt() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background pb-20">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
-  if (!debt) {
+  if (!isCompiled && !debt) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background pb-20">
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Dívida não encontrada</CardTitle>
@@ -267,20 +175,20 @@ export default function DisputeDebt() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
+    <div className="min-h-screen bg-background py-8 md:py-12 px-4 pb-20">
       <div className="max-w-2xl mx-auto space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Contestar Dívida</CardTitle>
             <CardDescription>
-              Se algum dado desta dívida estiver incorreto, preencha o formulário abaixo
+              Se algum dado desta dívida estiver incorreto, informe o valor correto abaixo
             </CardDescription>
           </CardHeader>
           <CardContent>
             {!isCompiled && debt && (
               <Alert className="mb-6">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Dados da Dívida</AlertTitle>
+                <AlertTitle>Dados Atuais da Dívida</AlertTitle>
                 <AlertDescription className="mt-2 space-y-1">
                   <p><strong>Valor:</strong> R$ {typeof debt.totalAmount === 'number' ? debt.totalAmount.toFixed(2) : debt.totalAmount}</p>
                   <p><strong>Descrição:</strong> {debt.description || 'Sem descrição'}</p>
@@ -294,14 +202,14 @@ export default function DisputeDebt() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Contestação Compilada</AlertTitle>
                 <AlertDescription className="mt-2">
-                  Você está contestando {debtIds.length} dívida(s). Preencha os campos abaixo com os valores corretos para cada item que deseja contestar.
+                  Você está contestando {debtIds.length} dívida(s). Preencha os campos abaixo com os valores corretos para cada informação que deseja corrigir.
                 </AlertDescription>
               </Alert>
             )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="reason">Motivo Geral da Contestação *</Label>
+                <Label htmlFor="reason">Motivo da Contestação *</Label>
                 <Textarea
                   id="reason"
                   {...register('reason')}
@@ -314,113 +222,57 @@ export default function DisputeDebt() {
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Itens Contestados *</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Item
-                  </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="correctAmount">Valor Correto (R$)</Label>
+                  <Input
+                    id="correctAmount"
+                    type="number"
+                    step="0.01"
+                    placeholder="Ex: 800.00"
+                    {...register('correctAmount', { valueAsNumber: true })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Deixe em branco se o valor estiver correto
+                  </p>
                 </div>
 
-                {items && items.length > 0 ? (
-                  <div className="space-y-4">
-                    {items.map((item, index) => (
-                      <Card key={index}>
-                        <CardContent className="pt-6">
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <Label>Item {index + 1}</Label>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeItem(index)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="correctDescription">Descrição Correta</Label>
+                  <Textarea
+                    id="correctDescription"
+                    {...register('correctDescription')}
+                    placeholder="Ex: Empréstimo pessoal corrigido"
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Deixe em branco se a descrição estiver correta
+                  </p>
+                </div>
 
-                            <div className="space-y-2">
-                              <Label>Campo Contestado</Label>
-                              <select
-                                {...register(`items.${index}.field`)}
-                                className="w-full px-3 py-2 border rounded-md bg-background"
-                              >
-                                <option value="amount">Valor</option>
-                                <option value="description">Descrição</option>
-                                <option value="dueDate">Data de Vencimento</option>
-                              </select>
-                            </div>
-
-                            {!isCompiled && debt && (
-                              <div className="space-y-2">
-                                <Label>Valor Atual</Label>
-                                <Input
-                                  value={
-                                    watch(`items.${index}.field`) === 'amount'
-                                      ? `R$ ${typeof debt.totalAmount === 'number' ? debt.totalAmount.toFixed(2) : debt.totalAmount}`
-                                      : watch(`items.${index}.field`) === 'dueDate'
-                                      ? debt.dueDate ? new Date(debt.dueDate).toLocaleDateString('pt-BR') : 'Não informado'
-                                      : debt[watch(`items.${index}.field`)] || 'Não informado'
-                                  }
-                                  disabled
-                                  className="bg-muted"
-                                />
-                              </div>
-                            )}
-
-                            <div className="space-y-2">
-                              <Label>Valor Correto *</Label>
-                              <Input
-                                {...register(`items.${index}.correctValue`)}
-                                placeholder={
-                                  watch(`items.${index}.field`) === 'amount'
-                                    ? 'R$ 0,00'
-                                    : watch(`items.${index}.field`) === 'dueDate'
-                                    ? 'DD/MM/AAAA'
-                                    : 'Valor correto'
-                                }
-                                type={
-                                  watch(`items.${index}.field`) === 'amount'
-                                    ? 'number'
-                                    : watch(`items.${index}.field`) === 'dueDate'
-                                    ? 'date'
-                                    : 'text'
-                                }
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label>Motivo *</Label>
-                              <Textarea
-                                {...register(`items.${index}.reason`)}
-                                placeholder="Explique por que este valor está incorreto..."
-                                rows={2}
-                              />
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Alert>
-                    <AlertDescription>
-                      Adicione pelo menos um item contestado usando o botão acima.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {errors.items && (
-                  <p className="text-sm text-destructive">{errors.items.message}</p>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="correctDueDate">Data de Vencimento Correta</Label>
+                  <Input
+                    id="correctDueDate"
+                    type="date"
+                    {...register('correctDueDate')}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Deixe em branco se a data estiver correta
+                  </p>
+                </div>
               </div>
 
+              {(errors.correctAmount || errors.correctDescription || errors.correctDueDate) && (
+                <p className="text-sm text-destructive">
+                  Preencha pelo menos um campo que está incorreto
+                </p>
+              )}
+
               <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                <Button type="button" variant="outline" onClick={() => navigate(-1)} className="flex-1">
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button type="submit" disabled={submitting} className="flex-1">
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -438,4 +290,3 @@ export default function DisputeDebt() {
     </div>
   );
 }
-

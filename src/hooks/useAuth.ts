@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { authService } from '@/services/auth.service';
 import { authStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';

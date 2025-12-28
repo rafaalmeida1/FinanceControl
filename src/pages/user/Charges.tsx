@@ -1,9 +1,10 @@
 import { useCharges } from '@/hooks/useCharges';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Check, XCircle } from 'lucide-react';
+import { Check, XCircle, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function Charges() {
-  const { charges, isLoading, markPaid, cancelCharge } = useCharges();
+  const { charges, isLoading, markPaid, cancelCharge, forceCharge } = useCharges();
 
   if (isLoading) {
     return <div className="text-center py-12">Carregando...</div>;
@@ -11,9 +12,22 @@ export default function Charges() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Cobranças</h1>
-        <p className="text-gray-600 dark:text-gray-400">Gerencie todas as suas cobranças</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Cobranças</h1>
+          <p className="text-gray-600 dark:text-gray-400">Gerencie todas as suas cobranças</p>
+        </div>
+        <Button
+          onClick={() => {
+            if (confirm('Deseja forçar o envio de cobranças para todos os devedores com dívidas pendentes?')) {
+              forceCharge(undefined);
+            }
+          }}
+          className="flex items-center gap-2"
+        >
+          <Send className="h-4 w-4" />
+          Forçar Cobrança
+        </Button>
       </div>
 
       <div className="space-y-4">
