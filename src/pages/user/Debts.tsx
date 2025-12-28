@@ -58,6 +58,23 @@ export default function Debts() {
       return;
     }
     setEditingDebt(debt);
+    // Converter dueDate para formato de input (YYYY-MM-DD)
+    let dueDateFormatted = '';
+    if (debt.dueDate) {
+      try {
+        const date = new Date(debt.dueDate);
+        if (!isNaN(date.getTime())) {
+          // Formatar como YYYY-MM-DD
+          const year = date.getUTCFullYear();
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(date.getUTCDate()).padStart(2, '0');
+          dueDateFormatted = `${year}-${month}-${day}`;
+        }
+      } catch (error) {
+        console.error('Erro ao converter data do backend:', error);
+      }
+    }
+
     reset({
       debtorName: debt.debtorName || '',
       debtorEmail: debt.debtorEmail || '',
@@ -65,7 +82,7 @@ export default function Debts() {
       creditorEmail: debt.creditorEmail || '',
       totalAmount: debt.totalAmount ? Number(debt.totalAmount) : undefined,
       description: debt.description || '',
-      dueDate: debt.dueDate ? new Date(debt.dueDate).toISOString().split('T')[0] : '',
+      dueDate: dueDateFormatted,
       interestRate: debt.interestRate ? Number(debt.interestRate) : undefined,
       penaltyRate: debt.penaltyRate ? Number(debt.penaltyRate) : undefined,
       useGateway: debt.useGateway || false,
@@ -78,13 +95,41 @@ export default function Debts() {
 
     // Converter data para ISO 8601 corretamente (igual à criação)
     let dueDate: string | undefined = undefined;
-    if (data.dueDate) {
+    if (data.dueDate && data.dueDate.trim() !== '') {
       try {
         // Garantir que seja uma string de data válida
-        const dateString = String(data.dueDate || '');
+        const dateString = String(data.dueDate).trim();
+        // Validar formato básico (YYYY-MM-DD)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          toast.error('Formato de data inválido. Use YYYY-MM-DD');
+          return;
+        }
         // Criar data no formato correto para ISO
         const [year, month, day] = dateString.split('-');
-        const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59));
+        const yearNum = parseInt(year, 10);
+        const monthNum = parseInt(month, 10);
+        const dayNum = parseInt(day, 10);
+        
+        // Validar se os valores são válidos
+        if (isNaN(yearNum) || isNaN(monthNum) || isNaN(dayNum)) {
+          toast.error('Data inválida');
+          return;
+        }
+        
+        // Validar se a data é válida
+        if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
+          toast.error('Data inválida');
+          return;
+        }
+        
+        const date = new Date(Date.UTC(yearNum, monthNum - 1, dayNum, 23, 59, 59));
+        
+        // Verificar se a data criada é válida
+        if (isNaN(date.getTime())) {
+          toast.error('Data inválida');
+          return;
+        }
+        
         dueDate = date.toISOString();
       } catch (error) {
         console.error('Erro ao converter data:', error);
@@ -93,22 +138,47 @@ export default function Debts() {
       }
     }
 
+    // Preparar objeto de dados, removendo campos vazios
+    const updateData: any = {};
+    
+    if (data.debtorName && data.debtorName.trim() !== '') {
+      updateData.debtorName = data.debtorName.trim();
+    }
+    if (data.debtorEmail && data.debtorEmail.trim() !== '') {
+      updateData.debtorEmail = data.debtorEmail.trim();
+    }
+    if (data.creditorName && data.creditorName.trim() !== '') {
+      updateData.creditorName = data.creditorName.trim();
+    }
+    if (data.creditorEmail && data.creditorEmail.trim() !== '') {
+      updateData.creditorEmail = data.creditorEmail.trim();
+    }
+    if (data.totalAmount !== undefined && data.totalAmount !== null) {
+      updateData.totalAmount = data.totalAmount;
+    }
+    if (data.description && data.description.trim() !== '') {
+      updateData.description = data.description.trim();
+    }
+    if (dueDate) {
+      updateData.dueDate = dueDate;
+    }
+    if (data.interestRate !== undefined && data.interestRate !== null) {
+      updateData.interestRate = data.interestRate;
+    }
+    if (data.penaltyRate !== undefined && data.penaltyRate !== null) {
+      updateData.penaltyRate = data.penaltyRate;
+    }
+    if (data.useGateway !== undefined) {
+      updateData.useGateway = data.useGateway;
+    }
+    if (data.preferredGateway) {
+      updateData.preferredGateway = data.preferredGateway;
+    }
+
     updateDebt(
       {
         id: editingDebt.id,
-        data: {
-          debtorName: data.debtorName || undefined,
-          debtorEmail: data.debtorEmail || undefined,
-          creditorName: data.creditorName || undefined,
-          creditorEmail: data.creditorEmail || undefined,
-          totalAmount: data.totalAmount,
-          description: data.description || undefined,
-          dueDate,
-          interestRate: data.interestRate,
-          penaltyRate: data.penaltyRate,
-          useGateway: data.useGateway,
-          preferredGateway: data.preferredGateway,
-        },
+        data: updateData,
       },
       {
         onSuccess: () => {
