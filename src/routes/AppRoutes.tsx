@@ -7,10 +7,12 @@ import Login from '@/pages/public/Login';
 import MagicLink from '@/pages/public/MagicLink';
 import ResetPassword from '@/pages/public/ResetPassword';
 import DebtorView from '@/pages/public/DebtorView';
+import CompiledDebtsView from '@/pages/public/CompiledDebtsView';
 import DisputeDebt from '@/pages/public/DisputeDebt';
 import DisputeCompiledDebts from '@/pages/public/DisputeCompiledDebts';
 import ConfirmPayment from '@/pages/public/ConfirmPayment';
 import PaymentConfirmed from '@/pages/public/PaymentConfirmed';
+import PaymentConfirmation from '@/pages/public/PaymentConfirmation';
 
 // User pages
 import Dashboard from '@/pages/user/Dashboard';
@@ -23,6 +25,7 @@ import CreateAccount from '@/pages/user/CreateAccount';
 import MercadoPagoCallback from '@/pages/settings/MercadoPagoCallback';
 import CompiledDebts from '@/pages/user/CompiledDebts';
 import DebtDetail from '@/pages/user/DebtDetail';
+import Activity from '@/pages/user/Activity';
 
 // Admin pages
 import AdminDashboard from '@/pages/admin/Dashboard';
@@ -36,10 +39,12 @@ export const AppRoutes = () => {
       <Route path="/auth/magic-link/:token" element={<MagicLink />} />
       <Route path="/auth/reset-password/:token" element={<ResetPassword />} />
       <Route path="/debtor/:token" element={<DebtorView />} />
+      <Route path="/compiled-debts/:token" element={<CompiledDebtsView />} />
       <Route path="/debtor/:debtId/dispute" element={<DisputeDebt />} />
       <Route path="/debts/dispute/compiled" element={<DisputeCompiledDebts />} />
       <Route path="/payments/confirm/:token" element={<ConfirmPayment />} />
       <Route path="/payments/confirm/:token/success" element={<PaymentConfirmed />} />
+      <Route path="/payment-confirmation" element={<PaymentConfirmation />} />
 
       {/* User routes */}
       <Route
@@ -79,6 +84,14 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <Charges />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/activity"
+        element={
+          <PrivateRoute>
+            <Activity />
           </PrivateRoute>
         }
       />

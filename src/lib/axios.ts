@@ -9,13 +9,24 @@ const api = axios.create({
   },
 });
 
-// Request interceptor - adicionar token
+// Request interceptor - adicionar token apenas se não for endpoint público de devedor
 api.interceptors.request.use(
   (config) => {
-    const token = authStore.getState().accessToken;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Não adicionar token JWT para endpoints públicos de devedor
+    const isPublicDebtorEndpoint = config.url?.startsWith('/debtor/');
+    
+    if (!isPublicDebtorEndpoint) {
+      const token = authStore.getState().accessToken;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
+    
+    // Se o body for null, converter para objeto vazio para evitar erro de parse JSON
+    if (config.data === null) {
+      config.data = {};
+    }
+    
     return config;
   },
   (error) => {
@@ -29,8 +40,11 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Se erro 401 e não é retry
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Não tentar refresh token para endpoints públicos de devedor
+    const isPublicDebtorEndpoint = originalRequest.url?.startsWith('/debtor/');
+
+    // Se erro 401 e não é retry e não é endpoint público de devedor
+    if (error.response?.status === 401 && !originalRequest._retry && !isPublicDebtorEndpoint) {
       originalRequest._retry = true;
 
       const refreshToken = authStore.getState().refreshToken;
@@ -56,7 +70,7 @@ api.interceptors.response.use(
       }
     }
 
-    // Mostrar toast de erro
+    // Mostrar toast de erro (mas não redirecionar para login em endpoints públicos)
     const message = error.response?.data?.message || 'Erro ao processar requisição';
     toast.error(message);
 

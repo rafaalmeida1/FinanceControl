@@ -14,7 +14,8 @@ import {
   LogOut,
   PlayCircle,
   Shield,
-  Layers
+  Layers,
+  Clock
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { authStore } from '@/stores/authStore';
@@ -32,6 +33,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { BottomNavigation } from './BottomNavigation';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { useSocket } from '@/hooks/useSocket';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -51,6 +54,7 @@ const adminNavigation = [
   { name: 'Dívidas', href: '/debts', icon: FileText },
   { name: 'Dívidas Compiladas', href: '/debts/compiled', icon: Layers },
   { name: 'Cobranças', href: '/charges', icon: Receipt },
+  { name: 'Atividade', href: '/activity', icon: Clock },
   { name: 'Contas', href: '/accounts', icon: Wallet },
   { name: 'Admin', href: '/admin', icon: Shield },
   { name: 'Rotinas', href: '/admin/jobs', icon: PlayCircle },
@@ -88,6 +92,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   const { theme, toggleTheme } = useUIStore();
   const { user, logout } = authStore();
   const navigate = useNavigate();
+  
+  // Inicializar WebSocket para notificações em tempo real
+  useSocket();
 
   const getInitials = (name?: string, email?: string) => {
     if (name) {
@@ -146,6 +153,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
           {/* Right side actions */}
           <div className="flex items-center gap-2 ml-auto">
+            {/* Notification Bell */}
+            {user && <NotificationBell />}
+            
             {/* Theme toggle */}
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === 'light' ? (

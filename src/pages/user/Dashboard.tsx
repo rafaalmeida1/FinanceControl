@@ -152,8 +152,12 @@ export default function Dashboard() {
             <div className="space-y-4">
               {stats?.recentPayments && stats.recentPayments.length > 0 ? (
                 stats.recentPayments.slice(0, 5).map((payment: any, index: number) => (
-                  <div key={payment.id || index} className="flex gap-3">
-                    <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                  <div 
+                    key={payment.id || index} 
+                    className="flex gap-3 animate-in fade-in transition-all duration-300"
+                    style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
+                  >
+                    <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0 animate-pulse" />
                     <div className="flex-1 space-y-1">
                       <p className="text-sm leading-tight">
                         {payment.description || 'Pagamento recebido'}

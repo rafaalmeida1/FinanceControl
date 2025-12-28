@@ -26,4 +26,21 @@ export const debtorAccessService = {
     const response = await api.post(`/debtor/${token}/charges/mark-paid`, { chargeIds, notes });
     return response.data;
   },
+
+  getCompiledDebts: async (token: string) => {
+    const response = await api.get(`/debtor/compiled/${token}`);
+    return response.data;
+  },
+
+  markMultipleChargesPaidFromCompiled: async (
+    token: string,
+    chargeIds: string[],
+    notes?: string,
+  ) => {
+    const response = await api.post(`/debtor/compiled/${token}/charges/mark-paid`, {
+      chargeIds,
+      notes,
+    });
+    return response.data;
+  },
 };

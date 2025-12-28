@@ -47,7 +47,8 @@ export const debtsService = {
     if (pixKeyId) {
       params.pixKeyId = pixKeyId;
     }
-    const response = await api.post('/debts/compiled-by-pix/send-email', null, { params });
+    // Enviar objeto vazio no body para evitar erro de parse JSON no backend
+    const response = await api.post('/debts/compiled-by-pix/send-email', {}, { params });
     return response.data;
   },
 

@@ -82,20 +82,38 @@ export default function CompiledDebts() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 mb-4">
-                  {group.debts.map((debt: any) => (
-                    <div
-                      key={debt.id}
-                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium">{debt.description || 'Sem descrição'}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {debt.dueDate ? formatDateShort(debt.dueDate) : 'Sem vencimento'}
-                        </p>
+                  {group.debts.map((debt: any) => {
+                    const chargesTotal = debt.charges?.reduce(
+                      (sum: number, c: any) => sum + Number(c.amount),
+                      0,
+                    ) || 0;
+                    return (
+                      <div
+                        key={debt.id}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{debt.description || 'Sem descrição'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {debt.dueDate ? formatDateShort(debt.dueDate) : 'Sem vencimento'}
+                            {debt.charges && debt.charges.length > 0 && (
+                              <span className="ml-2">
+                                • {debt.charges.length} parcela(s) pendente(s)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">{formatCurrency(chargesTotal || debt.totalAmount)}</p>
+                          {chargesTotal !== debt.totalAmount && (
+                            <p className="text-xs text-muted-foreground line-through">
+                              {formatCurrency(debt.totalAmount)}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <p className="font-bold">{formatCurrency(debt.totalAmount)}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <Button
                   onClick={() => handleSendEmail(group.debtorEmail, group.pixKeyId)}

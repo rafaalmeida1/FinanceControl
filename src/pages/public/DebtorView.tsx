@@ -1,5 +1,5 @@
-import { useParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { debtorAccessService } from '@/services/debtor-access.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { Calendar, DollarSign, FileText, Check, Copy } from 'lucide-react';
@@ -9,27 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import toast from 'react-hot-toast';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
-import { Charge } from '@/types/api.types';
 
 export default function DebtorView() {
   const { token } = useParams<{ token: string }>();
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [selectedCharges, setSelectedCharges] = useState<Set<string>>(new Set());
-  const [paymentDialog, setPaymentDialog] = useState<{
-    open: boolean;
-    charge?: Charge;
-    multipleCharges?: Charge[];
-  }>({ open: false });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['debtor-debt', token],
@@ -37,41 +22,14 @@ export default function DebtorView() {
     enabled: !!token,
   });
 
-  const markPaidMutation = useMutation({
-    mutationFn: ({ chargeId, notes }: { chargeId: string; notes?: string }) =>
-      debtorAccessService.markChargePaid(token!, chargeId, notes),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['debtor-debt', token] });
-      toast.success('Parcela marcada como paga!');
-      setPaymentDialog({ open: false });
-      setSelectedCharges(new Set());
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Erro ao marcar parcela como paga');
-    },
-  });
-
-  const markMultiplePaidMutation = useMutation({
-    mutationFn: ({ chargeIds, notes }: { chargeIds: string[]; notes?: string }) =>
-      debtorAccessService.markMultipleChargesPaid(token!, chargeIds, notes),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['debtor-debt', token] });
-      toast.success(`${data.charges.length} parcela(s) marcada(s) como paga(s)!`);
-      setPaymentDialog({ open: false });
-      setSelectedCharges(new Set());
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Erro ao marcar parcelas como pagas');
-    },
-  });
-
   const handleCopyPixKey = (key: string) => {
     navigator.clipboard.writeText(key);
     toast.success('Chave PIX copiada!');
   };
 
-  const handlePayCharge = (charge: Charge) => {
-    setPaymentDialog({ open: true, charge });
+  const handlePayCharge = (chargeId: string) => {
+    // Redirecionar para tela de confirmação de pagamento
+    navigate(`/payment-confirmation?token=${token}&chargeIds=${chargeId}`);
   };
 
   const handleToggleCharge = (chargeId: string) => {
@@ -90,19 +48,18 @@ export default function DebtorView() {
       return;
     }
 
-    const chargesToPay = pendingCharges.filter((c) => selectedCharges.has(c.id));
-    setPaymentDialog({ open: true, multipleCharges: chargesToPay });
-  };
+    if (!data?.debt) return;
 
-  const handleConfirmPayment = (notes?: string) => {
-    if (paymentDialog.charge) {
-      markPaidMutation.mutate({ chargeId: paymentDialog.charge.id, notes });
-    } else if (paymentDialog.multipleCharges) {
-      markMultiplePaidMutation.mutate({
-        chargeIds: paymentDialog.multipleCharges.map((c) => c.id),
-        notes,
-      });
-    }
+    // Ordenar cobranças pendentes por data de vencimento (mais próxima primeiro)
+    const pendingCharges = (data.debt.charges?.filter((c) => c.status === 'PENDING' || c.status === 'OVERDUE') || []).sort(
+      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+    );
+    
+    const chargesToPay = pendingCharges.filter((c) => selectedCharges.has(c.id));
+    const chargeIds = chargesToPay.map((c) => c.id).join(',');
+    
+    // Redirecionar para tela de confirmação de pagamento
+    navigate(`/payment-confirmation?token=${token}&chargeIds=${chargeIds}`);
   };
 
   if (isLoading) {
@@ -127,8 +84,13 @@ export default function DebtorView() {
   }
 
   const { debt } = data;
-  const pendingCharges = debt.charges?.filter((c) => c.status === 'PENDING' || c.status === 'OVERDUE') || [];
+  // Ordenar cobranças pendentes por data de vencimento (mais próxima primeiro)
+  const pendingCharges = (debt.charges?.filter((c) => c.status === 'PENDING' || c.status === 'OVERDUE') || []).sort(
+    (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+  );
   const paidCharges = debt.charges?.filter((c) => c.status === 'PAID') || [];
+  const currentCharge = pendingCharges[0]; // Parcela atual (primeira da lista ordenada)
+  const otherPendingCharges = pendingCharges.slice(1); // Outras parcelas
   const totalSelected = pendingCharges
     .filter((c) => selectedCharges.has(c.id))
     .reduce((sum, c) => sum + Number(c.amount), 0);
@@ -203,12 +165,58 @@ export default function DebtorView() {
           </Card>
         )}
 
-        {/* Cobranças Pendentes */}
-        {pendingCharges.length > 0 && (
+        {/* Parcela Atual (Destaque) */}
+        {currentCharge && (
+          <Card className="mb-6 border-2 border-primary bg-primary/5">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    Parcela Atual
+                    <Badge className="bg-primary text-primary-foreground">
+                      {currentCharge.installmentNumber
+                        ? `Parcela ${currentCharge.installmentNumber}/${currentCharge.totalInstallments}`
+                        : 'Cobrança única'}
+                    </Badge>
+                  </CardTitle>
+                </div>
+                <Badge className={getStatusColor(currentCharge.status)}>
+                  {getStatusLabel(currentCharge.status)}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-2xl font-bold mb-2">{formatCurrency(currentCharge.amount)}</p>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Vencimento: {formatDateShort(currentCharge.dueDate)}
+                  </p>
+                </div>
+                {!debt.useGateway && (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePayCharge(currentCharge.id);
+                    }}
+                    className="ml-4"
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    Pagar Esta
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Outras Cobranças Pendentes */}
+        {otherPendingCharges.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Cobranças Pendentes</CardTitle>
+                <CardTitle>Outras Parcelas Pendentes</CardTitle>
                 {selectedCharges.size > 0 && (
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground">
@@ -224,7 +232,7 @@ export default function DebtorView() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {pendingCharges.map((charge) => (
+                {otherPendingCharges.map((charge) => (
                   <div
                     key={charge.id}
                     className="flex items-center gap-3 p-4 bg-muted rounded-lg border"
@@ -259,7 +267,7 @@ export default function DebtorView() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handlePayCharge(charge);
+                              handlePayCharge(charge.id);
                             }}
                           >
                             <Check className="mr-2 h-4 w-4" />
@@ -311,87 +319,7 @@ export default function DebtorView() {
           </Card>
         )}
       </div>
-
-      {/* Payment Confirmation Dialog */}
-      <Dialog open={paymentDialog.open} onOpenChange={(open) => setPaymentDialog({ open })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {paymentDialog.multipleCharges
-                ? `Confirmar Pagamento de ${paymentDialog.multipleCharges.length} Parcela(s)`
-                : 'Confirmar Pagamento'}
-            </DialogTitle>
-            <DialogDescription>
-              {paymentDialog.multipleCharges ? (
-                <>
-                  Você está prestes a marcar {paymentDialog.multipleCharges.length} parcela(s) como paga(s):
-                  <br />
-                  <br />
-                  <div className="space-y-2 mt-3">
-                    {paymentDialog.multipleCharges.map((charge) => (
-                      <div key={charge.id} className="flex justify-between items-center p-2 bg-muted rounded">
-                        <span className="text-sm">
-                          {charge.installmentNumber
-                            ? `Parcela ${charge.installmentNumber}/${charge.totalInstallments}`
-                            : 'Cobrança única'}
-                        </span>
-                        <span className="font-bold">{formatCurrency(charge.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <br />
-                  <strong>Total: {formatCurrency(paymentDialog.multipleCharges.reduce((sum, c) => sum + Number(c.amount), 0))}</strong>
-                  <br />
-                  <br />
-                  Após confirmar, todas as parcelas selecionadas serão marcadas como pagas. Você e o credor receberão emails de confirmação.
-                </>
-              ) : paymentDialog.charge ? (
-                <>
-                  Você está prestes a marcar esta parcela como paga:
-                  <br />
-                  <br />
-                  <strong>Valor:</strong> {formatCurrency(paymentDialog.charge.amount)}
-                  {paymentDialog.charge.installmentNumber && (
-                    <>
-                      <br />
-                      <strong>Parcela:</strong> {paymentDialog.charge.installmentNumber}/{paymentDialog.charge.totalInstallments}
-                    </>
-                  )}
-                  <br />
-                  <br />
-                  Após confirmar, esta parcela será marcada como paga. Você e o credor receberão emails de confirmação.
-                </>
-              ) : null}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="notes">Observações (opcional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Ex: Pagamento realizado via PIX..."
-                className="mt-2"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentDialog({ open: false })}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                const notesElement = document.getElementById('notes') as HTMLTextAreaElement;
-                handleConfirmPayment(notesElement?.value || undefined);
-              }}
-              disabled={markPaidMutation.isPending || markMultiplePaidMutation.isPending}
-            >
-              {markPaidMutation.isPending || markMultiplePaidMutation.isPending
-                ? 'Processando...'
-                : 'Confirmar Pagamento'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
+
