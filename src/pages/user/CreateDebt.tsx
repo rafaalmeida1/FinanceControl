@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
-import { ArrowLeft, ArrowRight, Check, User, CreditCard, FileText, Info } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, User, CreditCard, FileText, Info, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authStore } from '@/stores/authStore';
 import { pixKeysService, PixKey } from '@/services/pixKeys.service';
@@ -52,7 +52,7 @@ interface DebtFormData {
 
 export default function CreateDebt() {
   const navigate = useNavigate();
-  const { createDebt } = useDebts();
+  const { createDebt, isCreatingDebt } = useDebts();
   const { user } = authStore();
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<DebtFormData>({
     defaultValues: {
@@ -938,9 +938,19 @@ export default function CreateDebt() {
                     e.preventDefault();
                     handleSubmit(onSubmit)(e);
                   }}
+                  disabled={isCreatingDebt}
                 >
-                  <Check className="mr-2 h-4 w-4" />
-                  Criar Dívida
+                  {isCreatingDebt ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Criando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Criar Dívida
+                    </>
+                  )}
                 </Button>
               )}
             </div>

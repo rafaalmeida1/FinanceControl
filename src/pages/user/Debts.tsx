@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useDebts } from '@/hooks/useDebts';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check } from 'lucide-react';
+import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -48,7 +48,7 @@ export default function Debts() {
   const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party' | 'archived'>('all');
   const debtType = activeTab === 'all' ? undefined : activeTab === 'personal' ? 'personal' : activeTab === 'third-party' ? 'third-party' : undefined;
   const archived = activeTab === 'archived' ? true : false;
-  const { debts, isLoading, sendLink, cancelDebt, updateDebt, markAsPaid } = useDebts(debtType, archived);
+  const { debts, isLoading, sendLink, cancelDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const { register, handleSubmit, reset, watch, setValue } = useForm<EditDebtFormData>();
 
@@ -173,7 +173,7 @@ export default function Debts() {
               </span>
             </div>
 
-            <div className="grid md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Valor Total</p>
                 <p className="text-lg font-bold">{formatCurrency(debt.totalAmount)}</p>
@@ -206,10 +206,21 @@ export default function Debts() {
                     }
                   }}
                   className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2"
+                  disabled={isMarkingAsPaid}
                 >
-                  <Check size={14} className="md:w-4 md:h-4" />
-                  <span className="hidden sm:inline">Quitar Dívida</span>
-                  <span className="sm:hidden">Quitar</span>
+                  {isMarkingAsPaid ? (
+                    <>
+                      <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
+                      <span className="hidden sm:inline">Processando...</span>
+                      <span className="sm:hidden">...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} className="md:w-4 md:h-4" />
+                      <span className="hidden sm:inline">Quitar Dívida</span>
+                      <span className="sm:hidden">Quitar</span>
+                    </>
+                  )}
                 </button>
               )}
               {!debt.isPersonalDebt && (
@@ -219,10 +230,21 @@ export default function Debts() {
                     sendLink(debt.id);
                   }}
                   className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
+                  disabled={isSendingLink}
                 >
-                  <Mail size={14} className="md:w-4 md:h-4" />
-                  <span className="hidden sm:inline">Enviar Link</span>
-                  <span className="sm:hidden">Link</span>
+                  {isSendingLink ? (
+                    <>
+                      <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
+                      <span className="hidden sm:inline">Enviando...</span>
+                      <span className="sm:hidden">...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mail size={14} className="md:w-4 md:h-4" />
+                      <span className="hidden sm:inline">Enviar Link</span>
+                      <span className="sm:hidden">Link</span>
+                    </>
+                  )}
                 </button>
               )}
               <button
@@ -231,7 +253,7 @@ export default function Debts() {
                   handleEditClick(debt);
                 }}
                 className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
-                disabled={debt.status === 'PAID'}
+                disabled={debt.status === 'PAID' || isUpdatingDebt}
               >
                 <Edit size={14} className="md:w-4 md:h-4" />
                 <span className="hidden sm:inline">Editar</span>
@@ -244,10 +266,20 @@ export default function Debts() {
                   }
                 }}
                 className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
-                disabled={debt.status === 'PAID'}
+                disabled={debt.status === 'PAID' || isCancelingDebt}
               >
-                <XCircle size={14} className="md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Cancelar</span>
+                {isCancelingDebt ? (
+                  <>
+                    <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
+                    <span className="hidden sm:inline">Cancelando...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle size={14} className="md:w-4 md:h-4" />
+                    <span className="hidden sm:inline">Cancelar</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -350,7 +382,7 @@ export default function Debts() {
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmitEdit)}>
             <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="debtorName">Nome do Devedor</Label>
                   <Input
@@ -422,7 +454,7 @@ export default function Debts() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="interestRate">Juros ao mês (%)</Label>
                   <Input
@@ -488,7 +520,16 @@ export default function Debts() {
               >
                 Cancelar
               </Button>
-              <Button type="submit">Salvar Alterações</Button>
+              <Button type="submit" disabled={isUpdatingDebt}>
+                {isUpdatingDebt ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar Alterações'
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

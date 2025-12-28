@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Copy, Star, StarOff } from 'lucide-react';
+import { Plus, Trash2, Copy, Star, StarOff, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -98,12 +98,12 @@ export function PixKeysTab() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>Chaves PIX</CardTitle>
               <CardDescription>Gerencie suas chaves PIX para recebimento</CardDescription>
             </div>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Nova Chave PIX
             </Button>
@@ -113,9 +113,9 @@ export function PixKeysTab() {
           {pixKeys && pixKeys.length > 0 ? (
             <div className="space-y-4">
               {pixKeys.map((key: PixKey) => (
-                <div key={key.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                <div key={key.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                       {key.isDefault && (
                         <Badge variant="default">
                           <Star className="h-3 w-3 mr-1" />
@@ -129,31 +129,38 @@ export function PixKeysTab() {
                         {key.isActive ? 'Ativa' : 'Inativa'}
                       </Badge>
                     </div>
-                    <p className="font-semibold">{key.label}</p>
-                    <p className="text-sm text-muted-foreground mb-1">
+                    <p className="font-semibold truncate">{key.label}</p>
+                    <p className="text-sm text-muted-foreground mb-1 break-all">
                       {key.keyType}: <span className="font-mono">{key.keyValue}</span>
                     </p>
                     {key.contactName && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground truncate">
                         Contato: {key.contactName}
                         {key.contactEmail && ` (${key.contactEmail})`}
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {!key.isDefault && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setDefaultMutation.mutate(key.id)}
+                        disabled={setDefaultMutation.isPending}
+                        title="Definir como padrão"
                       >
-                        <StarOff className="h-4 w-4" />
+                        {setDefaultMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <StarOff className="h-4 w-4" />
+                        )}
                       </Button>
                     )}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleCopy(key.keyValue)}
+                      title="Copiar chave"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -165,8 +172,14 @@ export function PixKeysTab() {
                           deleteMutation.mutate(key.id);
                         }
                       }}
+                      disabled={deleteMutation.isPending}
+                      title="Remover chave"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {deleteMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -271,7 +284,14 @@ export function PixKeysTab() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Criando...' : 'Criar Chave PIX'}
+                {createMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  'Criar Chave PIX'
+                )}
               </Button>
             </DialogFooter>
           </form>

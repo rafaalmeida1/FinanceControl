@@ -60,8 +60,11 @@ export const useCharges = () => {
     createCharge: createMutation.mutate,
     createRecurring: createRecurringMutation.mutate,
     markPaid: markPaidMutation.mutate,
+    isMarkingPaid: markPaidMutation.isPending,
     cancelCharge: cancelMutation.mutate,
+    isCancelingCharge: cancelMutation.isPending,
     forceCharge: forceChargeMutation.mutate,
+    isForcingCharge: forceChargeMutation.isPending,
   };
 };
 

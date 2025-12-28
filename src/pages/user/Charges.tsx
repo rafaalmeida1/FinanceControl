@@ -1,10 +1,10 @@
 import { useCharges } from '@/hooks/useCharges';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Check, XCircle, Send } from 'lucide-react';
+import { Check, XCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function Charges() {
-  const { charges, isLoading, markPaid, cancelCharge, forceCharge } = useCharges();
+  const { charges, isLoading, markPaid, cancelCharge, forceCharge, isMarkingPaid, isCancelingCharge, isForcingCharge } = useCharges();
 
   if (isLoading) {
     return <div className="text-center py-12">Carregando...</div>;
@@ -12,10 +12,10 @@ export default function Charges() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Cobranças</h1>
-          <p className="text-gray-600 dark:text-gray-400">Gerencie todas as suas cobranças</p>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Cobranças</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Gerencie todas as suas cobranças</p>
         </div>
         <Button
           onClick={() => {
@@ -23,10 +23,20 @@ export default function Charges() {
               forceCharge(undefined);
             }
           }}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
+          disabled={isForcingCharge}
         >
-          <Send className="h-4 w-4" />
-          Forçar Cobrança
+          {isForcingCharge ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Processando...
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4" />
+              Forçar Cobrança
+            </>
+          )}
         </Button>
       </div>
 
@@ -52,7 +62,7 @@ export default function Charges() {
               </span>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Valor</p>
                 <p className="text-xl font-bold">{formatCurrency(charge.amount)}</p>
@@ -68,13 +78,23 @@ export default function Charges() {
             </div>
 
             {charge.status === 'PENDING' && (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={() => markPaid({ id: charge.id })}
-                  className="btn-primary flex items-center gap-2"
+                  className="btn-primary flex items-center justify-center gap-2"
+                  disabled={isMarkingPaid}
                 >
-                  <Check size={16} />
-                  Marcar como Pago
+                  {isMarkingPaid ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      Marcar como Pago
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -82,10 +102,20 @@ export default function Charges() {
                       cancelCharge(charge.id);
                     }
                   }}
-                  className="btn-danger flex items-center gap-2"
+                  className="btn-danger flex items-center justify-center gap-2"
+                  disabled={isCancelingCharge}
                 >
-                  <XCircle size={16} />
-                  Cancelar
+                  {isCancelingCharge ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Cancelando...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle size={16} />
+                      Cancelar
+                    </>
+                  )}
                 </button>
               </div>
             )}

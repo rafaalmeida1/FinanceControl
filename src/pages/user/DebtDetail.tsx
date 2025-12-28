@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import { chargesService } from '@/services/charges.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -120,9 +120,9 @@ export default function DebtDetail() {
           <Button variant="ghost" size="icon" onClick={() => navigate('/debts')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Detalhes da Dívida</h1>
-            <p className="text-muted-foreground">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">Detalhes da Dívida</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {debt.isPersonalDebt ? 'Dívida Pessoal' : 'Dívida de Terceiro'}
             </p>
           </div>
@@ -139,7 +139,7 @@ export default function DebtDetail() {
         </div>
 
         {/* Main Info Cards */}
-        <div className="grid md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -202,15 +202,16 @@ export default function DebtDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-muted p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm text-muted-foreground mb-1">Tipo: {debt.pixKey.keyType}</p>
-                    <p className="text-lg font-mono font-bold break-all">{debt.pixKey.keyValue}</p>
+                    <p className="text-base sm:text-lg font-mono font-bold break-all">{debt.pixKey.keyValue}</p>
                   </div>
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => handleCopyPixKey(debt.pixKey!.keyValue)}
+                    className="flex-shrink-0 self-start sm:self-auto"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -277,8 +278,17 @@ export default function DebtDetail() {
                   onClick={handlePayAll}
                   disabled={markAllPaidMutation.isPending}
                 >
-                  <Check className="mr-2 h-5 w-5" />
-                  Pagar Todas as Parcelas ({pendingCharges.length})
+                  {markAllPaidMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-5 w-5" />
+                      Pagar Todas as Parcelas ({pendingCharges.length})
+                    </>
+                  )}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center">
                   Isso marcará todas as {pendingCharges.length} parcela(s) pendente(s) como pagas
@@ -299,10 +309,10 @@ export default function DebtDetail() {
                 {pendingCharges.map((charge) => (
                   <div
                     key={charge.id}
-                    className="flex items-center justify-between p-4 border rounded-lg bg-muted/50"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 border rounded-lg bg-muted/50"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                         <Badge variant="outline">
                           {charge.installmentNumber ? `Parcela ${charge.installmentNumber}/${charge.totalInstallments}` : 'Cobrança'}
                         </Badge>
@@ -321,9 +331,19 @@ export default function DebtDetail() {
                       <Button
                         onClick={() => handlePayCharge(charge)}
                         disabled={markChargePaidMutation.isPending}
+                        className="w-full sm:w-auto flex-shrink-0"
                       >
-                        <Check className="mr-2 h-4 w-4" />
-                        Pagar Parcela
+                        {markChargePaidMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processando...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Pagar Parcela
+                          </>
+                        )}
                       </Button>
                     )}
                   </div>
@@ -412,7 +432,14 @@ export default function DebtDetail() {
               onClick={() => handleConfirmPayment()}
               disabled={markChargePaidMutation.isPending || markAllPaidMutation.isPending}
             >
-              {(markChargePaidMutation.isPending || markAllPaidMutation.isPending) ? 'Processando...' : 'Confirmar Pagamento'}
+              {(markChargePaidMutation.isPending || markAllPaidMutation.isPending) ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                'Confirmar Pagamento'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

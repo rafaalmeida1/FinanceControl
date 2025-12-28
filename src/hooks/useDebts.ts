@@ -59,6 +59,7 @@ export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: b
     debts,
     isLoading,
     createDebt: createMutation.mutate,
+    isCreatingDebt: createMutation.isPending,
     updateDebt: (params: { id: string; data: any }, options?: { onSuccess?: () => void; onError?: (error: any) => void }) => {
       updateMutation.mutate(params, {
         onSuccess: () => {
@@ -71,9 +72,13 @@ export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: b
         },
       });
     },
+    isUpdatingDebt: updateMutation.isPending,
     cancelDebt: cancelMutation.mutate,
+    isCancelingDebt: cancelMutation.isPending,
     sendLink: sendLinkMutation.mutate,
+    isSendingLink: sendLinkMutation.isPending,
     markAsPaid: markAsPaidMutation.mutate,
+    isMarkingAsPaid: markAsPaidMutation.isPending,
   };
 };
 
