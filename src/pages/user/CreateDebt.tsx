@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -95,7 +95,22 @@ export default function CreateDebt() {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
+  // Inicializar pixKeyType quando mostrar o form
+  useEffect(() => {
+    if (showNewPixKeyForm && !watch('pixKeyType')) {
+      setValue('pixKeyType' as any, 'CPF');
+    }
+  }, [showNewPixKeyForm, watch, setValue]);
+
   const onSubmit = (data: DebtFormData) => {
+    // Validar se precisa de chave PIX
+    if (!useGateway && showNewPixKeyForm) {
+      if (!data.pixKeyType || !data.pixKeyValue) {
+        toast.error('Preencha todos os campos obrigatórios da chave PIX');
+        return;
+      }
+    }
+    
     // Converter data para ISO 8601 corretamente
     let dueDate: string | undefined = undefined;
     if (data.dueDate) {
@@ -193,16 +208,58 @@ export default function CreateDebt() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Nova Dívida</h1>
-          <p className="text-muted-foreground">Preencha as informações em {totalSteps} etapas simples</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Nova Dívida</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Preencha as informações em {totalSteps} etapas simples</p>
         </div>
       </div>
 
       {/* Progress Steps */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between w-full">
+        <CardContent className="p-4 md:p-6">
+          {/* Mobile: Compact Layout */}
+          <div className="md:hidden">
+            <div className="flex items-center justify-between w-full gap-2">
+              {steps.map((step, index) => {
+                const Icon = step.icon;
+                const isActive = currentStep === step.number;
+                const isCompleted = currentStep > step.number;
+                
+                return (
+                  <React.Fragment key={step.number}>
+                    <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                      <div className={cn(
+                        'w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm',
+                        isCompleted && 'bg-green-600 text-white',
+                        isActive && !isCompleted && 'bg-primary text-primary-foreground ring-2 ring-primary/20',
+                        !isActive && !isCompleted && 'bg-muted text-muted-foreground'
+                      )}>
+                        {isCompleted ? <Check size={18} /> : <Icon size={18} />}
+                      </div>
+                      <span className={cn(
+                        'text-xs font-medium text-center truncate w-full px-1',
+                        isActive && 'text-primary font-semibold',
+                        isCompleted && 'text-green-600',
+                        !isActive && !isCompleted && 'text-muted-foreground'
+                      )}>
+                        {step.title}
+                      </span>
+                    </div>
+                    
+                    {index < steps.length - 1 && (
+                      <div className={cn(
+                        'h-0.5 flex-1 max-w-[20px] rounded-full transition-all',
+                        currentStep > step.number ? 'bg-green-600' : 'bg-muted'
+                      )} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Desktop: Full Layout */}
+          <div className="hidden md:flex items-center justify-between w-full">
             {steps.map((step, index) => {
               const Icon = step.icon;
               const isActive = currentStep === step.number;
@@ -804,6 +861,7 @@ export default function CreateDebt() {
                             <div>
                               <Label htmlFor="pixKeyType" className="text-xs">Tipo *</Label>
                               <Select
+                                value={watch('pixKeyType') || ''}
                                 onValueChange={(value: any) => setValue('pixKeyType' as any, value)}
                               >
                                 <SelectTrigger>
@@ -816,17 +874,25 @@ export default function CreateDebt() {
                                   <SelectItem value="RANDOM">Chave Aleatória</SelectItem>
                                 </SelectContent>
                               </Select>
+                              {!watch('pixKeyType') && showNewPixKeyForm && (
+                                <p className="text-xs text-destructive mt-1">Selecione o tipo de chave</p>
+                              )}
                             </div>
                             <div>
                               <Label htmlFor="pixKeyValue" className="text-xs">Valor da Chave *</Label>
                               <Input
                                 id="pixKeyValue"
-                                {...register('pixKeyValue' as any, { required: !useGateway })}
+                                {...register('pixKeyValue' as any, { 
+                                  required: showNewPixKeyForm && !useGateway ? 'Valor da chave é obrigatório' : false 
+                                })}
                                 placeholder="Digite a chave PIX"
                               />
+                              {errors.pixKeyValue && (
+                                <p className="text-xs text-destructive mt-1">{errors.pixKeyValue.message}</p>
+                              )}
                             </div>
                             <div>
-                              <Label htmlFor="pixKeyLabel" className="text-xs">Nome/Apelido</Label>
+                              <Label htmlFor="pixKeyLabel" className="text-xs">Nome/Apelido (Opcional)</Label>
                               <Input
                                 id="pixKeyLabel"
                                 {...register('pixKeyLabel' as any)}

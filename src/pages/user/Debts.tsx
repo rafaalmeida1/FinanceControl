@@ -76,13 +76,18 @@ export default function Debts() {
   const onSubmitEdit = (data: EditDebtFormData) => {
     if (!editingDebt) return;
 
+    // Converter data para ISO 8601 corretamente (igual à criação)
     let dueDate: string | undefined = undefined;
     if (data.dueDate) {
       try {
-        const [year, month, day] = data.dueDate.split('-');
+        // Garantir que seja uma string de data válida
+        const dateString = String(data.dueDate || '');
+        // Criar data no formato correto para ISO
+        const [year, month, day] = dateString.split('-');
         const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59));
         dueDate = date.toISOString();
       } catch (error) {
+        console.error('Erro ao converter data:', error);
         toast.error('Data inválida');
         return;
       }

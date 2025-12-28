@@ -76,7 +76,18 @@ export function PixKeysTab() {
   };
 
   const onSubmit = (data: CreatePixKeyDto) => {
-    createMutation.mutate(data);
+    // Se não for chave de terceiro, remover contactEmail e contactName
+    const submitData: CreatePixKeyDto = {
+      ...data,
+      isThirdParty: data.isThirdParty || false,
+    };
+    
+    if (!submitData.isThirdParty) {
+      delete submitData.contactEmail;
+      delete submitData.contactName;
+    }
+    
+    createMutation.mutate(submitData);
   };
 
   if (isLoading) {
