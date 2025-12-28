@@ -2,8 +2,26 @@ import axios from 'axios';
 import { authStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
 
+// Determinar a baseURL baseado no ambiente
+// Se VITE_API_URL estiver definido, usa ele
+// Se estiver na Vercel (produção), usa /api/v1 (será redirecionado pelo vercel.json)
+// Caso contrário, usa localhost para desenvolvimento
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Se estiver na Vercel (produção), usar o proxy
+  if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+    return '/api/v1';
+  }
+  
+  // Desenvolvimento local
+  return 'http://localhost:3000/api/v1';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },

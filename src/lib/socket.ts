@@ -22,10 +22,20 @@ export const connectSocket = () => {
     socket = null;
   }
 
-  // Obter URL base da API, removendo /api/v1 se presente (WebSocket não usa esse prefixo)
-  let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  // Remover /api/v1 se presente na URL
-  apiUrl = apiUrl.replace(/\/api\/v1$/, '').replace(/\/api\/v1\//, '/');
+  // Obter URL base da API para WebSocket
+  // WebSockets não funcionam bem com proxy do Vercel, então em produção usa o IP direto
+  let apiUrl: string;
+  
+  if (import.meta.env.VITE_API_URL) {
+    // Se VITE_API_URL estiver definido, usar ele (removendo /api/v1 se presente)
+    apiUrl = import.meta.env.VITE_API_URL.replace(/\/api\/v1$/, '').replace(/\/api\/v1\//, '/');
+  } else if (import.meta.env.PROD) {
+    // Em produção na Vercel, usar o IP direto do servidor para WebSocket
+    apiUrl = 'http://62.171.141.220:3444';
+  } else {
+    // Desenvolvimento local
+    apiUrl = 'http://localhost:3000';
+  }
   
   const wsUrl = `${apiUrl}/notifications`;
   console.log(`[WebSocket] Conectando ao WebSocket em: ${wsUrl}`);
