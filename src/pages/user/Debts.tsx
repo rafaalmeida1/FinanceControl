@@ -35,7 +35,7 @@ interface EditDebtFormData {
   creditorName?: string;
   creditorEmail?: string;
   totalAmount?: number;
-  description?: string;
+  description: string;
   dueDate?: string;
   interestRate?: number;
   penaltyRate?: number;
@@ -50,7 +50,7 @@ export default function Debts() {
   const archived = activeTab === 'archived' ? true : false;
   const { debts, isLoading, sendLink, cancelDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
-  const { register, handleSubmit, reset, watch, setValue } = useForm<EditDebtFormData>();
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EditDebtFormData>();
 
   const handleEditClick = (debt: Debt) => {
     if (debt.status === 'PAID') {
@@ -156,11 +156,23 @@ export default function Debts() {
     if (data.totalAmount !== undefined && data.totalAmount !== null) {
       updateData.totalAmount = data.totalAmount;
     }
-    if (data.description && data.description.trim() !== '') {
-      updateData.description = data.description.trim();
+    // Descrição é obrigatória
+    if (!data.description || data.description.trim() === '') {
+      toast.error('A descrição é obrigatória');
+      return;
     }
-    if (dueDate) {
+    if (data.description.trim().length > 2000) {
+      toast.error('A descrição deve ter no máximo 2000 caracteres');
+      return;
+    }
+    updateData.description = data.description.trim();
+    
+    // Só enviar dueDate se for uma string válida (não vazia)
+    if (dueDate && dueDate.trim() !== '') {
       updateData.dueDate = dueDate;
+    } else if (data.dueDate === '' || data.dueDate === undefined) {
+      // Se o campo foi limpo ou está vazio, não enviar o campo (manter o valor atual)
+      // Não fazer nada - não incluir dueDate no updateData
     }
     if (data.interestRate !== undefined && data.interestRate !== null) {
       updateData.interestRate = data.interestRate;
@@ -506,13 +518,30 @@ export default function Debts() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
+                <Label htmlFor="description">Descrição *</Label>
                 <Textarea
                   id="description"
-                  {...register('description')}
+                  {...register('description', {
+                    required: 'A descrição é obrigatória',
+                    maxLength: {
+                      value: 255,
+                      message: 'A descrição deve ter no máximo 255 caracteres'
+                    },
+                    minLength: {
+                      value: 3,
+                      message: 'A descrição deve ter pelo menos 3 caracteres'
+                    }
+                  })}
                   placeholder="Descrição da dívida"
                   rows={3}
+                  maxLength={255}
                 />
+                {errors.description && (
+                  <p className="text-sm text-destructive">{errors.description.message}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  A descrição será enviada no email de notificação
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -521,6 +550,7 @@ export default function Debts() {
                   id="dueDate"
                   type="date"
                   {...register('dueDate')}
+                  className="w-full max-w-full text-sm sm:text-base"
                 />
               </div>
 

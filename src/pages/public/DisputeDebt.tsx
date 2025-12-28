@@ -255,6 +255,7 @@ export default function DisputeDebt() {
                     id="correctDueDate"
                     type="date"
                     {...register('correctDueDate')}
+                    className="w-full max-w-full text-sm sm:text-base"
                   />
                   <p className="text-xs text-muted-foreground">
                     Deixe em branco se a data estiver correta

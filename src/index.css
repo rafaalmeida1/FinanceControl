@@ -158,6 +158,20 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Ajuste para inputs de data no mobile */
+  input[type="date"] {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    input[type="date"] {
+      font-size: 16px; /* Previne zoom no iOS */
+      width: 100%;
+      max-width: 100%;
+    }
+  }
 }
 
 @keyframes fadeIn {

@@ -106,6 +106,20 @@ export default function CreateDebt() {
   }, [showNewPixKeyForm, watch, setValue]);
 
   const onSubmit = (data: DebtFormData) => {
+    // Validar descrição
+    if (!data.description || data.description.trim() === '') {
+      toast.error('A descrição é obrigatória');
+      return;
+    }
+    if (data.description.trim().length > 2000) {
+      toast.error('A descrição deve ter no máximo 2000 caracteres');
+      return;
+    }
+    if (data.description.trim().length < 3) {
+      toast.error('A descrição deve ter pelo menos 3 caracteres');
+      return;
+    }
+    
     // Validar se precisa de chave PIX
     if (!useGateway && showNewPixKeyForm) {
       if (!data.pixKeyType || !data.pixKeyValue) {
@@ -168,7 +182,7 @@ export default function CreateDebt() {
         debtorName: finalDebtorName,
         creditorEmail: finalCreditorEmail,
         creditorName: finalCreditorName,
-        description: data.description || undefined,
+        description: data.description.trim(),
         totalAmount: parseFloat(data.totalAmount as any),
         installments: parseInt(data.installments as any) || 1,
         dueDate,
@@ -531,15 +545,29 @@ export default function CreateDebt() {
                   )}
 
                   <div>
-                    <Label htmlFor="description">Descrição (opcional)</Label>
+                    <Label htmlFor="description">Descrição *</Label>
                     <Textarea 
                       id="description"
-                      {...register('description')} 
+                      {...register('description', {
+                        required: 'A descrição é obrigatória',
+                        maxLength: {
+                          value: 2000,
+                          message: 'A descrição deve ter no máximo 2000 caracteres'
+                        },
+                        minLength: {
+                          value: 3,
+                          message: 'A descrição deve ter pelo menos 3 caracteres'
+                        }
+                      })} 
                       rows={3}
                       placeholder="Ex: Empréstimo pessoal, Parcela do carro..."
+                      maxLength={2000}
                     />
+                    {errors.description && (
+                      <p className="text-sm text-destructive mt-1">{errors.description.message}</p>
+                    )}
                     <p className="text-sm text-muted-foreground mt-1">
-                      Descreva brevemente o motivo da dívida
+                      A descrição será enviada no email de notificação
                     </p>
                   </div>
                 </div>
@@ -649,6 +677,7 @@ export default function CreateDebt() {
                         {...register('dueDate')} 
                         type="date" 
                         min={new Date().toISOString().split('T')[0]}
+                        className="w-full max-w-full text-sm sm:text-base"
                       />
                     </div>
                   </div>
