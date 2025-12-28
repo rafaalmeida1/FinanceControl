@@ -460,15 +460,15 @@ export default function Debts() {
 
       {/* Dialog de Edição */}
       <Dialog open={!!editingDebt} onOpenChange={(open) => !open && setEditingDebt(null)}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto mx-4">
-          <DialogHeader>
-            <DialogTitle>Editar Dívida</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="!max-w-[95vw] sm:!max-w-[500px] !w-[95vw] sm:!w-full !max-h-[95vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 flex-shrink-0">
+            <DialogTitle className="text-lg sm:text-xl">Editar Dívida</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Atualize todas as informações da dívida conforme necessário.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmitEdit)}>
-            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+          <form onSubmit={handleSubmit(onSubmitEdit)} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="space-y-4 px-4 sm:px-6 py-4 overflow-y-auto flex-1 min-h-0">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="debtorName">Nome do Devedor</Label>
@@ -489,7 +489,7 @@ export default function Debts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="creditorName">Nome do Credor</Label>
                   <Input
@@ -617,12 +617,12 @@ export default function Debts() {
                 </div>
               )}
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 px-4 sm:px-6 pb-4 sm:pb-6 pt-2 border-t flex-shrink-0 bg-background">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setEditingDebt(null)}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto order-2 sm:order-1"
                 disabled={isUpdatingDebt}
               >
                 Cancelar
@@ -630,7 +630,7 @@ export default function Debts() {
               <Button 
                 type="submit" 
                 disabled={isUpdatingDebt}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto order-1 sm:order-2"
               >
                 {isUpdatingDebt ? (
                   <>
