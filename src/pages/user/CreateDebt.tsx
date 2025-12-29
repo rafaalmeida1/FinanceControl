@@ -76,6 +76,7 @@ export default function CreateDebt() {
     }
   });
   
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'mercadopago' | null>(null); // null = não selecionado ainda
   const [currentStep, setCurrentStep] = useState(1);
   const [isPersonalDebt, setIsPersonalDebt] = useState(false);
   const [isPersonalDebtForMyself, setIsPersonalDebtForMyself] = useState(true); // true = para mim mesmo, false = para outra pessoa
@@ -278,6 +279,93 @@ export default function CreateDebt() {
     { number: 3, title: 'Confirmação', icon: FileText },
   ];
 
+  // Se ainda não selecionou o método de pagamento, mostrar seleção inicial
+  if (paymentMethod === null) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Nova Dívida</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Escolha como deseja receber o pagamento</p>
+          </div>
+        </div>
+
+        {/* Seleção de Método de Pagamento */}
+        <Card>
+          <CardContent className="p-6 md:p-8">
+            <h2 className="text-xl font-semibold mb-6">Como deseja receber?</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card
+                className={cn(
+                  'cursor-pointer transition-all hover:border-primary hover:shadow-md',
+                  paymentMethod === 'pix' && 'border-primary ring-2 ring-primary/20'
+                )}
+                onClick={() => {
+                  setPaymentMethod('pix');
+                  setValue('useGateway', false);
+                }}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                      <CreditCard className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg mb-2">Apenas Registrar (PIX Manual)</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Registre a dívida e envie a chave PIX para o devedor pagar manualmente. Ideal para pagamentos diretos.
+                      </p>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        <li>✓ Registro simples e rápido</li>
+                        <li>✓ Sem taxas de gateway</li>
+                        <li>✓ Controle manual do pagamento</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className={cn(
+                  'cursor-pointer transition-all hover:border-primary hover:shadow-md',
+                  paymentMethod === 'mercadopago' && 'border-primary ring-2 ring-primary/20'
+                )}
+                onClick={() => {
+                  setPaymentMethod('mercadopago');
+                  navigate('/debts/create/mercadopago');
+                }}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                      <CreditCard className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg mb-2">Mercado Pago</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Crie cobranças automáticas com links de pagamento, QR Code PIX, parcelamento ou assinaturas recorrentes.
+                      </p>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        <li>✓ Pagamento parcelado</li>
+                        <li>✓ PIX único com QR Code</li>
+                        <li>✓ Assinaturas recorrentes</li>
+                        <li>✓ Links de pagamento automáticos</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       {/* Sistema de Ajuda */}
@@ -291,7 +379,13 @@ export default function CreateDebt() {
 
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" onClick={() => {
+          if (paymentMethod === 'pix') {
+            setPaymentMethod(null);
+          } else {
+            navigate(-1);
+          }
+        }}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">

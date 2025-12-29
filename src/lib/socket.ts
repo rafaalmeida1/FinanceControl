@@ -23,7 +23,6 @@ export const connectSocket = () => {
   }
 
   // Obter URL base da API para WebSocket
-  // WebSockets não funcionam bem com proxy do Vercel, então em produção usa o IP direto
   let apiUrl: string;
   let useSecure = false;
   
@@ -39,16 +38,9 @@ export const connectSocket = () => {
       apiUrl = apiUrl.replace('http://', 'ws://');
     }
   } else if (import.meta.env.PROD) {
-    // Em produção, verificar se o site está em HTTPS
-    const isHttps = window.location.protocol === 'https:';
-    if (isHttps) {
-      // Se o site está em HTTPS, usar WSS
-      apiUrl = 'wss://62.171.141.220:3444';
-      useSecure = true;
-    } else {
-      // Se estiver em HTTP, usar WS
-      apiUrl = 'ws://62.171.141.220:3444';
-    }
+    // Em produção, usar o domínio do backend com WSS
+    apiUrl = 'wss://api-finance-control.bitrafa.com.br';
+    useSecure = true;
   } else {
     // Desenvolvimento local
     apiUrl = 'ws://localhost:3444';

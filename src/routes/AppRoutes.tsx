@@ -19,6 +19,7 @@ import Dashboard from '@/pages/user/Dashboard';
 import Debts from '@/pages/user/Debts';
 import Charges from '@/pages/user/Charges';
 import CreateDebt from '@/pages/user/CreateDebt';
+import CreateMercadoPagoDebt from '@/pages/user/CreateMercadoPagoDebt';
 import Settings from '@/pages/user/Settings';
 import Accounts from '@/pages/user/Accounts';
 import CreateAccount from '@/pages/user/CreateAccount';
@@ -60,6 +61,22 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <Debts />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/debts/create"
+        element={
+          <PrivateRoute>
+            <CreateDebt />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/debts/create/mercadopago"
+        element={
+          <PrivateRoute>
+            <CreateMercadoPagoDebt />
           </PrivateRoute>
         }
       />

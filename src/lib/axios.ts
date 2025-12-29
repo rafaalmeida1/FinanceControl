@@ -4,16 +4,16 @@ import toast from 'react-hot-toast';
 
 // Determinar a baseURL baseado no ambiente
 // Se VITE_API_URL estiver definido, usa ele
-// Se estiver na Vercel (produção), usa /api/v1 (será redirecionado pelo vercel.json)
+// Em produção, usar o domínio do backend
 // Caso contrário, usa localhost para desenvolvimento
 const getBaseURL = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
   
-  // Se estiver na Vercel (produção), usar o proxy
+  // Em produção, usar o domínio do backend
   if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
-    return '/api/v1';
+    return 'https://api-finance-control.bitrafa.com.br/api/v1';
   }
   
   // Desenvolvimento local
