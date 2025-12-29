@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, CreditCard, Settings, Layers } from 'lucide-react';
+import { LayoutDashboard, FileText, CreditCard, Settings, Layers, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // import { authStore } from '@/stores/authStore';
 
@@ -27,6 +27,11 @@ export const BottomNavigation = () => {
       to: '/debts/compiled',
       icon: Layers,
       label: 'Compiladas',
+    },
+    {
+      to: '/savings',
+      icon: Sparkles,
+      label: 'Economias',
     },
     {
       to: '/settings',

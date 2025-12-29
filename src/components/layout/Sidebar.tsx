@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, CreditCard, Settings, Shield, PlayCircle, Layers } from 'lucide-react';
+import { LayoutDashboard, FileText, CreditCard, Settings, Shield, PlayCircle, Layers, Sparkles } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { authStore } from '@/stores/authStore';
 
@@ -12,6 +12,7 @@ export const Sidebar = () => {
     { to: '/debts', icon: FileText, label: 'Dívidas' },
     { to: '/debts/compiled', icon: Layers, label: 'Dívidas Compiladas' },
     { to: '/charges', icon: CreditCard, label: 'Cobranças' },
+    { to: '/savings', icon: Sparkles, label: 'Economias' },
     { to: '/accounts', icon: CreditCard, label: 'Contas' },
     { to: '/settings', icon: Settings, label: 'Configurações' },
   ];
@@ -21,6 +22,7 @@ export const Sidebar = () => {
     { to: '/debts', icon: FileText, label: 'Dívidas' },
     { to: '/debts/compiled', icon: Layers, label: 'Dívidas Compiladas' },
     { to: '/charges', icon: CreditCard, label: 'Cobranças' },
+    { to: '/savings', icon: Sparkles, label: 'Economias' },
     { to: '/accounts', icon: CreditCard, label: 'Contas' },
     { to: '/admin', icon: Shield, label: 'Admin' },
     { to: '/admin/jobs', icon: PlayCircle, label: 'Rotinas' },

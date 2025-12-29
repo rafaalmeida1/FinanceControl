@@ -31,6 +31,7 @@ import MercadoPagoCallback from '@/pages/settings/MercadoPagoCallback';
 import CompiledDebts from '@/pages/user/CompiledDebts';
 import DebtDetail from '@/pages/user/DebtDetail';
 import Activity from '@/pages/user/Activity';
+import Savings from '@/pages/user/Savings';
 
 // Admin pages
 import AdminDashboard from '@/pages/admin/Dashboard';
@@ -157,6 +158,14 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <CompiledDebts />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/savings"
+        element={
+          <PrivateRoute>
+            <Savings />
           </PrivateRoute>
         }
       />

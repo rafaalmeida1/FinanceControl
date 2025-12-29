@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
 import { ArrowLeft, ArrowRight, Check, User, CreditCard, FileText, Info, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
 import { HelpIconButton } from '@/components/help/HelpIconButton';
+import { EmailAutocomplete } from '@/components/ui/email-autocomplete';
 
 interface DebtFormData {
   // Step 1: Informações Básicas
@@ -116,8 +117,9 @@ export default function CreateDebt() {
   ];
 
   // Buscar chaves PIX
+  const queryClient = useQueryClient();
   const { data: pixKeys } = useQuery({
-    queryKey: ['pix-keys'],
+    queryKey: ['pixKeys'],
     queryFn: () => pixKeysService.getAll(),
   });
 
@@ -138,6 +140,60 @@ export default function CreateDebt() {
 
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  // Mutation para criar chave PIX
+  const createPixKeyMutation = useMutation({
+    mutationFn: async (data: {
+      keyType: string;
+      keyValue: string;
+      label?: string;
+      isThirdParty?: boolean;
+      contactEmail?: string;
+      contactName?: string;
+    }) => {
+      return pixKeysService.create({
+        keyType: data.keyType as 'CPF' | 'EMAIL' | 'PHONE' | 'RANDOM',
+        keyValue: data.keyValue,
+        label: data.label,
+        isThirdParty: data.isThirdParty || false,
+        contactEmail: data.contactEmail,
+        contactName: data.contactName,
+      });
+    },
+    onSuccess: (newPixKey) => {
+      queryClient.invalidateQueries({ queryKey: ['pixKeys'] });
+      setSelectedPixKeyId(newPixKey.id);
+      setShowNewPixKeyForm(false);
+      setValue('pixKeyId', newPixKey.id);
+      toast.success('Chave PIX salva com sucesso!');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao salvar chave PIX');
+    },
+  });
+
+  const handleSavePixKey = async () => {
+    const pixKeyType = watch('pixKeyType');
+    const pixKeyValue = watch('pixKeyValue');
+    const pixKeyLabel = watch('pixKeyLabel');
+    const pixKeyIsThirdParty = watch('pixKeyIsThirdParty');
+    const pixKeyContactEmail = watch('pixKeyContactEmail');
+    const pixKeyContactName = watch('pixKeyContactName');
+
+    if (!pixKeyType || !pixKeyValue) {
+      toast.error('Preencha o tipo e o valor da chave PIX');
+      return;
+    }
+
+    createPixKeyMutation.mutate({
+      keyType: pixKeyType,
+      keyValue: pixKeyValue,
+      label: pixKeyLabel || undefined,
+      isThirdParty: pixKeyIsThirdParty || false,
+      contactEmail: pixKeyContactEmail || undefined,
+      contactName: pixKeyContactName || undefined,
+    });
   };
 
   // Inicializar pixKeyType quando mostrar o form
@@ -584,24 +640,26 @@ export default function CreateDebt() {
                   {!isPersonalDebt ? (
                     // Dívida de terceiro - campos normais
                     <>
-                      <div>
-                        <Label htmlFor="debtorEmail">Email do Devedor *</Label>
-                        <Input 
-                          id="debtorEmail"
-                          {...register('debtorEmail', { 
+                      <EmailAutocomplete
+                        id="debtorEmail"
+                        label="Email do Devedor"
+                        value={watch('debtorEmail') || ''}
+                        onChange={(value) => setValue('debtorEmail', value)}
+                        onBlur={() => {
+                          // Trigger validation
+                          const field = register('debtorEmail', { 
                             required: 'Email é obrigatório',
                             pattern: {
                               value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                               message: 'Email inválido'
                             }
-                          })} 
-                          type="email" 
-                          placeholder="exemplo@email.com"
-                        />
-                        {errors.debtorEmail && (
-                          <p className="text-sm text-destructive mt-1">{errors.debtorEmail.message}</p>
-                        )}
-                      </div>
+                          });
+                          field.onBlur();
+                        }}
+                        error={errors.debtorEmail?.message}
+                        placeholder="exemplo@email.com"
+                        required
+                      />
 
                       <div>
                         <Label htmlFor="debtorName">Nome do Devedor (opcional)</Label>
@@ -625,26 +683,25 @@ export default function CreateDebt() {
                       ) : (
                         // Para outra pessoa
                         <>
-                          <div>
-                            <Label htmlFor="creditorEmail">
-                              Email do Credor (para quem você deve) *
-                            </Label>
-                            <Input 
-                              id="creditorEmail"
-                              {...register('creditorEmail', { 
+                          <EmailAutocomplete
+                            id="creditorEmail"
+                            label="Email do Credor (para quem você deve)"
+                            value={watch('creditorEmail') || ''}
+                            onChange={(value) => setValue('creditorEmail', value)}
+                            onBlur={() => {
+                              const field = register('creditorEmail', { 
                                 required: isPersonalDebt && !isPersonalDebtForMyself ? 'Email do credor é obrigatório' : false,
                                 pattern: {
                                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                                   message: 'Email inválido'
                                 }
-                              })} 
-                              type="email" 
-                              placeholder="credor@email.com"
-                            />
-                            {errors.creditorEmail && (
-                              <p className="text-sm text-destructive mt-1">{errors.creditorEmail.message}</p>
-                            )}
-                          </div>
+                              });
+                              field.onBlur();
+                            }}
+                            error={errors.creditorEmail?.message}
+                            placeholder="credor@email.com"
+                            required={isPersonalDebt && !isPersonalDebtForMyself}
+                          />
 
                           <div>
                             <Label htmlFor="creditorName">Nome do Credor (opcional)</Label>
@@ -1226,6 +1283,27 @@ export default function CreateDebt() {
                                 )}
                               </>
                             )}
+                            <div className="pt-2 border-t">
+                              <Button
+                                type="button"
+                                onClick={handleSavePixKey}
+                                disabled={createPixKeyMutation.isPending || !watch('pixKeyType') || !watch('pixKeyValue')}
+                                className="w-full"
+                                size="sm"
+                              >
+                                {createPixKeyMutation.isPending ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Salvando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="mr-2 h-4 w-4" />
+                                    Salvar Chave PIX
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </Card>
                       )}
@@ -1413,6 +1491,27 @@ export default function CreateDebt() {
                                 )}
                               </>
                             )}
+                            <div className="pt-2 border-t">
+                              <Button
+                                type="button"
+                                onClick={handleSavePixKey}
+                                disabled={createPixKeyMutation.isPending || !watch('pixKeyType') || !watch('pixKeyValue')}
+                                className="w-full"
+                                size="sm"
+                              >
+                                {createPixKeyMutation.isPending ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Salvando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="mr-2 h-4 w-4" />
+                                    Salvar Chave PIX
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </Card>
                       )}

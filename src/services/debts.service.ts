@@ -55,6 +55,11 @@ export const debtsService = {
     return response.data;
   },
 
+  getRelatedEmails: async (): Promise<Array<{ email: string; name?: string; count: number }>> => {
+    const response = await api.get('/debts/related-emails');
+    return response.data;
+  },
+
   sendCompiledEmail: async (debtorEmail: string, pixKeyId?: string): Promise<any> => {
     const params: any = { debtorEmail };
     if (pixKeyId) {

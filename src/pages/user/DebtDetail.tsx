@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import { chargesService } from '@/services/charges.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,15 @@ export default function DebtDetail() {
   const handleCopyPixKey = (key: string) => {
     navigator.clipboard.writeText(key);
     toast.success('Chave PIX copiada!');
+  };
+
+  const handleCopyQrCode = (qrCode: string) => {
+    navigator.clipboard.writeText(qrCode);
+    toast.success('QR Code copiado!');
+  };
+
+  const handleOpenPaymentLink = (link: string) => {
+    window.open(link, '_blank');
   };
 
   const handlePayCharge = (charge: Charge) => {
@@ -238,6 +247,88 @@ export default function DebtDetail() {
           </Card>
         )}
 
+        {/* Mercado Pago Payment Links - Show if using gateway and has pending charges */}
+        {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && pendingCharges.length > 0 && (
+          <Card className="border-2 border-primary">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Links de Pagamento - Mercado Pago
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {pendingCharges.map((charge) => {
+                const hasPaymentLink = charge.mercadoPagoPaymentLink;
+                const hasQrCode = charge.mercadoPagoQrCode;
+                
+                if (!hasPaymentLink && !hasQrCode) return null;
+
+                return (
+                  <div key={charge.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-semibold">{formatCurrency(charge.amount)}</p>
+                        {charge.installmentNumber && (
+                          <p className="text-sm text-muted-foreground">
+                            Parcela {charge.installmentNumber}/{charge.totalInstallments}
+                          </p>
+                        )}
+                        {charge.dueDate && (
+                          <p className="text-xs text-muted-foreground">
+                            Vencimento: {formatDateShort(charge.dueDate)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {hasQrCode && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-sm flex items-center gap-2">
+                            <QrCode className="h-4 w-4" />
+                            QR Code PIX
+                          </h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyQrCode(charge.mercadoPagoQrCode!)}
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copiar
+                          </Button>
+                        </div>
+                        <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border-2 border-dashed border-primary/20 flex justify-center">
+                          <img
+                            src={`data:image/png;base64,${charge.mercadoPagoQrCode}`}
+                            alt="QR Code PIX"
+                            className="max-w-[200px] sm:max-w-[250px] w-full"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Escaneie o QR Code com o app do seu banco para pagar
+                        </p>
+                      </div>
+                    )}
+
+                    {hasPaymentLink && (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleOpenPaymentLink(charge.mercadoPagoPaymentLink!)}
+                          className="flex-1"
+                          size="sm"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Pagar via Mercado Pago
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Debt Details */}
         <div className="grid md:grid-cols-2 gap-6">
           <Card>
@@ -359,6 +450,32 @@ export default function DebtDetail() {
                           </>
                         )}
                       </Button>
+                    )}
+                    {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        {charge.mercadoPagoPaymentLink && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenPaymentLink(charge.mercadoPagoPaymentLink!)}
+                            className="flex-1 sm:flex-initial"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Pagar
+                          </Button>
+                        )}
+                        {charge.mercadoPagoQrCode && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyQrCode(charge.mercadoPagoQrCode!)}
+                            className="flex-1 sm:flex-initial"
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copiar QR
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
