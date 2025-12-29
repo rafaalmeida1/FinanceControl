@@ -2,62 +2,76 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
-import { paymentsService } from '@/services/payments.service';
-import { authStore } from '@/stores/authStore';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 export default function MercadoPagoCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = authStore();
 
   useEffect(() => {
-    const code = searchParams.get('code');
+    const connected = searchParams.get('connected');
     const error = searchParams.get('error');
-    const state = searchParams.get('state'); // userId passado no state
 
-    if (error) {
-      toast.error(`Erro ao conectar Mercado Pago: ${error}`);
-      navigate('/settings?tab=pagamentos');
-      return;
-    }
-
-    // Usar state (userId) se disponível, caso contrário usar user.id
-    const userId = state || user?.id;
-
-    if (code && userId) {
-      handleCallback(code, userId);
-    } else {
-      toast.error('Código de autorização ou usuário não encontrado');
-      navigate('/settings?tab=pagamentos');
-    }
-  }, [searchParams, navigate, user]);
-
-  const handleCallback = async (code: string, userId: string) => {
-    try {
-      await paymentsService.handleMercadoPagoCallback(code, userId);
+    if (connected === 'true') {
       toast.success('Mercado Pago conectado com sucesso!');
-      navigate('/settings?tab=pagamentos');
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Erro ao processar autorização do Mercado Pago';
-      console.error('Erro ao conectar Mercado Pago:', error);
-      toast.error(errorMessage);
-      navigate('/settings?tab=pagamentos');
+      // Redirecionar após um breve delay para mostrar a mensagem
+      setTimeout(() => {
+        navigate('/settings?tab=pagamentos', { replace: true });
+      }, 2000);
+    } else if (error) {
+      toast.error(`Erro ao conectar Mercado Pago: ${decodeURIComponent(error)}`);
+      // Redirecionar após um breve delay para mostrar a mensagem
+      setTimeout(() => {
+        navigate('/settings?tab=pagamentos', { replace: true });
+      }, 2000);
+    } else {
+      // Se não houver parâmetros, redirecionar imediatamente
+      navigate('/settings?tab=pagamentos', { replace: true });
     }
-  };
+  }, [searchParams, navigate]);
+
+  const connected = searchParams.get('connected');
+  const error = searchParams.get('error');
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
       <Card className="w-full max-w-md">
         <CardContent className="pt-6">
           <div className="text-center space-y-4">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-            <div>
-              <h2 className="text-xl font-bold">Conectando Mercado Pago</h2>
-              <p className="text-sm text-muted-foreground mt-2">
-                Aguarde enquanto validamos sua autorização...
-              </p>
-            </div>
+            {connected === 'true' ? (
+              <>
+                <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
+                <div>
+                  <h2 className="text-xl font-bold">Conexão realizada com sucesso!</h2>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Redirecionando para as configurações...
+                  </p>
+                </div>
+              </>
+            ) : error ? (
+              <>
+                <XCircle className="h-12 w-12 mx-auto text-destructive" />
+                <div>
+                  <h2 className="text-xl font-bold">Erro ao conectar</h2>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {decodeURIComponent(error)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Redirecionando para as configurações...
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+                <div>
+                  <h2 className="text-xl font-bold">Processando...</h2>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Aguarde enquanto processamos sua autorização...
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

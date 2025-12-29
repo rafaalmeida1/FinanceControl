@@ -228,7 +228,7 @@ export default function CreateDebt() {
         return;
       }
     }
-
+    
     createDebt(
       {
         debtorEmail: finalDebtorEmail,
@@ -463,7 +463,7 @@ export default function CreateDebt() {
                         <div className={cn(
                           'rounded-lg p-4 border',
                           'bg-muted/50 border-border'
-                        )}>
+                      )}>
                           <div className="flex items-start gap-3">
                             <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                             <div className="flex-1 space-y-1">
@@ -639,26 +639,26 @@ export default function CreateDebt() {
                 <div id="help-amount" className="space-y-4">
                   {!isInProgress ? (
                     // Dívida nova - valor total
-                    <div>
-                      <Label htmlFor="totalAmount">Valor Total *</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                        <Input
-                          id="totalAmount"
-                          {...register('totalAmount', { 
+                  <div>
+                    <Label htmlFor="totalAmount">Valor Total *</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                      <Input
+                        id="totalAmount"
+                        {...register('totalAmount', { 
                             required: !isInProgress ? 'Valor é obrigatório' : false,
-                            min: { value: 0.01, message: 'Valor deve ser maior que zero' }
-                          })}
-                          type="number"
-                          step="0.01"
-                          className="pl-12"
-                          placeholder="1.000,00"
-                        />
-                      </div>
-                      {errors.totalAmount && (
-                        <p className="text-sm text-destructive mt-1">{errors.totalAmount.message}</p>
-                      )}
+                          min: { value: 0.01, message: 'Valor deve ser maior que zero' }
+                        })}
+                        type="number"
+                        step="0.01"
+                        className="pl-12"
+                        placeholder="1.000,00"
+                      />
                     </div>
+                    {errors.totalAmount && (
+                      <p className="text-sm text-destructive mt-1">{errors.totalAmount.message}</p>
+                    )}
+                  </div>
                   ) : (
                     // Dívida em andamento - valor da parcela
                     <div className="space-y-4">
@@ -829,68 +829,68 @@ export default function CreateDebt() {
                       </div>
                     ) : (
                       // Dívida nova - campo editável
-                      <div>
-                        <Label htmlFor="installments">Número de Parcelas</Label>
-                        <div className="flex gap-2">
-                          {!useCustomInstallments ? (
-                            <Select
-                              value={String(installments || 1)}
-                              onValueChange={(value) => {
-                                if (value === 'custom') {
-                                  setUseCustomInstallments(true);
-                                  setValue('installments', 1);
-                                } else {
-                                  setValue('installments', parseInt(value));
-                                }
+                    <div>
+                      <Label htmlFor="installments">Número de Parcelas</Label>
+                      <div className="flex gap-2">
+                        {!useCustomInstallments ? (
+                          <Select
+                            value={String(installments || 1)}
+                            onValueChange={(value) => {
+                              if (value === 'custom') {
+                                setUseCustomInstallments(true);
+                                setValue('installments', 1);
+                              } else {
+                                setValue('installments', parseInt(value));
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="installments" className="flex-1">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">À vista (1x)</SelectItem>
+                              <SelectItem value="2">2x</SelectItem>
+                              <SelectItem value="3">3x</SelectItem>
+                              <SelectItem value="4">4x</SelectItem>
+                              <SelectItem value="5">5x</SelectItem>
+                              <SelectItem value="6">6x</SelectItem>
+                              <SelectItem value="12">12x</SelectItem>
+                              <SelectItem value="custom">Personalizar</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <>
+                            <Input
+                              type="number"
+                              min="1"
+                              max="120"
+                              placeholder="Ex: 24"
+                              value={installments || 1}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 1;
+                                setValue('installments', Math.min(Math.max(value, 1), 120));
+                              }}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setUseCustomInstallments(false);
+                                setValue('installments', 1);
                               }}
                             >
-                              <SelectTrigger id="installments" className="flex-1">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="1">À vista (1x)</SelectItem>
-                                <SelectItem value="2">2x</SelectItem>
-                                <SelectItem value="3">3x</SelectItem>
-                                <SelectItem value="4">4x</SelectItem>
-                                <SelectItem value="5">5x</SelectItem>
-                                <SelectItem value="6">6x</SelectItem>
-                                <SelectItem value="12">12x</SelectItem>
-                                <SelectItem value="custom">Personalizar</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <>
-                              <Input
-                                type="number"
-                                min="1"
-                                max="120"
-                                placeholder="Ex: 24"
-                                value={installments || 1}
-                                onChange={(e) => {
-                                  const value = parseInt(e.target.value) || 1;
-                                  setValue('installments', Math.min(Math.max(value, 1), 120));
-                                }}
-                                className="flex-1"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  setUseCustomInstallments(false);
-                                  setValue('installments', 1);
-                                }}
-                              >
-                                Voltar
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                        {installments > 1 && totalAmount && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {Number(installments)}x de R$ {(Number(totalAmount) / Number(installments)).toFixed(2)}
-                          </p>
+                              Voltar
+                            </Button>
+                          </>
                         )}
                       </div>
+                      {installments > 1 && totalAmount && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {Number(installments)}x de R$ {(Number(totalAmount) / Number(installments)).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
                     )}
 
                     <div>

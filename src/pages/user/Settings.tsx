@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Card,
@@ -48,6 +49,7 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function Settings() {
   const { user, setUser } = authStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mercadoPagoConnected, setMercadoPagoConnected] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
@@ -110,6 +112,35 @@ export default function Settings() {
     
     loadPaymentStatus();
   }, []);
+
+  // Verificar parâmetros de query após redirect do OAuth
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    const error = searchParams.get('error');
+
+    if (connected === 'true') {
+      // Recarregar status de conexão
+      const reloadStatus = async () => {
+        try {
+          const mpStatus = await paymentsService.getMercadoPagoConnectionStatus();
+          setMercadoPagoConnected(mpStatus.connected);
+        } catch (error) {
+          console.error('Erro ao recarregar status:', error);
+        }
+      };
+      reloadStatus();
+      
+      // Limpar parâmetros da URL
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('connected');
+      setSearchParams(newParams, { replace: true });
+    } else if (error) {
+      // Limpar parâmetros da URL após mostrar erro
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('error');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const onSubmitProfile = async (data: ProfileFormData) => {
     setLoadingProfile(true);
@@ -375,11 +406,11 @@ export default function Settings() {
         <TabsContent value="notificacoes">
           <div className="space-y-4">
             {/* Preferências de Notificação */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Preferências de Notificação</CardTitle>
-                <CardDescription>Configure quando receber emails</CardDescription>
-              </CardHeader>
+          <Card>
+            <CardHeader>
+              <CardTitle>Preferências de Notificação</CardTitle>
+              <CardDescription>Configure quando receber emails</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
