@@ -157,7 +157,9 @@ export default function Settings() {
   const connectMercadoPago = async () => {
     try {
       const { authUrl } = await paymentsService.getMercadoPagoAuthUrl();
-      window.open(authUrl, '_blank', 'noopener,noreferrer');
+      // Usar window.location.href para redirecionar na mesma aba
+      // O Mercado Pago redirecionará de volta para /settings/callback/mercadopago
+      window.location.href = authUrl;
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao conectar Mercado Pago. Verifique se MERCADOPAGO_CLIENT_ID está configurado.');
     }

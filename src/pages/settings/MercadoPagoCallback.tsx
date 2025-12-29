@@ -14,15 +14,19 @@ export default function MercadoPagoCallback() {
   useEffect(() => {
     const code = searchParams.get('code');
     const error = searchParams.get('error');
+    const state = searchParams.get('state'); // userId passado no state
 
     if (error) {
-      toast.error('Erro ao conectar Mercado Pago');
+      toast.error(`Erro ao conectar Mercado Pago: ${error}`);
       navigate('/settings?tab=pagamentos');
       return;
     }
 
-    if (code && user?.id) {
-      handleCallback(code, user.id);
+    // Usar state (userId) se disponível, caso contrário usar user.id
+    const userId = state || user?.id;
+
+    if (code && userId) {
+      handleCallback(code, userId);
     } else {
       toast.error('Código de autorização ou usuário não encontrado');
       navigate('/settings?tab=pagamentos');
@@ -35,7 +39,9 @@ export default function MercadoPagoCallback() {
       toast.success('Mercado Pago conectado com sucesso!');
       navigate('/settings?tab=pagamentos');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao processar autorização do Mercado Pago');
+      const errorMessage = error.response?.data?.message || error.message || 'Erro ao processar autorização do Mercado Pago';
+      console.error('Erro ao conectar Mercado Pago:', error);
+      toast.error(errorMessage);
       navigate('/settings?tab=pagamentos');
     }
   };
