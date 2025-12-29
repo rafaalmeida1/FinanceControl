@@ -111,7 +111,7 @@ export default function CreateDebt() {
     },
     {
       title: 'Forma de Pagamento',
-      content: 'Escolha como receber:\n\n• Pagamento Online (Mercado Pago): o devedor recebe um link para pagar com cartão, PIX ou boleto\n• Apenas Registrar: registra a dívida sem processar pagamento automático (você recebe via PIX manual)\n\nSe escolher apenas registrar, você precisará informar uma chave PIX para recebimento.',
+      content: 'Escolha como criar sua dívida:\n\n• Pagamento por Mercado Pago: crie cobranças automáticas com links, QR Code PIX, parcelamento ou assinaturas. Ideal para receber de terceiros ou pagar suas próprias dívidas.\n• Pagamento por PIX: registre a dívida e envie a chave PIX para pagamento manual. Ideal para dívidas de terceiros com você (receber) ou suas próprias dívidas (pagar).\n\nSe escolher PIX, você precisará informar uma chave PIX para recebimento ou pagamento.',
     },
   ];
 
@@ -188,7 +188,8 @@ export default function CreateDebt() {
     }
     
     // useGateway vem como string do radio, converter para boolean
-    const shouldUseGateway = data.useGateway === true || data.useGateway === 'true';
+    // Se paymentMethod é 'pix', sempre usar PIX manual (não gateway)
+    const shouldUseGateway = paymentMethod === 'pix' ? false : (data.useGateway === true || data.useGateway === 'true');
     
     // Lógica para dívida pessoal
     let finalCreditorEmail: string | undefined;
@@ -274,30 +275,30 @@ export default function CreateDebt() {
   };
 
   const steps = [
-    { number: 1, title: 'Informações', icon: User },
-    { number: 2, title: 'Pagamento', icon: CreditCard },
-    { number: 3, title: 'Confirmação', icon: FileText },
+    { number: 1, label: 'Informações', icon: User },
+    { number: 2, label: 'Valores', icon: CreditCard },
+    { number: 3, label: paymentMethod === 'pix' ? 'Chave PIX' : 'Confirmação', icon: FileText },
   ];
 
   // Se ainda não selecionou o método de pagamento, mostrar seleção inicial
   if (paymentMethod === null) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Nova Dívida</h1>
-            <p className="text-sm md:text-base text-muted-foreground">Escolha como deseja receber o pagamento</p>
+            <p className="text-sm md:text-base text-muted-foreground">Escolha como deseja criar sua dívida</p>
           </div>
         </div>
 
         {/* Seleção de Método de Pagamento */}
         <Card>
           <CardContent className="p-6 md:p-8">
-            <h2 className="text-xl font-semibold mb-6">Como deseja receber?</h2>
+            <h2 className="text-xl font-semibold mb-6">Como deseja criar sua dívida?</h2>
             <div className="grid md:grid-cols-2 gap-4">
               <Card
                 className={cn(
@@ -315,9 +316,9 @@ export default function CreateDebt() {
                       <CreditCard className="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-2">Apenas Registrar (PIX Manual)</h3>
+                      <h3 className="font-semibold text-lg mb-2">Pagamento por PIX</h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Registre a dívida e envie a chave PIX para o devedor pagar manualmente. Ideal para pagamentos diretos.
+                        Registre a dívida e envie a chave PIX para pagamento manual. Ideal para dívidas de terceiros com você (receber) ou suas próprias dívidas (pagar).
                       </p>
                       <ul className="text-xs text-muted-foreground space-y-1">
                         <li>✓ Registro simples e rápido</li>
@@ -345,9 +346,9 @@ export default function CreateDebt() {
                       <CreditCard className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-2">Mercado Pago</h3>
+                      <h3 className="font-semibold text-lg mb-2">Pagamento por Mercado Pago</h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Crie cobranças automáticas com links de pagamento, QR Code PIX, parcelamento ou assinaturas recorrentes.
+                        Crie cobranças automáticas com links de pagamento, QR Code PIX, parcelamento ou assinaturas recorrentes. Ideal para receber de terceiros ou pagar suas próprias dívidas.
                       </p>
                       <ul className="text-xs text-muted-foreground space-y-1">
                         <li>✓ Pagamento parcelado</li>
@@ -423,7 +424,7 @@ export default function CreateDebt() {
                         isCompleted && 'text-green-600',
                         !isActive && !isCompleted && 'text-muted-foreground'
                       )}>
-                        {step.title}
+                        {step.label}
                       </span>
                     </div>
                     
@@ -463,7 +464,7 @@ export default function CreateDebt() {
                       isCompleted && 'text-green-600',
                       !isActive && !isCompleted && 'text-muted-foreground'
                     )}>
-                      {step.title}
+                      {step.label}
                     </span>
                   </div>
                   
@@ -1110,76 +1111,200 @@ export default function CreateDebt() {
                 </Card>
 
                 <div id="help-payment" className="space-y-4">
-                  <div className="space-y-3">
-                    <Label className="text-base">Forma de Pagamento</Label>
-                    <Card className={cn(
-                      'cursor-pointer transition-all hover:border-primary',
-                      useGateway && 'border-primary'
-                    )}>
-                      <CardContent className="pt-6">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input 
-                            type="radio" 
-                            value="true"
-                            {...register('useGateway')}
-                            className="mt-1"
-                          />
-                          <div className="flex-1">
-                            <div className="font-semibold">Pagamento Online (Recomendado)</div>
-                            <p className="text-sm text-muted-foreground">
-                              O devedor receberá um link para pagar com cartão, PIX ou boleto
-                            </p>
-                          </div>
-                        </label>
-                      </CardContent>
-                    </Card>
-
-                    <Card className={cn(
-                      'cursor-pointer transition-all hover:border-primary',
-                      !useGateway && 'border-primary'
-                    )}>
-                      <CardContent className="pt-6">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input 
-                            type="radio" 
-                            value="false"
-                            {...register('useGateway')}
-                            className="mt-1"
-                          />
-                          <div className="flex-1">
-                            <div className="font-semibold">Apenas Registrar</div>
-                            <p className="text-sm text-muted-foreground">
-                              Registrar a dívida sem processar pagamento automático
-                            </p>
-                          </div>
-                        </label>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {useGateway && (
+                  {paymentMethod === 'pix' ? (
+                    // Quando for PIX manual, ir direto para seleção de chave PIX
                     <div className="animate-fade-in space-y-3">
-                      <Label className="text-base">Gateway de Pagamento</Label>
-                      <Card className="border-primary">
-                        <CardContent className="pt-6">
-                          <label className="flex items-center gap-3 cursor-pointer">
-                            <input 
-                              type="radio" 
-                              value="MERCADOPAGO"
-                              {...register('preferredGateway')}
-                              defaultChecked
-                            />
+                      <div>
+                        <Label className="text-base">Chave PIX para {isPersonalDebt ? 'Pagamento' : 'Recebimento'} *</Label>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Selecione ou crie uma chave PIX para {isPersonalDebt ? 'realizar o pagamento' : 'receber o pagamento'}.
+                        </p>
+                      </div>
+                      <Select
+                        value={selectedPixKeyId || ''}
+                        onValueChange={(value) => {
+                          if (value === 'new') {
+                            setShowNewPixKeyForm(true);
+                            setSelectedPixKeyId('new');
+                          } else {
+                            setShowNewPixKeyForm(false);
+                            setSelectedPixKeyId(value);
+                            setValue('pixKeyId', value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione ou crie uma chave PIX" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pixKeys?.filter(key => !key.isThirdParty).map((key: PixKey) => (
+                            <SelectItem key={key.id} value={key.id}>
+                              {key.label} - {key.keyValue.substring(0, 20)}...
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="new">+ Criar nova chave PIX</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {showNewPixKeyForm && (
+                        <Card className="bg-muted/50 p-4 space-y-3">
+                          <Label className="text-sm font-medium">Nova Chave PIX</Label>
+                          <div className="space-y-3">
                             <div>
-                              <div className="font-semibold">Mercado Pago</div>
-                              <p className="text-xs text-muted-foreground">PIX, Cartão e Boleto</p>
+                              <Label htmlFor="pixKeyType" className="text-xs">Tipo *</Label>
+                              <Select
+                                value={watch('pixKeyType') || ''}
+                                onValueChange={(value: any) => setValue('pixKeyType' as any, value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="CPF">CPF</SelectItem>
+                                  <SelectItem value="EMAIL">E-mail</SelectItem>
+                                  <SelectItem value="PHONE">Telefone</SelectItem>
+                                  <SelectItem value="RANDOM">Chave Aleatória</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {!watch('pixKeyType') && showNewPixKeyForm && (
+                                <p className="text-xs text-destructive mt-1">Selecione o tipo de chave</p>
+                              )}
                             </div>
-                          </label>
-                        </CardContent>
-                      </Card>
+                            <div>
+                              <Label htmlFor="pixKeyValue" className="text-xs">Valor da Chave *</Label>
+                              <Input
+                                id="pixKeyValue"
+                                {...register('pixKeyValue' as any, { 
+                                  required: showNewPixKeyForm ? 'Valor da chave é obrigatório' : false 
+                                })}
+                                placeholder="Digite a chave PIX"
+                              />
+                              {errors.pixKeyValue && (
+                                <p className="text-xs text-destructive mt-1">{errors.pixKeyValue.message}</p>
+                              )}
+                            </div>
+                            <div>
+                              <Label htmlFor="pixKeyLabel" className="text-xs">Nome/Apelido (Opcional)</Label>
+                              <Input
+                                id="pixKeyLabel"
+                                {...register('pixKeyLabel' as any)}
+                                placeholder="Ex: PIX Principal"
+                              />
+                            </div>
+                            {isPersonalDebt && (
+                              <>
+                                <div className="flex items-center space-x-2 pt-2 border-t">
+                                  <Switch
+                                    id="pixKeyIsThirdParty"
+                                    checked={watch('pixKeyIsThirdParty') || false}
+                                    onCheckedChange={(checked) => setValue('pixKeyIsThirdParty' as any, checked)}
+                                  />
+                                  <Label htmlFor="pixKeyIsThirdParty" className="text-xs cursor-pointer">
+                                    Chave PIX de outra pessoa (terceiro)
+                                  </Label>
+                                </div>
+                                {watch('pixKeyIsThirdParty') && (
+                                  <>
+                                    <div>
+                                      <Label htmlFor="pixKeyContactEmail" className="text-xs">Email do Contato (Opcional)</Label>
+                                      <Input
+                                        id="pixKeyContactEmail"
+                                        type="email"
+                                        {...register('pixKeyContactEmail' as any)}
+                                        placeholder="contato@example.com"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="pixKeyContactName" className="text-xs">Nome do Contato (Opcional)</Label>
+                                      <Input
+                                        id="pixKeyContactName"
+                                        {...register('pixKeyContactName' as any)}
+                                        placeholder="João Silva"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </Card>
+                      )}
                     </div>
+                  ) : (
+                    // Quando não for PIX manual, mostrar opções de gateway
+                    <>
+                      <div className="space-y-3">
+                        <Label className="text-base">Forma de Pagamento</Label>
+                        <Card className={cn(
+                          'cursor-pointer transition-all hover:border-primary',
+                          useGateway && 'border-primary'
+                        )}>
+                          <CardContent className="pt-6">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                value="true"
+                                {...register('useGateway')}
+                                className="mt-1"
+                              />
+                              <div className="flex-1">
+                                <div className="font-semibold">Pagamento Online (Recomendado)</div>
+                                <p className="text-sm text-muted-foreground">
+                                  O devedor receberá um link para pagar com cartão, PIX ou boleto
+                                </p>
+                              </div>
+                            </label>
+                          </CardContent>
+                        </Card>
+
+                        <Card className={cn(
+                          'cursor-pointer transition-all hover:border-primary',
+                          !useGateway && 'border-primary'
+                        )}>
+                          <CardContent className="pt-6">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                value="false"
+                                {...register('useGateway')}
+                                className="mt-1"
+                              />
+                              <div className="flex-1">
+                                <div className="font-semibold">Pagamento por PIX</div>
+                                <p className="text-sm text-muted-foreground">
+                                  Registrar a dívida para receber ou pagar via PIX manual
+                                </p>
+                              </div>
+                            </label>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {useGateway && (
+                        <div className="animate-fade-in space-y-3">
+                          <Label className="text-base">Gateway de Pagamento</Label>
+                          <Card className="border-primary">
+                            <CardContent className="pt-6">
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                  type="radio" 
+                                  value="MERCADOPAGO"
+                                  {...register('preferredGateway')}
+                                  defaultChecked
+                                />
+                                <div>
+                                  <div className="font-semibold">Mercado Pago</div>
+                                  <p className="text-xs text-muted-foreground">PIX, Cartão e Boleto</p>
+                                </div>
+                              </label>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+                    </>
                   )}
 
-                  {!useGateway && (
+                  {!useGateway && paymentMethod !== 'pix' && (
                     <div className="animate-fade-in space-y-3">
                       <Label className="text-base">Chave PIX para Recebimento *</Label>
                       <Select
