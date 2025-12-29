@@ -25,20 +25,37 @@ export const connectSocket = () => {
   // Obter URL base da API para WebSocket
   // WebSockets não funcionam bem com proxy do Vercel, então em produção usa o IP direto
   let apiUrl: string;
+  let useSecure = false;
   
   if (import.meta.env.VITE_API_URL) {
     // Se VITE_API_URL estiver definido, usar ele (removendo /api/v1 se presente)
     apiUrl = import.meta.env.VITE_API_URL.replace(/\/api\/v1$/, '').replace(/\/api\/v1\//, '/');
+    // Se a URL começar com https, usar WSS
+    useSecure = apiUrl.startsWith('https://');
+    // Converter para WS/WSS
+    if (useSecure) {
+      apiUrl = apiUrl.replace('https://', 'wss://');
+    } else {
+      apiUrl = apiUrl.replace('http://', 'ws://');
+    }
   } else if (import.meta.env.PROD) {
-    // Em produção na Vercel, usar o IP direto do servidor para WebSocket
-    apiUrl = 'http://62.171.141.220:3444';
+    // Em produção, verificar se o site está em HTTPS
+    const isHttps = window.location.protocol === 'https:';
+    if (isHttps) {
+      // Se o site está em HTTPS, usar WSS
+      apiUrl = 'wss://62.171.141.220:3444';
+      useSecure = true;
+    } else {
+      // Se estiver em HTTP, usar WS
+      apiUrl = 'ws://62.171.141.220:3444';
+    }
   } else {
     // Desenvolvimento local
-    apiUrl = 'http://localhost:3000';
+    apiUrl = 'ws://localhost:3444';
   }
   
   const wsUrl = `${apiUrl}/notifications`;
-  console.log(`[WebSocket] Conectando ao WebSocket em: ${wsUrl}`);
+  console.log(`[WebSocket] Conectando ao WebSocket em: ${wsUrl} (${useSecure ? 'WSS' : 'WS'})`);
 
   socket = io(wsUrl, {
     auth: {
@@ -47,7 +64,12 @@ export const connectSocket = () => {
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: Infinity, // Tentar reconectar indefinidamente
+    timeout: 20000,
+    forceNew: false,
+    upgrade: true,
+    rememberUpgrade: true,
   });
 
   socket.on('connect', () => {

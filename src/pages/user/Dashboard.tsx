@@ -6,9 +6,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
+import { HelpIconButton } from '@/components/help/HelpIconButton';
+import { useState } from 'react';
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useStats();
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const helpSteps: HelpStep[] = [
+    {
+      title: 'Bem-vindo ao Dashboard',
+      content: 'Este é seu painel principal. Aqui você encontra um resumo completo das suas finanças em tempo real.',
+    },
+    {
+      title: 'Métricas Rápidas',
+      content: 'Os cards mostram:\n\n• Total a Receber: valor que outras pessoas te devem\n• Total a Pagar: valor que você deve\n• Dívidas Pendentes: número de dívidas aguardando pagamento\n• Próximos Vencimentos: cobranças dos próximos 30 dias',
+    },
+    {
+      title: 'Cobranças Próximas',
+      content: 'Veja todas as cobranças que estão chegando. Clique em qualquer uma para ver mais detalhes e gerenciar o pagamento.',
+    },
+    {
+      title: 'Atividade Recente',
+      content: 'Acompanhe todos os pagamentos e movimentações recentes do sistema. Fique por dentro de tudo que acontece com suas finanças.',
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -60,12 +83,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Sistema de Ajuda */}
+      <HelpDialog
+        open={helpOpen}
+        onOpenChange={setHelpOpen}
+        title="Como usar o Dashboard"
+        description="Aprenda a navegar pelo seu painel principal"
+        steps={helpSteps}
+      />
+
       {/* Hero Section */}
-      <div>
-        <h1 className="text-4xl font-bold tracking-tight">Bem-vindo de volta</h1>
-        <p className="text-muted-foreground mt-2">
-          Aqui está um resumo da sua atividade financeira
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight">Bem-vindo de volta</h1>
+          <p className="text-muted-foreground mt-2">
+            Aqui está um resumo da sua atividade financeira
+          </p>
+        </div>
+        <HelpIconButton onClick={() => setHelpOpen(true)} />
       </div>
 
       {/* Métricas Rápidas - Grid Responsivo */}
@@ -101,7 +136,10 @@ export default function Dashboard() {
         {/* Transações Recentes */}
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Cobranças Próximas</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Cobranças Próximas</CardTitle>
+              <HelpIconButton onClick={() => setHelpOpen(true)} size="sm" />
+            </div>
             <CardDescription>
               {stats?.upcomingCharges?.length || 0} cobrança(s) próxima(s)
             </CardDescription>
@@ -146,7 +184,10 @@ export default function Dashboard() {
         {/* Atividade Recente */}
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Atividade Recente</CardTitle>
+              <HelpIconButton onClick={() => setHelpOpen(true)} size="sm" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

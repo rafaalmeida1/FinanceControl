@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/select';
 import toast from 'react-hot-toast';
 import { Debt } from '@/types/api.types';
+import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
+import { HelpIconButton } from '@/components/help/HelpIconButton';
 
 interface EditDebtFormData {
   debtorName?: string;
@@ -50,7 +52,20 @@ export default function Debts() {
   const archived = activeTab === 'archived' ? true : false;
   const { debts, isLoading, sendLink, cancelDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EditDebtFormData>();
+
+  // Passos do walkthrough de ajuda
+  const helpSteps: HelpStep[] = [
+    {
+      title: 'Lista de Dívidas',
+      content: 'Aqui você vê todas as suas dívidas organizadas por abas:\n\n• Todas: todas as dívidas\n• Pessoais: dívidas que você deve\n• Terceiros: dívidas que outros devem para você\n• Arquivadas: dívidas finalizadas',
+    },
+    {
+      title: 'Ações Disponíveis',
+      content: 'Para cada dívida você pode:\n\n• Editar: modificar informações da dívida\n• Enviar Link: reenviar o link de acesso para o devedor\n• Quitar: marcar a dívida como paga\n• Cancelar: cancelar a dívida\n\nClique em uma dívida para ver mais detalhes.',
+    },
+  ];
 
   const handleEditClick = (debt: Debt) => {
     if (debt.status === 'PAID') {
@@ -246,13 +261,13 @@ export default function Debts() {
                     </Badge>
                   )}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
                   {debt.isPersonalDebt 
                     ? `Credor: ${debt.creditorName || debt.creditorEmail || 'Não informado'}` 
                     : `Devedor: ${debt.debtorEmail}`}
                 </p>
                 {debt.description && (
-                  <p className="text-sm text-gray-500 mt-1">{debt.description}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{debt.description}</p>
                 )}
               </div>
               <span className={`badge ${getStatusColor(debt.status)}`}>
@@ -262,22 +277,22 @@ export default function Debts() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Valor Total</p>
-                <p className="text-lg font-bold">{formatCurrency(debt.totalAmount)}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Valor Total</p>
+                <p className="text-lg font-bold dark:text-white">{formatCurrency(debt.totalAmount)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pago</p>
-                <p className="text-lg font-bold text-green-600">
+                <p className="text-sm text-gray-600 dark:text-gray-300">Pago</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">
                   {formatCurrency(debt.paidAmount)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Parcelas</p>
-                <p className="text-lg font-bold">{debt.installments}x</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Parcelas</p>
+                <p className="text-lg font-bold dark:text-white">{debt.installments}x</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Vencimento</p>
-                <p className="text-lg font-bold">
+                <p className="text-sm text-gray-600 dark:text-gray-300">Vencimento</p>
+                <p className="text-lg font-bold dark:text-white">
                   {debt.dueDate ? formatDateShort(debt.dueDate) : '-'}
                 </p>
               </div>
@@ -377,19 +392,31 @@ export default function Debts() {
 
   return (
     <div className="space-y-6">
+      {/* Sistema de Ajuda */}
+      <HelpDialog
+        open={helpOpen}
+        onOpenChange={setHelpOpen}
+        title="Como gerenciar dívidas"
+        description="Aprenda a usar a lista de dívidas"
+        steps={helpSteps}
+      />
+
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">Dívidas</h1>
           <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">Gerencie suas dívidas e cobranças</p>
         </div>
-        <Link 
-          to="/debts/new" 
-          className="btn-primary flex items-center gap-2 flex-shrink-0 text-sm md:text-base px-3 md:px-4"
-        >
-          <Plus size={18} className="md:w-5 md:h-5" />
-          <span className="hidden sm:inline">Nova Dívida</span>
-          <span className="sm:hidden">Nova</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <HelpIconButton onClick={() => setHelpOpen(true)} size="sm" />
+          <Link 
+            to="/debts/new" 
+            className="btn-primary flex items-center gap-2 flex-shrink-0 text-sm md:text-base px-3 md:px-4"
+          >
+            <Plus size={18} className="md:w-5 md:h-5" />
+            <span className="hidden sm:inline">Nova Dívida</span>
+            <span className="sm:hidden">Nova</span>
+          </Link>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party' | 'archived')}>

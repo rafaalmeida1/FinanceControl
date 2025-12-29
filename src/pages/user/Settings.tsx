@@ -371,11 +371,13 @@ export default function Settings() {
 
         {/* Aba: Notificações */}
         <TabsContent value="notificacoes">
-          <Card>
-            <CardHeader>
-              <CardTitle>Preferências de Notificação</CardTitle>
-              <CardDescription>Configure quando receber emails</CardDescription>
-            </CardHeader>
+          <div className="space-y-4">
+            {/* Preferências de Notificação */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Preferências de Notificação</CardTitle>
+                <CardDescription>Configure quando receber emails</CardDescription>
+              </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -476,6 +478,7 @@ export default function Settings() {
               </Button>
             </CardFooter>
           </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

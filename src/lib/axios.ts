@@ -17,7 +17,7 @@ const getBaseURL = () => {
   }
   
   // Desenvolvimento local
-  return 'http://localhost:3000/api/v1';
+  return 'http://localhost:3444/api/v1';
 };
 
 const api = axios.create({

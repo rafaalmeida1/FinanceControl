@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
+import { HelpIconButton } from '@/components/help/HelpIconButton';
 
 interface DebtFormData {
   // Step 1: Informações Básicas
@@ -35,6 +37,12 @@ interface DebtFormData {
   totalAmount: number | string;
   installments: number;
   dueDate: string;
+  
+  // Dívida em andamento
+  isInProgress?: boolean;
+  installmentAmount?: number | string;
+  totalInstallments?: number;
+  paidInstallments?: number;
   
   // Step 3: Opções de Cobrança
   useGateway: boolean | string;
@@ -74,7 +82,37 @@ export default function CreateDebt() {
   const [selectedPixKeyId, setSelectedPixKeyId] = useState<string | 'new' | null>(null);
   const [showNewPixKeyForm, setShowNewPixKeyForm] = useState(false);
   const [useCustomInstallments, setUseCustomInstallments] = useState(false);
+  const [isInProgress, setIsInProgress] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const totalSteps = 3;
+
+  // Passos do walkthrough de ajuda
+  const helpSteps: HelpStep[] = [
+    {
+      title: 'Tipo de Dívida',
+      content: 'Primeiro, escolha o tipo de dívida:\n\n• "Alguém me deve": quando outra pessoa deve dinheiro para você\n• "Eu devo": quando você deve dinheiro para alguém\n\nPara dívidas pessoais, você pode escolher se é para você mesmo ou para outra pessoa.',
+    },
+    {
+      title: 'Informações Básicas',
+      content: 'Preencha os dados:\n\n• Email e nome do devedor/credor\n• Descrição da dívida (obrigatória - será enviada no email)\n\nA descrição ajuda a identificar a dívida e é importante para comunicação.',
+    },
+    {
+      title: 'Dívida em Andamento',
+      content: 'Se a dívida já começou e algumas parcelas foram pagas:\n\n• Ative "Dívida já em andamento?"\n• Informe o valor de cada parcela\n• Total de parcelas\n• Parcelas já pagas\n\nO sistema calculará automaticamente o valor total restante e as parcelas que faltam.',
+    },
+    {
+      title: 'Valor e Parcelas',
+      content: 'Para dívidas novas:\n\n• Informe o valor total\n• Número de parcelas\n• Data do primeiro vencimento\n\nPara dívidas em andamento, o sistema calcula automaticamente baseado nas informações fornecidas.',
+    },
+    {
+      title: 'Juros e Multa',
+      content: 'Você pode configurar:\n\n• Juros ao mês (%): aplicado apenas em caso de atraso\n• Multa por atraso (%): aplicada quando houver atraso no pagamento\n\nEsses valores são calculados automaticamente quando necessário.',
+    },
+    {
+      title: 'Forma de Pagamento',
+      content: 'Escolha como receber:\n\n• Pagamento Online (Mercado Pago): o devedor recebe um link para pagar com cartão, PIX ou boleto\n• Apenas Registrar: registra a dívida sem processar pagamento automático (você recebe via PIX manual)\n\nSe escolher apenas registrar, você precisará informar uma chave PIX para recebimento.',
+    },
+  ];
 
   // Buscar chaves PIX
   const { data: pixKeys } = useQuery({
@@ -89,6 +127,9 @@ export default function CreateDebt() {
   const addInterest = watch('addInterest');
   const installments = watch('installments');
   const totalAmount = watch('totalAmount');
+  const installmentAmount = watch('installmentAmount');
+  const totalInstallments = watch('totalInstallments');
+  const paidInstallments = watch('paidInstallments');
 
   const nextStep = () => {
     if (currentStep < totalSteps) setCurrentStep(currentStep + 1);
@@ -176,6 +217,18 @@ export default function CreateDebt() {
       finalCreditorName = undefined;
     }
     
+    // Validar dívida em andamento
+    if (isInProgress) {
+      if (!data.installmentAmount || !data.totalInstallments || data.paidInstallments === undefined) {
+        toast.error('Preencha todos os campos da dívida em andamento');
+        return;
+      }
+      if (data.paidInstallments >= data.totalInstallments) {
+        toast.error('Parcelas pagas deve ser menor que total de parcelas');
+        return;
+      }
+    }
+
     createDebt(
       {
         debtorEmail: finalDebtorEmail,
@@ -191,6 +244,10 @@ export default function CreateDebt() {
         useGateway: shouldUseGateway,
         preferredGateway: shouldUseGateway ? data.preferredGateway : undefined,
         isPersonalDebt,
+        isInProgress: isInProgress || undefined,
+        installmentAmount: isInProgress && data.installmentAmount ? parseFloat(data.installmentAmount as any) : undefined,
+        totalInstallments: isInProgress && data.totalInstallments ? parseInt(data.totalInstallments as any) : undefined,
+        paidInstallments: isInProgress && data.paidInstallments !== undefined ? parseInt(data.paidInstallments as any) : undefined,
         pixKeyId: selectedPixKeyId && selectedPixKeyId !== 'new' ? selectedPixKeyId : undefined,
         pixKeyValue: showNewPixKeyForm && data.pixKeyValue ? data.pixKeyValue : undefined,
         pixKeyType: showNewPixKeyForm && data.pixKeyType ? data.pixKeyType : undefined,
@@ -223,6 +280,15 @@ export default function CreateDebt() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Sistema de Ajuda */}
+      <HelpDialog
+        open={helpOpen}
+        onOpenChange={setHelpOpen}
+        title="Como criar uma dívida"
+        description="Aprenda passo a passo como registrar uma nova dívida"
+        steps={helpSteps}
+      />
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -232,6 +298,7 @@ export default function CreateDebt() {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Nova Dívida</h1>
           <p className="text-sm md:text-base text-muted-foreground">Preencha as informações em {totalSteps} etapas simples</p>
         </div>
+        <HelpIconButton onClick={() => setHelpOpen(true)} />
       </div>
 
       {/* Progress Steps */}
@@ -334,7 +401,7 @@ export default function CreateDebt() {
                 </div>
 
                 {/* Toggle Tipo de Dívida */}
-                <Card className="bg-muted/50 border-2">
+                <Card id="help-debt-type" className="bg-muted/50 border-2">
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
@@ -392,58 +459,28 @@ export default function CreateDebt() {
                       )}
 
                       {/* Explicação clara */}
-                      <Alert className={cn(
-                        'border-2',
-                        isPersonalDebt 
-                          ? 'bg-orange-50 dark:bg-orange-950/50 border-orange-300 dark:border-orange-700' 
-                          : 'bg-blue-50 dark:bg-blue-950/50 border-blue-300 dark:border-blue-700'
-                      )}>
-                        <Info className={cn(
-                          'h-4 w-4',
-                          isPersonalDebt ? 'text-orange-700 dark:text-orange-300' : 'text-blue-700 dark:text-blue-300'
-                        )} />
-                        <AlertTitle className={cn(
-                          isPersonalDebt ? 'text-orange-900 dark:text-orange-100' : 'text-blue-900 dark:text-blue-100'
+                      {isPersonalDebt && (
+                        <div className={cn(
+                          'rounded-lg p-4 border',
+                          'bg-muted/50 border-border'
                         )}>
-                          {isPersonalDebt 
-                            ? (isPersonalDebtForMyself 
-                              ? '📝 Dívida Pessoal (Para Mim Mesmo)' 
-                              : '📝 Dívida Pessoal (Eu devo para outra pessoa)')
-                            : '💰 Dívida de Terceiro (Alguém deve para você)'}
-                        </AlertTitle>
-                        <AlertDescription className={cn(
-                          'mt-2',
-                          isPersonalDebt ? 'text-orange-800 dark:text-orange-200' : 'text-blue-800 dark:text-blue-200'
-                        )}>
-                          {isPersonalDebt ? (
-                            isPersonalDebtForMyself ? (
-                              <>
-                                <p className="font-semibold mb-1">Dívida para você mesmo.</p>
-                                <p className="text-sm">
-                                  Você é o <strong>devedor</strong> e também o <strong>credor</strong> (o mesmo email será usado).
-                                  Esta dívida aparecerá na sua lista de dívidas pessoais.
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <p className="font-semibold mb-1">Você deve para outra pessoa.</p>
-                                <p className="text-sm">
-                                  Você é o <strong>devedor</strong>. Precisará informar o <strong>credor</strong> (quem vai receber).
-                                  Esta dívida aparecerá na sua lista de dívidas pessoais.
-                                </p>
-                              </>
-                            )
-                          ) : (
-                            <>
-                              <p className="font-semibold mb-1">Alguém deve para você.</p>
-                              <p className="text-sm">
-                                Você é o <strong>credor</strong> (quem vai receber) e precisará informar o <strong>devedor</strong> (quem deve).
-                                Esta dívida aparecerá na sua lista de cobranças a receber.
+                          <div className="flex items-start gap-3">
+                            <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 space-y-1">
+                              <p className="text-sm font-medium text-foreground">
+                                {isPersonalDebtForMyself 
+                                  ? 'Dívida pessoal para você mesmo'
+                                  : 'Dívida pessoal - você deve para outra pessoa'}
                               </p>
-                            </>
-                          )}
-                        </AlertDescription>
-                      </Alert>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                {isPersonalDebtForMyself 
+                                  ? `Você é o devedor e também o credor. O email ${user?.email} será usado para ambos.`
+                                  : 'Você é o devedor. Informe os dados do credor abaixo.'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -486,19 +523,6 @@ export default function CreateDebt() {
                       {isPersonalDebtForMyself ? (
                         // Para mim mesmo
                         <>
-                          <Alert className="bg-blue-50 dark:bg-blue-950/50 border-2 border-blue-300 dark:border-blue-700">
-                            <Info className="h-4 w-4 text-blue-700 dark:text-blue-300" />
-                            <AlertTitle className="text-blue-900 dark:text-blue-100">
-                              Dívida Pessoal - Para Mim Mesmo
-                            </AlertTitle>
-                            <AlertDescription className="text-blue-800 dark:text-blue-200 mt-2">
-                              <p className="text-sm">
-                                Você é o devedor e também o credor (o mesmo email será usado).
-                                Seu email: <strong>{user?.email}</strong>
-                              </p>
-                            </AlertDescription>
-                          </Alert>
-                          
                           {/* Campos ocultos */}
                           <input type="hidden" {...register('creditorEmail')} value={user?.email || ''} />
                           <input type="hidden" {...register('creditorName')} value={user?.name || ''} />
@@ -544,7 +568,7 @@ export default function CreateDebt() {
                     </>
                   )}
 
-                  <div>
+                  <div id="help-description">
                     <Label htmlFor="description">Descrição *</Label>
                     <Textarea 
                       id="description"
@@ -584,91 +608,290 @@ export default function CreateDebt() {
                   </p>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="totalAmount">Valor Total *</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-                      <Input
-                        id="totalAmount"
-                        {...register('totalAmount', { 
-                          required: 'Valor é obrigatório',
-                          min: { value: 0.01, message: 'Valor deve ser maior que zero' }
-                        })}
-                        type="number"
-                        step="0.01"
-                        className="pl-12"
-                        placeholder="1.000,00"
-                      />
+                {/* Toggle para dívida em andamento */}
+                <div className="border rounded-lg p-4 md:p-6 bg-muted/30">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex-1">
+                      <Label htmlFor="isInProgress" className="text-base font-medium cursor-pointer">
+                        Dívida já em andamento?
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Marque se a dívida já começou e algumas parcelas foram pagas
+                      </p>
                     </div>
-                    {errors.totalAmount && (
-                      <p className="text-sm text-destructive mt-1">{errors.totalAmount.message}</p>
-                    )}
+                    <Switch
+                      id="isInProgress"
+                      checked={isInProgress}
+                      onCheckedChange={(checked) => {
+                        setIsInProgress(checked);
+                        setValue('isInProgress', checked);
+                        if (!checked) {
+                          // Limpar campos quando desativar
+                          setValue('installmentAmount', undefined);
+                          setValue('totalInstallments', undefined);
+                          setValue('paidInstallments', undefined);
+                        }
+                      }}
+                    />
                   </div>
+                </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                <div id="help-amount" className="space-y-4">
+                  {!isInProgress ? (
+                    // Dívida nova - valor total
                     <div>
-                      <Label htmlFor="installments">Número de Parcelas</Label>
-                      <div className="flex gap-2">
-                        {!useCustomInstallments ? (
-                          <Select
-                            value={String(installments || 1)}
-                            onValueChange={(value) => {
-                              if (value === 'custom') {
-                                setUseCustomInstallments(true);
-                                setValue('installments', 1);
-                              } else {
-                                setValue('installments', parseInt(value));
-                              }
-                            }}
-                          >
-                            <SelectTrigger id="installments" className="flex-1">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">À vista (1x)</SelectItem>
-                              <SelectItem value="2">2x</SelectItem>
-                              <SelectItem value="3">3x</SelectItem>
-                              <SelectItem value="4">4x</SelectItem>
-                              <SelectItem value="5">5x</SelectItem>
-                              <SelectItem value="6">6x</SelectItem>
-                              <SelectItem value="12">12x</SelectItem>
-                              <SelectItem value="custom">Personalizar</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="120"
-                              placeholder="Ex: 24"
-                              value={installments || 1}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value) || 1;
-                                setValue('installments', Math.min(Math.max(value, 1), 120));
-                              }}
-                              className="flex-1"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setUseCustomInstallments(false);
-                                setValue('installments', 1);
-                              }}
-                            >
-                              Voltar
-                            </Button>
-                          </>
-                        )}
+                      <Label htmlFor="totalAmount">Valor Total *</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                        <Input
+                          id="totalAmount"
+                          {...register('totalAmount', { 
+                            required: !isInProgress ? 'Valor é obrigatório' : false,
+                            min: { value: 0.01, message: 'Valor deve ser maior que zero' }
+                          })}
+                          type="number"
+                          step="0.01"
+                          className="pl-12"
+                          placeholder="1.000,00"
+                        />
                       </div>
-                      {installments > 1 && totalAmount && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {Number(installments)}x de R$ {(Number(totalAmount) / Number(installments)).toFixed(2)}
-                        </p>
+                      {errors.totalAmount && (
+                        <p className="text-sm text-destructive mt-1">{errors.totalAmount.message}</p>
                       )}
                     </div>
+                  ) : (
+                    // Dívida em andamento - valor da parcela
+                    <div className="space-y-4">
+                      <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700">
+                        <Info className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+                        <AlertTitle className="text-blue-900 dark:text-blue-100">
+                          Dívida em Andamento
+                        </AlertTitle>
+                        <AlertDescription className="text-blue-800 dark:text-blue-200 mt-2">
+                          Informe o valor da parcela (já com juros embutidos) e quantas parcelas já foram pagas.
+                          O sistema calculará automaticamente o valor total restante.
+                        </AlertDescription>
+                      </Alert>
+
+                      <div>
+                        <Label htmlFor="installmentAmount">Valor da Parcela (R$) *</Label>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Valor de cada parcela já com juros embutidos
+                        </p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                          <Input
+                            id="installmentAmount"
+                            {...register('installmentAmount', { 
+                              required: isInProgress ? 'Valor da parcela é obrigatório' : false,
+                              min: { value: 0.01, message: 'Valor deve ser maior que zero' }
+                            })}
+                            type="number"
+                            step="0.01"
+                            className="pl-12"
+                            placeholder="500,00"
+                            onChange={(e) => {
+                              setValue('installmentAmount', e.target.value);
+                              // Calcular valor total em tempo real
+                              if (totalInstallments && paidInstallments !== undefined) {
+                                const remaining = totalInstallments - paidInstallments;
+                                const calculatedTotal = Number(e.target.value) * remaining;
+                                setValue('totalAmount', calculatedTotal);
+                                setValue('installments', remaining);
+                              }
+                            }}
+                          />
+                        </div>
+                        {errors.installmentAmount && (
+                          <p className="text-sm text-destructive mt-1">{errors.installmentAmount.message}</p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="totalInstallments">Total de Parcelas *</Label>
+                          <Input
+                            id="totalInstallments"
+                            {...register('totalInstallments', { 
+                              required: isInProgress ? 'Total de parcelas é obrigatório' : false,
+                              min: { value: 1, message: 'Deve ser pelo menos 1' },
+                              validate: (value) => {
+                                if (paidInstallments !== undefined && value && paidInstallments >= value) {
+                                  return 'Parcelas pagas deve ser menor que total de parcelas';
+                                }
+                                return true;
+                              }
+                            })}
+                            type="number"
+                            min="1"
+                            placeholder="9"
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              setValue('totalInstallments', value);
+                              // Calcular valor total em tempo real
+                              if (installmentAmount && paidInstallments !== undefined) {
+                                const remaining = value - paidInstallments;
+                                if (remaining > 0) {
+                                  const calculatedTotal = Number(installmentAmount) * remaining;
+                                  setValue('totalAmount', calculatedTotal);
+                                  setValue('installments', remaining);
+                                }
+                              }
+                            }}
+                          />
+                          {errors.totalInstallments && (
+                            <p className="text-sm text-destructive mt-1">{errors.totalInstallments.message}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="paidInstallments">Parcelas Já Pagas *</Label>
+                          <Input
+                            id="paidInstallments"
+                            {...register('paidInstallments', { 
+                              required: isInProgress ? 'Parcelas pagas é obrigatório' : false,
+                              min: { value: 0, message: 'Deve ser 0 ou mais' },
+                              validate: (value) => {
+                                if (totalInstallments && value !== undefined && value >= totalInstallments) {
+                                  return 'Parcelas pagas deve ser menor que total de parcelas';
+                                }
+                                return true;
+                              }
+                            })}
+                            type="number"
+                            min="0"
+                            placeholder="3"
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              setValue('paidInstallments', value);
+                              // Calcular valor total em tempo real
+                              if (installmentAmount && totalInstallments) {
+                                const remaining = totalInstallments - value;
+                                if (remaining > 0) {
+                                  const calculatedTotal = Number(installmentAmount) * remaining;
+                                  setValue('totalAmount', calculatedTotal);
+                                  setValue('installments', remaining);
+                                }
+                              }
+                            }}
+                          />
+                          {errors.paidInstallments && (
+                            <p className="text-sm text-destructive mt-1">{errors.paidInstallments.message}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Preview do cálculo */}
+                      {installmentAmount && totalInstallments && paidInstallments !== undefined && (
+                        <div className="bg-green-50 dark:bg-green-950/30 border border-green-300 dark:border-green-700 rounded-lg p-4">
+                          <div className="space-y-3">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                              <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                                Parcelas restantes:
+                              </span>
+                              <span className="text-lg md:text-xl font-bold text-green-700 dark:text-green-300">
+                                {totalInstallments - paidInstallments} parcelas
+                              </span>
+                            </div>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                              <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                                Valor total restante:
+                              </span>
+                              <span className="text-lg md:text-xl font-bold text-green-700 dark:text-green-300">
+                                R$ {((Number(installmentAmount) || 0) * (totalInstallments - paidInstallments)).toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="text-xs sm:text-sm text-green-700 dark:text-green-300 mt-2 pt-2 border-t border-green-300 dark:border-green-700">
+                              Valor por parcela: R$ {Number(installmentAmount).toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {isInProgress ? (
+                      // Dívida em andamento - mostrar parcelas calculadas automaticamente
+                      <div>
+                        <Label htmlFor="installments">Número de Parcelas (Calculado automaticamente)</Label>
+                        <Input
+                          id="installments"
+                          type="number"
+                          value={installments || 0}
+                          readOnly
+                          disabled
+                          className="bg-muted cursor-not-allowed"
+                        />
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {installments > 0 ? `${installments} parcelas restantes` : 'Preencha os campos acima para calcular'}
+                        </p>
+                      </div>
+                    ) : (
+                      // Dívida nova - campo editável
+                      <div>
+                        <Label htmlFor="installments">Número de Parcelas</Label>
+                        <div className="flex gap-2">
+                          {!useCustomInstallments ? (
+                            <Select
+                              value={String(installments || 1)}
+                              onValueChange={(value) => {
+                                if (value === 'custom') {
+                                  setUseCustomInstallments(true);
+                                  setValue('installments', 1);
+                                } else {
+                                  setValue('installments', parseInt(value));
+                                }
+                              }}
+                            >
+                              <SelectTrigger id="installments" className="flex-1">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">À vista (1x)</SelectItem>
+                                <SelectItem value="2">2x</SelectItem>
+                                <SelectItem value="3">3x</SelectItem>
+                                <SelectItem value="4">4x</SelectItem>
+                                <SelectItem value="5">5x</SelectItem>
+                                <SelectItem value="6">6x</SelectItem>
+                                <SelectItem value="12">12x</SelectItem>
+                                <SelectItem value="custom">Personalizar</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="120"
+                                placeholder="Ex: 24"
+                                value={installments || 1}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 1;
+                                  setValue('installments', Math.min(Math.max(value, 1), 120));
+                                }}
+                                className="flex-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setUseCustomInstallments(false);
+                                  setValue('installments', 1);
+                                }}
+                              >
+                                Voltar
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {installments > 1 && totalAmount && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {Number(installments)}x de R$ {(Number(totalAmount) / Number(installments)).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <div>
                       <Label htmlFor="dueDate">Primeiro Vencimento</Label>
@@ -701,7 +924,7 @@ export default function CreateDebt() {
                     {addInterest && (
                       <div className="grid md:grid-cols-2 gap-4 mt-4 animate-fade-in">
                         <div>
-                          <Label htmlFor="interestRate" className="text-sm">Juros ao mês (%)</Label>
+                          <Label htmlFor="interestRate" className="text-sm">Juros ao mês (%) - Aplicado apenas em caso de atraso</Label>
                           <Input 
                             id="interestRate"
                             {...register('interestRate')} 
@@ -709,7 +932,9 @@ export default function CreateDebt() {
                             step="0.1" 
                             placeholder="2.0"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">Padrão: 2% ao mês</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Este valor será aplicado apenas se houver atraso no pagamento
+                          </p>
                         </div>
                         <div>
                           <Label htmlFor="penaltyRate" className="text-sm">Multa por atraso (%)</Label>
@@ -790,7 +1015,7 @@ export default function CreateDebt() {
                   </CardContent>
                 </Card>
 
-                <div className="space-y-4">
+                <div id="help-payment" className="space-y-4">
                   <div className="space-y-3">
                     <Label className="text-base">Forma de Pagamento</Label>
                     <Card className={cn(
@@ -1017,8 +1242,8 @@ export default function CreateDebt() {
                     </>
                   ) : (
                     <>
-                      <Check className="mr-2 h-4 w-4" />
-                      Criar Dívida
+                  <Check className="mr-2 h-4 w-4" />
+                  Criar Dívida
                     </>
                   )}
                 </Button>
