@@ -66,7 +66,7 @@ export default function CreateDebt() {
   const navigate = useNavigate();
   const { createDebt, isCreatingDebt } = useDebts();
   const { user } = authStore();
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<DebtFormData>({
+  const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<DebtFormData>({
     defaultValues: {
       installments: 1,
       useGateway: true,
@@ -640,21 +640,26 @@ export default function CreateDebt() {
                   {!isPersonalDebt ? (
                     // Dívida de terceiro - campos normais
                     <>
+                      {/* Campo oculto para validação */}
+                      <input
+                        type="hidden"
+                        {...register('debtorEmail', {
+                          required: 'Email é obrigatório',
+                          pattern: {
+                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                            message: 'Email inválido'
+                          }
+                        })}
+                      />
                       <EmailAutocomplete
                         id="debtorEmail"
                         label="Email do Devedor"
                         value={watch('debtorEmail') || ''}
-                        onChange={(value) => setValue('debtorEmail', value)}
+                        onChange={(value) => {
+                          setValue('debtorEmail', value, { shouldValidate: true });
+                        }}
                         onBlur={() => {
-                          // Trigger validation
-                          const field = register('debtorEmail', { 
-                            required: 'Email é obrigatório',
-                            pattern: {
-                              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                              message: 'Email inválido'
-                            }
-                          });
-                          field.onBlur({ target: { name: 'debtorEmail' } } as any);
+                          trigger('debtorEmail');
                         }}
                         error={errors.debtorEmail?.message}
                         placeholder="exemplo@email.com"
@@ -683,20 +688,26 @@ export default function CreateDebt() {
                       ) : (
                         // Para outra pessoa
                         <>
+                          {/* Campo oculto para validação */}
+                          <input
+                            type="hidden"
+                            {...register('creditorEmail', {
+                              required: isPersonalDebt && !isPersonalDebtForMyself ? 'Email do credor é obrigatório' : false,
+                              pattern: {
+                                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                message: 'Email inválido'
+                              }
+                            })}
+                          />
                           <EmailAutocomplete
                             id="creditorEmail"
                             label="Email do Credor (para quem você deve)"
                             value={watch('creditorEmail') || ''}
-                            onChange={(value) => setValue('creditorEmail', value)}
+                            onChange={(value) => {
+                              setValue('creditorEmail', value, { shouldValidate: true });
+                            }}
                             onBlur={() => {
-                              const field = register('creditorEmail', { 
-                                required: isPersonalDebt && !isPersonalDebtForMyself ? 'Email do credor é obrigatório' : false,
-                                pattern: {
-                                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                                  message: 'Email inválido'
-                                }
-                              });
-                              field.onBlur({ target: { name: 'creditorEmail' } } as any);
+                              trigger('creditorEmail');
                             }}
                             error={errors.creditorEmail?.message}
                             placeholder="credor@email.com"

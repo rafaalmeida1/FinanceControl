@@ -33,6 +33,7 @@ export function EmailAutocomplete({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSelectingRef = useRef(false);
 
   // Buscar emails relacionados
   const { data: relatedEmails = [] } = useQuery({
@@ -116,9 +117,11 @@ export function EmailAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Sincronizar inputValue com value prop
+  // Sincronizar inputValue com value prop (apenas se não estiver selecionando)
   useEffect(() => {
-    setInputValue(value);
+    if (!isSelectingRef.current) {
+      setInputValue(value);
+    }
   }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,6 +130,7 @@ export function EmailAutocomplete({
     onChange(newValue);
     setShowSuggestions(true);
     setSelectedIndex(-1);
+    isSelectingRef.current = false; // Resetar flag quando o usuário digita
   };
 
   const handleInputFocus = () => {
@@ -134,10 +138,15 @@ export function EmailAutocomplete({
   };
 
   const handleSelectSuggestion = (suggestionEmail: string) => {
+    isSelectingRef.current = true;
     setInputValue(suggestionEmail);
     onChange(suggestionEmail);
     setShowSuggestions(false);
     setSelectedIndex(-1);
+    // Resetar flag após um pequeno delay para permitir que o onChange complete
+    setTimeout(() => {
+      isSelectingRef.current = false;
+    }, 100);
     inputRef.current?.blur();
   };
 
@@ -174,8 +183,10 @@ export function EmailAutocomplete({
         onBlur={() => {
           // Delay para permitir clique na sugestão
           setTimeout(() => {
-            setShowSuggestions(false);
-            onBlur?.();
+            if (!containerRef.current?.contains(document.activeElement)) {
+              setShowSuggestions(false);
+              onBlur?.();
+            }
           }, 200);
         }}
         onKeyDown={handleKeyDown}
@@ -190,7 +201,10 @@ export function EmailAutocomplete({
             <button
               key={suggestion.email}
               type="button"
-              onClick={() => handleSelectSuggestion(suggestion.email)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelectSuggestion(suggestion.email);
+              }}
               className={cn(
                 'w-full text-left px-4 py-2 hover:bg-accent focus:bg-accent focus:outline-none transition-colors',
                 index === selectedIndex && 'bg-accent',
