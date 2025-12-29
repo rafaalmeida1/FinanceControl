@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '@/services/auth.service';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function VerifyEmail() {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const emailFromUrl = searchParams.get('email');
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
@@ -20,8 +22,12 @@ export default function VerifyEmail() {
         await authService.verifyEmail(token);
         setStatus('success');
         toast.success('Email verificado com sucesso!');
+        // Redirecionar para login com email preenchido se disponível
+        const loginUrl = emailFromUrl 
+          ? `/login?email=${encodeURIComponent(emailFromUrl)}`
+          : '/login';
         setTimeout(() => {
-          navigate('/login');
+          navigate(loginUrl);
         }, 3000);
       } catch (error: any) {
         setStatus('error');
@@ -30,7 +36,7 @@ export default function VerifyEmail() {
     };
 
     verify();
-  }, [token, navigate]);
+  }, [token, navigate, emailFromUrl]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 px-4">
@@ -69,12 +75,15 @@ export default function VerifyEmail() {
                 O token de verificação é inválido ou expirou. Por favor, solicite um novo email de verificação.
               </p>
               <div className="space-y-2">
-                <Link to="/login" className="btn-primary w-full block">
+                <Link 
+                  to={emailFromUrl ? `/login?email=${encodeURIComponent(emailFromUrl)}` : '/login'} 
+                  className="btn-primary w-full block"
+                >
                   Voltar para o login
                 </Link>
                 <button
                   onClick={() => {
-                    const email = prompt('Digite seu email para reenviar a verificação:');
+                    const email = emailFromUrl || prompt('Digite seu email para reenviar a verificação:');
                     if (email) {
                       authService.resendVerificationEmail(email)
                         .then(() => toast.success('Email de verificação reenviado!'))

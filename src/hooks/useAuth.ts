@@ -25,11 +25,22 @@ export const useAuth = () => {
   const registerMutation = useMutation({
     mutationFn: ({ email, password, name }: { email: string; password: string; name?: string }) =>
       authService.register(email, password, name),
-    onSuccess: (data) => {
-      setUser(data.user);
-      setTokens(data.accessToken, data.refreshToken);
-      toast.success('Conta criada com sucesso!');
-      navigate('/dashboard');
+    onSuccess: (data: any) => {
+      // Se email não estiver verificado, não fazer login automático
+      if (data.emailVerificationRequired) {
+        toast.success('Conta criada com sucesso! Verifique seu email para ativar sua conta.');
+        // Redirecionar para página de verificação com email preenchido
+        const emailParam = encodeURIComponent(data.user.email);
+        navigate(`/auth/verify-email/${data.verificationToken || ''}?email=${emailParam}`);
+      } else {
+        // Se email já estiver verificado (caso raro), fazer login normalmente
+        if (data.accessToken && data.refreshToken) {
+          setUser(data.user);
+          setTokens(data.accessToken, data.refreshToken);
+          toast.success('Conta criada com sucesso!');
+          navigate('/dashboard');
+        }
+      }
     },
   });
 

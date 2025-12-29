@@ -72,6 +72,11 @@ export default function Debts() {
       toast.error('Não é possível editar dívida já paga');
       return;
     }
+    // Verificar permissões: apenas criador pode editar (backend também valida)
+    if (!debt.isOwner && debt.userRole !== 'owner') {
+      toast.error('Apenas o criador da dívida pode editá-la');
+      return;
+    }
     setEditingDebt(debt);
     // Converter dueDate para formato de input (YYYY-MM-DD)
     let dueDateFormatted = '';
@@ -349,27 +354,30 @@ export default function Debts() {
                   )}
                 </button>
               )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditClick(debt);
-                }}
-                className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
-                disabled={debt.status === 'PAID' || isUpdatingDebt}
-              >
-                <Edit size={14} className="md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Editar</span>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (confirm('Deseja realmente cancelar esta dívida?')) {
-                    cancelDebt(debt.id);
-                  }
-                }}
-                className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
-                disabled={debt.status === 'PAID' || isCancelingDebt}
-              >
+              {/* Apenas o criador pode editar e cancelar */}
+              {(debt.isOwner || debt.userRole === 'owner') && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditClick(debt);
+                    }}
+                    className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
+                    disabled={debt.status === 'PAID' || isUpdatingDebt}
+                  >
+                    <Edit size={14} className="md:w-4 md:h-4" />
+                    <span className="hidden sm:inline">Editar</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm('Deseja realmente cancelar esta dívida?')) {
+                        cancelDebt(debt.id);
+                      }
+                    }}
+                    className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
+                    disabled={debt.status === 'PAID' || isCancelingDebt}
+                  >
                 {isCancelingDebt ? (
                   <>
                     <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
@@ -383,6 +391,8 @@ export default function Debts() {
                   </>
                 )}
               </button>
+                </>
+              )}
             </div>
           </div>
         ))}

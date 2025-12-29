@@ -1,17 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 export default function Login() {
+  const [searchParams] = useSearchParams();
+  const emailFromUrl = searchParams.get('email');
   const [isRegister, setIsRegister] = useState(false);
   const [useEmailAccess, setUseEmailAccess] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const { login, register: registerUser, sendMagicLink, isLoading } = useAuth();
-  const { register, handleSubmit, formState: { errors }, watch } = useForm();
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
   const acceptedTerms = watch('acceptedTerms');
+
+  // Preencher email se vier na URL
+  useEffect(() => {
+    if (emailFromUrl) {
+      setValue('email', emailFromUrl);
+    }
+  }, [emailFromUrl, setValue]);
 
   const onSubmit = async (data: any) => {
     if (useEmailAccess) {
@@ -173,6 +182,11 @@ export default function Login() {
               onClick={() => {
                 setIsRegister(!isRegister);
                 setUseEmailAccess(false);
+                // Manter email preenchido ao alternar entre login e registro
+                const currentEmail = watch('email');
+                if (currentEmail) {
+                  setValue('email', currentEmail);
+                }
               }}
               className="w-full text-sm text-primary-600 hover:underline"
             >
