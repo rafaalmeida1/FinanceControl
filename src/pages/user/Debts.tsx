@@ -55,6 +55,19 @@ export default function Debts() {
   const [helpOpen, setHelpOpen] = useState(false);
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EditDebtFormData>();
 
+  // Função helper para determinar a perspectiva da dívida do ponto de vista do usuário atual
+  const getDebtPerspective = (debt: Debt): boolean => {
+    // Se userRole está definido, usar para determinar perspectiva
+    if (debt.userRole === 'debtor') {
+      return true; // "Eu devo"
+    }
+    if (debt.userRole === 'creditor') {
+      return false; // "Alguém me deve"
+    }
+    // Se é owner ou userRole não está definido, usar isPersonalDebt original
+    return debt.isPersonalDebt ?? false;
+  };
+
   // Passos do walkthrough de ajuda
   const helpSteps: HelpStep[] = [
     {
@@ -259,17 +272,21 @@ export default function Debts() {
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-xl font-bold">{debt.debtorName || debt.debtorEmail}</h3>
+                  <h3 className="text-xl font-bold">
+                    {getDebtPerspective(debt) 
+                      ? (debt.creditorName || debt.creditorEmail || 'Credor não informado')
+                      : (debt.debtorName || debt.debtorEmail)}
+                  </h3>
                   {debt.isPersonalDebt !== undefined && (
-                    <Badge variant={debt.isPersonalDebt ? 'destructive' : 'default'}>
-                      {debt.isPersonalDebt ? 'Eu devo' : 'Alguém me deve'}
+                    <Badge variant={getDebtPerspective(debt) ? 'destructive' : 'default'}>
+                      {getDebtPerspective(debt) ? 'Eu devo' : 'Alguém me deve'}
                     </Badge>
                   )}
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  {debt.isPersonalDebt 
+                  {getDebtPerspective(debt)
                     ? `Credor: ${debt.creditorName || debt.creditorEmail || 'Não informado'}` 
-                    : `Devedor: ${debt.debtorEmail}`}
+                    : `Devedor: ${debt.debtorName || debt.debtorEmail}`}
                 </p>
                 {debt.description && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{debt.description}</p>

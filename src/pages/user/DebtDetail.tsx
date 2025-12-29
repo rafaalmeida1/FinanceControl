@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Charge } from '@/types/api.types';
+import { Charge, Debt } from '@/types/api.types';
 
 export default function DebtDetail() {
   const { id } = useParams<{ id: string }>();
@@ -108,9 +108,23 @@ export default function DebtDetail() {
     );
   }
 
+  // Função helper para determinar a perspectiva da dívida do ponto de vista do usuário atual
+  const getDebtPerspective = (debt: Debt) => {
+    // Se userRole está definido, usar para determinar perspectiva
+    if (debt.userRole === 'debtor') {
+      return true; // "Eu devo"
+    }
+    if (debt.userRole === 'creditor') {
+      return false; // "Alguém me deve"
+    }
+    // Se é owner ou userRole não está definido, usar isPersonalDebt original
+    return debt.isPersonalDebt ?? false;
+  };
+
   const pendingCharges = debt.charges?.filter((c) => c.status === 'PENDING' || c.status === 'OVERDUE') || [];
   const paidCharges = debt.charges?.filter((c) => c.status === 'PAID') || [];
   const totalPending = pendingCharges.reduce((sum, c) => sum + Number(c.amount), 0);
+  const isPersonalDebtFromUserPerspective = getDebtPerspective(debt);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -123,7 +137,7 @@ export default function DebtDetail() {
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">Detalhes da Dívida</h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              {debt.isPersonalDebt ? 'Dívida Pessoal' : 'Dívida de Terceiro'}
+              {isPersonalDebtFromUserPerspective ? 'Dívida Pessoal' : 'Dívida de Terceiro'}
             </p>
           </div>
         </div>
@@ -133,7 +147,7 @@ export default function DebtDetail() {
           <Badge className={getStatusColor(debt.status)}>
             {getStatusLabel(debt.status)}
           </Badge>
-          {debt.isPersonalDebt && (
+          {isPersonalDebtFromUserPerspective && (
             <Badge variant="outline">Pessoal</Badge>
           )}
         </div>
