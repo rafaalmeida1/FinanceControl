@@ -198,25 +198,25 @@ export default function DebtorView() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-2xl font-bold mb-2">{formatCurrency(currentCharge.amount)}</p>
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Vencimento: {formatDateShort(currentCharge.dueDate)}
-                    </p>
-                  </div>
-                  {!debt.useGateway && (
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePayCharge(currentCharge.id);
-                      }}
-                      className="ml-4"
-                    >
-                      <Check className="mr-2 h-4 w-4" />
-                      Pagar Esta
-                    </Button>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-2xl font-bold mb-2">{formatCurrency(currentCharge.amount)}</p>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Vencimento: {formatDateShort(currentCharge.dueDate)}
+                  </p>
+                </div>
+                {!debt.useGateway && (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePayCharge(currentCharge.id);
+                    }}
+                    className="ml-4"
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    Pagar Esta
+                  </Button>
                   )}
                 </div>
 

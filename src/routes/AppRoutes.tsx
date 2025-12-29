@@ -6,6 +6,10 @@ import { RoleRoute } from './RoleRoute';
 import Login from '@/pages/public/Login';
 import MagicLink from '@/pages/public/MagicLink';
 import ResetPassword from '@/pages/public/ResetPassword';
+import ForgotPassword from '@/pages/public/ForgotPassword';
+import VerifyEmail from '@/pages/public/VerifyEmail';
+import TermsOfService from '@/pages/public/TermsOfService';
+import PrivacyPolicy from '@/pages/public/PrivacyPolicy';
 import DebtorView from '@/pages/public/DebtorView';
 import CompiledDebtsView from '@/pages/public/CompiledDebtsView';
 import DisputeDebt from '@/pages/public/DisputeDebt';
@@ -39,6 +43,10 @@ export const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/auth/magic-link/:token" element={<MagicLink />} />
       <Route path="/auth/reset-password/:token" element={<ResetPassword />} />
+      <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+      <Route path="/auth/verify-email/:token" element={<VerifyEmail />} />
+      <Route path="/terms-of-service" element={<TermsOfService />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/debtor/:token" element={<DebtorView />} />
       <Route path="/compiled-debts/:token" element={<CompiledDebtsView />} />
       <Route path="/debtor/:debtId/dispute" element={<DisputeDebt />} />

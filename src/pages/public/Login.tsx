@@ -2,18 +2,31 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
   const [useEmailAccess, setUseEmailAccess] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const { login, register: registerUser, sendMagicLink, isLoading } = useAuth();
-  const { register, handleSubmit } = useForm();
+  const { register, handleSubmit, formState: { errors }, watch } = useForm();
+  const acceptedTerms = watch('acceptedTerms');
 
-  const onSubmit = (data: any) => {
+  const onSubmit = async (data: any) => {
     if (useEmailAccess) {
       sendMagicLink(data.email);
     } else if (isRegister) {
-      registerUser({ email: data.email, password: data.password, name: data.name });
+      if (!data.acceptedTerms) {
+        toast.error('Você deve aceitar os termos de uso e política de privacidade');
+        return;
+      }
+      try {
+        await registerUser({ email: data.email, password: data.password, name: data.name });
+        setRegistrationSuccess(true);
+      } catch (error) {
+        // Erro já é tratado no hook
+      }
     } else {
       login({ email: data.email, password: data.password });
     }
@@ -32,45 +45,115 @@ export default function Login() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {isRegister && (
-              <div>
-                <label className="label">Nome (opcional)</label>
-                <input {...register('name')} className="input" placeholder="Seu nome" />
+          {registrationSuccess ? (
+            <div className="text-center py-8">
+              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               </div>
-            )}
-
-            <div>
-              <label className="label">Email</label>
-              <input
-                {...register('email', { required: true })}
-                type="email"
-                className="input"
-                placeholder="seu@email.com"
-              />
+              <h2 className="text-xl font-bold mb-2">Conta criada com sucesso!</h2>
+              <p className="text-muted-foreground mb-4">
+                Enviamos um email de verificação para você. Por favor, verifique sua caixa de entrada e clique no link para ativar sua conta.
+              </p>
+              <button
+                onClick={() => {
+                  setRegistrationSuccess(false);
+                  setIsRegister(false);
+                }}
+                className="btn-primary w-full"
+              >
+                Voltar para o login
+              </button>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {isRegister && (
+                <div>
+                  <label className="label">Nome (opcional)</label>
+                  <input {...register('name')} className="input" placeholder="Seu nome" />
+                </div>
+              )}
 
-            {!useEmailAccess && (
               <div>
-                <label className="label">Senha</label>
+                <label className="label">Email</label>
                 <input
-                  {...register('password', { required: !useEmailAccess })}
-                  type="password"
+                  {...register('email', {
+                    required: 'Email é obrigatório',
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: 'Email inválido',
+                    },
+                  })}
+                  type="email"
                   className="input"
-                  placeholder="••••••••"
+                  placeholder="seu@email.com"
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-500 mt-1">{errors.email.message as string}</p>
+                )}
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-            >
-              {isLoading && <Loader2 className="animate-spin" size={20} />}
-              {useEmailAccess ? 'Enviar Link de Acesso' : isRegister ? 'Criar Conta' : 'Entrar'}
-            </button>
-          </form>
+              {!useEmailAccess && (
+                <div>
+                  <label className="label">Senha</label>
+                  <input
+                    {...register('password', {
+                      required: 'Senha é obrigatória',
+                      minLength: {
+                        value: 6,
+                        message: 'Senha deve ter pelo menos 6 caracteres',
+                      },
+                    })}
+                    type="password"
+                    className="input"
+                    placeholder="••••••••"
+                  />
+                  {errors.password && (
+                    <p className="text-sm text-red-500 mt-1">{errors.password.message as string}</p>
+                  )}
+                </div>
+              )}
+
+              {isRegister && (
+                <div className="flex items-start gap-2">
+                  <input
+                    {...register('acceptedTerms', { required: true })}
+                    type="checkbox"
+                    id="acceptedTerms"
+                    className="mt-1"
+                  />
+                  <label htmlFor="acceptedTerms" className="text-sm text-muted-foreground">
+                    Eu aceito os{' '}
+                    <Link to="/terms-of-service" target="_blank" className="text-primary hover:underline">
+                      Termos de Uso
+                    </Link>
+                    {' '}e a{' '}
+                    <Link to="/privacy-policy" target="_blank" className="text-primary hover:underline">
+                      Política de Privacidade
+                    </Link>
+                  </label>
+                </div>
+              )}
+
+              {!isRegister && !useEmailAccess && (
+                <div className="text-right">
+                  <Link to="/auth/forgot-password" className="text-sm text-primary-600 hover:underline">
+                    Esqueci minha senha
+                  </Link>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoading || (isRegister && !acceptedTerms)}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                {isLoading && <Loader2 className="animate-spin" size={20} />}
+                {useEmailAccess ? 'Enviar Link de Acesso' : isRegister ? 'Criar Conta' : 'Entrar'}
+              </button>
+            </form>
+          )}
 
           <div className="mt-6 space-y-4">
             <div className="flex items-center">

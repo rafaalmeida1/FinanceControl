@@ -7,12 +7,25 @@ export const debtsService = {
     return response.data;
   },
 
-  getAll: async (params?: { status?: string; search?: string; type?: 'personal' | 'third-party' | 'all'; archived?: boolean }): Promise<Debt[]> => {
+  getAll: async (params?: {
+    status?: string;
+    search?: string;
+    type?: 'personal' | 'third-party' | 'all';
+    archived?: boolean;
+    startDate?: string;
+    endDate?: string;
+    month?: number;
+    year?: number;
+  }): Promise<Debt[]> => {
     const queryParams: any = {};
     if (params?.status) queryParams.status = params.status;
     if (params?.search) queryParams.search = params.search;
     if (params?.type && params.type !== 'all') queryParams.type = params.type;
     if (params?.archived !== undefined) queryParams.archived = params.archived;
+    if (params?.startDate) queryParams.startDate = params.startDate;
+    if (params?.endDate) queryParams.endDate = params.endDate;
+    if (params?.month) queryParams.month = params.month;
+    if (params?.year) queryParams.year = params.year;
     const response = await api.get('/debts', { params: queryParams });
     return response.data;
   },

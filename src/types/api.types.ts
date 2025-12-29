@@ -64,6 +64,8 @@ export interface Debt {
     keyValue: string;
     label: string;
   };
+  isOwner?: boolean;
+  userRole?: 'debtor' | 'creditor' | 'owner';
 }
 
 // Charge types
