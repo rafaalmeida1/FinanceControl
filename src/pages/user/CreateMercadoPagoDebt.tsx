@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, User, CreditCard, FileText, Loader2, Calendar, Repeat } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, User, CreditCard, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authStore } from '@/stores/authStore';
 import { useDebts } from '@/hooks/useDebts';
@@ -69,8 +69,6 @@ export default function CreateMercadoPagoDebt() {
   const paymentType = watch('paymentType');
   const totalAmount = watch('totalAmount');
   const installments = watch('installments') || 1;
-  const subscriptionName = watch('subscriptionName');
-  const durationMonths = watch('durationMonths');
 
   // Passos do walkthrough de ajuda
   const helpSteps: HelpStep[] = [
