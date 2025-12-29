@@ -654,7 +654,7 @@ export default function CreateDebt() {
                               message: 'Email inválido'
                             }
                           });
-                          field.onBlur();
+                          field.onBlur({ target: { name: 'debtorEmail' } } as any);
                         }}
                         error={errors.debtorEmail?.message}
                         placeholder="exemplo@email.com"
@@ -696,7 +696,7 @@ export default function CreateDebt() {
                                   message: 'Email inválido'
                                 }
                               });
-                              field.onBlur();
+                              field.onBlur({ target: { name: 'creditorEmail' } } as any);
                             }}
                             error={errors.creditorEmail?.message}
                             placeholder="credor@email.com"
