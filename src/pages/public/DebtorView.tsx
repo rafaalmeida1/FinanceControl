@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { debtorAccessService } from '@/services/debtor-access.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Calendar, DollarSign, FileText, Check, Copy } from 'lucide-react';
+import { Calendar, DollarSign, FileText, Check, Copy, ExternalLink, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,17 @@ export default function DebtorView() {
   const handleCopyPixKey = (key: string) => {
     navigator.clipboard.writeText(key);
     toast.success('Chave PIX copiada!');
+  };
+
+  const handleCopyQrCode = (qrCode: string) => {
+    // Se for base64, extrair apenas o código PIX (se houver)
+    // Por enquanto, copiar o QR code completo
+    navigator.clipboard.writeText(qrCode);
+    toast.success('QR Code copiado!');
+  };
+
+  const handleOpenPaymentLink = (link: string) => {
+    window.open(link, '_blank');
   };
 
   const handlePayCharge = (chargeId: string) => {
@@ -186,25 +197,73 @@ export default function DebtorView() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-2xl font-bold mb-2">{formatCurrency(currentCharge.amount)}</p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Vencimento: {formatDateShort(currentCharge.dueDate)}
-                  </p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-2xl font-bold mb-2">{formatCurrency(currentCharge.amount)}</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Vencimento: {formatDateShort(currentCharge.dueDate)}
+                    </p>
+                  </div>
+                  {!debt.useGateway && (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePayCharge(currentCharge.id);
+                      }}
+                      className="ml-4"
+                    >
+                      <Check className="mr-2 h-4 w-4" />
+                      Pagar Esta
+                    </Button>
+                  )}
                 </div>
-                {!debt.useGateway && (
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePayCharge(currentCharge.id);
-                    }}
-                    className="ml-4"
-                  >
-                    <Check className="mr-2 h-4 w-4" />
-                    Pagar Esta
-                  </Button>
+
+                {/* Mercado Pago - Botão e QR Code */}
+                {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
+                  <div className="space-y-4 pt-4 border-t">
+                    {currentCharge.mercadoPagoQrCode && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold flex items-center gap-2">
+                            <QrCode className="h-5 w-5" />
+                            QR Code PIX
+                          </h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyQrCode(currentCharge.mercadoPagoQrCode!)}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copiar QR Code
+                          </Button>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border-2 border-dashed border-primary/20 flex justify-center">
+                          <img
+                            src={`data:image/png;base64,${currentCharge.mercadoPagoQrCode}`}
+                            alt="QR Code PIX"
+                            className="max-w-[250px] w-full"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Escaneie o QR Code com o app do seu banco para pagar
+                        </p>
+                      </div>
+                    )}
+                    {currentCharge.mercadoPagoPaymentLink && (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleOpenPaymentLink(currentCharge.mercadoPagoPaymentLink!)}
+                          className="flex-1"
+                          size="lg"
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Pagar via Mercado Pago
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -273,6 +332,36 @@ export default function DebtorView() {
                             <Check className="mr-2 h-4 w-4" />
                             Pagar Esta
                           </Button>
+                        )}
+                        {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
+                          <div className="flex flex-col gap-2">
+                            {charge.mercadoPagoPaymentLink && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenPaymentLink(charge.mercadoPagoPaymentLink!);
+                                }}
+                              >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Pagar
+                              </Button>
+                            )}
+                            {charge.mercadoPagoQrCode && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyQrCode(charge.mercadoPagoQrCode!);
+                                }}
+                              >
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copiar QR
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </Label>

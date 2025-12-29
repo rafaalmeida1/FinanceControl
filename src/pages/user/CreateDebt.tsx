@@ -1233,73 +1233,73 @@ export default function CreateDebt() {
                   ) : (
                     // Quando não for PIX manual, mostrar opções de gateway
                     <>
-                      <div className="space-y-3">
-                        <Label className="text-base">Forma de Pagamento</Label>
-                        <Card className={cn(
-                          'cursor-pointer transition-all hover:border-primary',
-                          useGateway && 'border-primary'
-                        )}>
-                          <CardContent className="pt-6">
-                            <label className="flex items-start gap-3 cursor-pointer">
-                              <input 
-                                type="radio" 
-                                value="true"
-                                {...register('useGateway')}
-                                className="mt-1"
-                              />
-                              <div className="flex-1">
-                                <div className="font-semibold">Pagamento Online (Recomendado)</div>
-                                <p className="text-sm text-muted-foreground">
-                                  O devedor receberá um link para pagar com cartão, PIX ou boleto
-                                </p>
-                              </div>
-                            </label>
-                          </CardContent>
-                        </Card>
+                  <div className="space-y-3">
+                    <Label className="text-base">Forma de Pagamento</Label>
+                    <Card className={cn(
+                      'cursor-pointer transition-all hover:border-primary',
+                      useGateway && 'border-primary'
+                    )}>
+                      <CardContent className="pt-6">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            value="true"
+                            {...register('useGateway')}
+                            className="mt-1"
+                          />
+                          <div className="flex-1">
+                            <div className="font-semibold">Pagamento Online (Recomendado)</div>
+                            <p className="text-sm text-muted-foreground">
+                              O devedor receberá um link para pagar com cartão, PIX ou boleto
+                            </p>
+                          </div>
+                        </label>
+                      </CardContent>
+                    </Card>
 
-                        <Card className={cn(
-                          'cursor-pointer transition-all hover:border-primary',
-                          !useGateway && 'border-primary'
-                        )}>
-                          <CardContent className="pt-6">
-                            <label className="flex items-start gap-3 cursor-pointer">
-                              <input 
-                                type="radio" 
-                                value="false"
-                                {...register('useGateway')}
-                                className="mt-1"
-                              />
-                              <div className="flex-1">
+                    <Card className={cn(
+                      'cursor-pointer transition-all hover:border-primary',
+                      !useGateway && 'border-primary'
+                    )}>
+                      <CardContent className="pt-6">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            value="false"
+                            {...register('useGateway')}
+                            className="mt-1"
+                          />
+                          <div className="flex-1">
                                 <div className="font-semibold">Pagamento por PIX</div>
-                                <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                                   Registrar a dívida para receber ou pagar via PIX manual
-                                </p>
-                              </div>
-                            </label>
-                          </CardContent>
-                        </Card>
-                      </div>
+                            </p>
+                          </div>
+                        </label>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-                      {useGateway && (
-                        <div className="animate-fade-in space-y-3">
-                          <Label className="text-base">Gateway de Pagamento</Label>
-                          <Card className="border-primary">
-                            <CardContent className="pt-6">
-                              <label className="flex items-center gap-3 cursor-pointer">
-                                <input 
-                                  type="radio" 
-                                  value="MERCADOPAGO"
-                                  {...register('preferredGateway')}
-                                  defaultChecked
-                                />
-                                <div>
-                                  <div className="font-semibold">Mercado Pago</div>
-                                  <p className="text-xs text-muted-foreground">PIX, Cartão e Boleto</p>
-                                </div>
-                              </label>
-                            </CardContent>
-                          </Card>
-                        </div>
+                  {useGateway && (
+                    <div className="animate-fade-in space-y-3">
+                      <Label className="text-base">Gateway de Pagamento</Label>
+                      <Card className="border-primary">
+                        <CardContent className="pt-6">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input 
+                              type="radio" 
+                              value="MERCADOPAGO"
+                              {...register('preferredGateway')}
+                              defaultChecked
+                            />
+                            <div>
+                              <div className="font-semibold">Mercado Pago</div>
+                              <p className="text-xs text-muted-foreground">PIX, Cartão e Boleto</p>
+                            </div>
+                          </label>
+                        </CardContent>
+                      </Card>
+                    </div>
                       )}
                     </>
                   )}

@@ -84,6 +84,9 @@ export interface Charge {
   paidAt?: string;
   createdAt: string;
   updatedAt: string;
+  // Mercado Pago fields
+  mercadoPagoPaymentLink?: string;
+  mercadoPagoQrCode?: string;
   debt?: Partial<Debt>;
   account?: Partial<Account>;
   payments?: Payment[];
