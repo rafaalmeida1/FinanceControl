@@ -80,16 +80,13 @@ export const notificationsStore = create<NotificationsState>((set) => ({
     const socket = getSocket();
 
     if (!socket) {
-      console.warn('[NotificationsStore] Socket não está disponível, tentando conectar...');
       const newSocket = connectSocket();
       if (!newSocket) {
-        console.error('[NotificationsStore] Não foi possível conectar ao socket');
         return;
       }
       // Se o socket ainda não está conectado, aguardar conexão
       if (!newSocket.connected) {
         newSocket.once('connect', () => {
-          console.log('[NotificationsStore] Socket conectado, registrando listeners');
           registerListeners(newSocket);
         });
         return;
@@ -103,7 +100,6 @@ export const notificationsStore = create<NotificationsState>((set) => ({
       registerListeners(socket);
     } else {
       socket.once('connect', () => {
-        console.log('[NotificationsStore] Socket conectado, registrando listeners');
         registerListeners(socket);
       });
     }
