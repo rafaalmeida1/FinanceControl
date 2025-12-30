@@ -93,7 +93,7 @@ export default function CreateDebt() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringInterval, setRecurringInterval] = useState<'MONTHLY' | 'WEEKLY' | 'BIWEEKLY'>('MONTHLY');
   const [recurringDay, setRecurringDay] = useState<number>(1);
-  const [debtStatus, setDebtStatus] = useState<'PENDING' | 'IN_PROGRESS'>('PENDING');
+  const [debtStatus, setDebtStatus] = useState<'PENDING' | 'PARTIAL'>('PENDING');
 
   const totalSteps = 4; // 0: Método de pagamento, 1: Informações, 2: Valores, 3: Revisão
 
@@ -204,7 +204,7 @@ export default function CreateDebt() {
         isRecurring,
         recurringInterval: isRecurring ? recurringInterval : undefined,
         recurringDay: isRecurring ? recurringDay : undefined,
-        isInProgress: debtStatus === 'IN_PROGRESS',
+        isInProgress: debtStatus === 'PARTIAL',
       };
 
       if (!data.useGateway && selectedPixKeyId && selectedPixKeyId !== 'new') {
@@ -668,14 +668,14 @@ export default function CreateDebt() {
                       </div>
                       <Select
                         value={debtStatus}
-                        onValueChange={(value: 'PENDING' | 'IN_PROGRESS') => setDebtStatus(value)}
+                        onValueChange={(value: 'PENDING' | 'PARTIAL') => setDebtStatus(value)}
                       >
                         <SelectTrigger className="w-[180px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="PENDING">Pendente</SelectItem>
-                          <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
+                          <SelectItem value="PARTIAL">Em Andamento</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -888,8 +888,8 @@ export default function CreateDebt() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Status:</span>
-                      <Badge variant={debtStatus === 'IN_PROGRESS' ? 'default' : 'secondary'}>
-                        {debtStatus === 'IN_PROGRESS' ? 'Em Andamento' : 'Pendente'}
+                      <Badge variant={debtStatus === 'PARTIAL' ? 'default' : 'secondary'}>
+                        {debtStatus === 'PARTIAL' ? 'Em Andamento' : 'Pendente'}
                       </Badge>
                     </div>
                     {isRecurring && (
