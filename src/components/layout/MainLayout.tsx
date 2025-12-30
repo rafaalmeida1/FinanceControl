@@ -14,7 +14,6 @@ import {
   LogOut,
   PlayCircle,
   Shield,
-  Layers,
   Clock
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
@@ -43,19 +42,17 @@ interface MainLayoutProps {
 const userNavigation = [
   { name: 'Início', href: '/dashboard', icon: Home },
   { name: 'Dívidas', href: '/debts', icon: FileText },
-  { name: 'Dívidas Compiladas', href: '/debts/compiled', icon: Layers },
+  { name: 'Carteiras', href: '/wallets', icon: Wallet },
   { name: 'Cobranças', href: '/charges', icon: Receipt },
-  { name: 'Contas', href: '/accounts', icon: Wallet },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
 const adminNavigation = [
   { name: 'Início', href: '/dashboard', icon: Home },
   { name: 'Dívidas', href: '/debts', icon: FileText },
-  { name: 'Dívidas Compiladas', href: '/debts/compiled', icon: Layers },
+  { name: 'Carteiras', href: '/wallets', icon: Wallet },
   { name: 'Cobranças', href: '/charges', icon: Receipt },
   { name: 'Atividade', href: '/activity', icon: Clock },
-  { name: 'Contas', href: '/accounts', icon: Wallet },
   { name: 'Admin', href: '/admin', icon: Shield },
   { name: 'Rotinas', href: '/admin/jobs', icon: PlayCircle },
   { name: 'Configurações', href: '/settings', icon: Settings },
@@ -66,22 +63,27 @@ function SidebarContent() {
   const navigation = user?.role === 'ADMIN' ? adminNavigation : userNavigation;
   
   return (
-    <nav className="space-y-1">
+    <nav className="space-y-1 p-2">
       {navigation.map((item) => (
         <NavLink
           key={item.name}
           to={item.href}
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+              'flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all group',
               isActive
-                ? 'bg-accent text-accent-foreground'
-                : 'hover:bg-accent hover:text-accent-foreground'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'hover:bg-accent hover:text-accent-foreground text-muted-foreground'
             )
           }
         >
-          <item.icon className="h-5 w-5" />
-          {item.name}
+          <div className="flex items-center gap-3">
+            <item.icon className={cn(
+              'h-5 w-5 transition-transform',
+              'group-hover:scale-110'
+            )} />
+            <span>{item.name}</span>
+          </div>
         </NavLink>
       ))}
     </nav>
@@ -210,14 +212,19 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
       <div className="flex">
         {/* Sidebar Desktop - Fixed */}
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-60 lg:flex-col lg:border-r lg:pt-16">
-          <nav className="flex-1 p-4">
-            <SidebarContent />
-          </nav>
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-background/95 lg:backdrop-blur supports-[backdrop-filter]:lg:bg-background/60 lg:pt-16">
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b">
+              <h2 className="text-lg font-semibold">Menu</h2>
+            </div>
+            <nav className="flex-1 overflow-y-auto">
+              <SidebarContent />
+            </nav>
+          </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 lg:pl-60 pt-0 pb-16 md:pb-0 overflow-x-hidden">
+        <main className="flex-1 lg:pl-64 pt-0 pb-20 md:pb-6 lg:pb-8 overflow-x-hidden">
           <div className="container py-4 md:py-6 lg:py-8 px-4 md:px-6 max-w-full">{children}</div>
         </main>
       </div>

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import { chargesService } from '@/services/charges.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode } from 'lucide-react';
+import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,12 +19,14 @@ import {
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Charge, Debt } from '@/types/api.types';
+import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
 
 export default function DebtDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; charge?: Charge; allCharges?: boolean }>({ open: false });
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const { data: debt, isLoading } = useQuery({
     queryKey: ['debt', id],
@@ -136,78 +138,96 @@ export default function DebtDetail() {
   const isPersonalDebtFromUserPerspective = getDebtPerspective(debt);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+    <div className="min-h-screen bg-background pb-20 md:pb-6">
+      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/debts')}>
+        <div className="flex items-center gap-3 md:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/debts')} className="shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">Detalhes da Dívida</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold truncate">Detalhes da Dívida</h1>
+            <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
               {isPersonalDebtFromUserPerspective ? 'Dívida Pessoal' : 'Dívida de Terceiro'}
             </p>
           </div>
         </div>
 
-        {/* Status Badge */}
-        <div className="flex items-center gap-2">
-          <Badge className={getStatusColor(debt.status)}>
-            {getStatusLabel(debt.status)}
-          </Badge>
-          {isPersonalDebtFromUserPerspective && (
-            <Badge variant="outline">Pessoal</Badge>
+        {/* Status Badge e Ações */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className={getStatusColor(debt.status)}>
+              {getStatusLabel(debt.status)}
+            </Badge>
+            {isPersonalDebtFromUserPerspective && (
+              <Badge variant="outline">Pessoal</Badge>
+            )}
+            {(debt as any).isRecurring && (debt as any).recurringStatus === 'ACTIVE' && (
+              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
+                Assinatura Ativa
+              </Badge>
+            )}
+          </div>
+          {(debt as any).isRecurring && (debt as any).recurringStatus === 'ACTIVE' && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setCancelDialogOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Cancelar Assinatura
+            </Button>
           )}
         </div>
 
         {/* Main Info Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
                 Valor Total
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(debt.totalAmount)}</p>
+              <p className="text-lg md:text-xl lg:text-2xl font-bold break-words">{formatCurrency(debt.totalAmount)}</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-600" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <Check className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
                 Valor Pago
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(debt.paidAmount || 0)}</p>
+              <p className="text-lg md:text-xl lg:text-2xl font-bold text-green-600 break-words">{formatCurrency(debt.paidAmount || 0)}</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-orange-600" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <DollarSign className="h-3 w-3 md:h-4 md:w-4 text-orange-600" />
                 A Receber
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalPending)}</p>
+              <p className="text-lg md:text-xl lg:text-2xl font-bold text-orange-600 break-words">{formatCurrency(totalPending)}</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <FileText className="h-4 w-4" />
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1 md:gap-2">
+                <FileText className="h-3 w-3 md:h-4 md:w-4" />
                 Parcelas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">
+              <p className="text-lg md:text-xl lg:text-2xl font-bold">
                 {debt.charges?.length || 0} / {debt.installments || 1}
               </p>
             </CardContent>
@@ -436,7 +456,7 @@ export default function DebtDetail() {
                       <Button
                         onClick={() => handlePayCharge(charge)}
                         disabled={markChargePaidMutation.isPending}
-                        className="w-full sm:w-auto flex-shrink-0"
+                        className="w-full"
                       >
                         {markChargePaidMutation.isPending ? (
                           <>
@@ -452,13 +472,13 @@ export default function DebtDetail() {
                       </Button>
                     )}
                     {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
-                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      <div className="flex flex-col gap-2 w-full">
                         {charge.mercadoPagoPaymentLink && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenPaymentLink(charge.mercadoPagoPaymentLink!)}
-                            className="flex-1 sm:flex-initial"
+                            className="w-full"
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Pagar
@@ -469,7 +489,7 @@ export default function DebtDetail() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleCopyQrCode(charge.mercadoPagoQrCode!)}
-                            className="flex-1 sm:flex-initial"
+                            className="w-full"
                           >
                             <Copy className="h-4 w-4 mr-2" />
                             Copiar QR
@@ -572,10 +592,25 @@ export default function DebtDetail() {
                 'Confirmar Pagamento'
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Cancelamento de Assinatura */}
+        {(debt as any).isRecurring && (
+          <CancelRecurringModal
+            open={cancelDialogOpen}
+            onOpenChange={setCancelDialogOpen}
+            debtId={debt.id}
+            debtDescription={debt.description || 'Assinatura recorrente'}
+            isMercadoPago={debt.useGateway && debt.preferredGateway === 'MERCADOPAGO'}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['debt', id] });
+              queryClient.invalidateQueries({ queryKey: ['debts'] });
+            }}
+          />
+        )}
+      </div>
+    );
+  }
 

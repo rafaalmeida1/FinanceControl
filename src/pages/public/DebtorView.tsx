@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { debtorAccessService } from '@/services/debtor-access.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Calendar, DollarSign, FileText, Check, Copy, ExternalLink, QrCode } from 'lucide-react';
+import { Calendar, DollarSign, FileText, Check, Copy, ExternalLink, QrCode, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +10,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
+import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
 
 export default function DebtorView() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [selectedCharges, setSelectedCharges] = useState<Set<string>>(new Set());
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['debtor-debt', token],
@@ -406,6 +408,45 @@ export default function DebtorView() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Botão de Cancelar Assinatura (se for recorrente) */}
+        {debt.isRecurring && debt.recurringStatus === 'ACTIVE' && (
+          <Card className="mt-6 border-destructive/50">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold mb-1">Assinatura Recorrente Ativa</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Esta é uma assinatura recorrente. Você pode cancelá-la a qualquer momento.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => setCancelDialogOpen(true)}
+                  className="w-full sm:w-auto"
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancelar Assinatura
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Modal de Cancelamento de Assinatura */}
+        {debt.isRecurring && (
+          <CancelRecurringModal
+            open={cancelDialogOpen}
+            onOpenChange={setCancelDialogOpen}
+            debtId={debt.id}
+            debtDescription={debt.description || 'Assinatura recorrente'}
+            isMercadoPago={debt.useGateway && debt.preferredGateway === 'MERCADOPAGO'}
+            onSuccess={() => {
+              // Recarregar dados da dívida
+              window.location.reload();
+            }}
+          />
         )}
       </div>
     </div>

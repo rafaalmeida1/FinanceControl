@@ -20,6 +20,9 @@ import {
 import { cn } from '@/lib/utils';
 import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
 import { HelpIconButton } from '@/components/help/HelpIconButton';
+import { EmailAutocomplete } from '@/components/ui/email-autocomplete';
+import { DuplicateDebtWarning, DuplicateDebt } from '@/components/debt/DuplicateDebtWarning';
+import { debtsService } from '@/services/debts.service';
 
 interface MercadoPagoDebtFormData {
   // Passo 1: Informações Básicas
@@ -52,7 +55,7 @@ export default function CreateMercadoPagoDebt() {
   const navigate = useNavigate();
   const { createDebt, isCreatingDebt } = useDebts();
   const { user } = authStore();
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<MercadoPagoDebtFormData>({
+  const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<MercadoPagoDebtFormData>({
     defaultValues: {
       installments: 1,
       paymentType: 'INSTALLMENT',
@@ -64,6 +67,8 @@ export default function CreateMercadoPagoDebt() {
   const [isPersonalDebt, setIsPersonalDebt] = useState(false);
   const [isPersonalDebtForMyself, setIsPersonalDebtForMyself] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [duplicates, setDuplicates] = useState<DuplicateDebt[]>([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const totalSteps = 3;
 
   const paymentType = watch('paymentType');
@@ -136,6 +141,24 @@ export default function CreateMercadoPagoDebt() {
       finalDebtorName = data.debtorName || undefined;
       finalCreditorEmail = user?.email;
       finalCreditorName = user?.name || undefined;
+    }
+
+    // Verificar duplicatas antes de criar
+    try {
+      const duplicateCheck = await debtsService.checkDuplicates({
+        debtorEmail: finalDebtorEmail,
+        creditorEmail: finalCreditorEmail || user?.email,
+        totalAmount: Number(data.totalAmount),
+        description: data.description.trim(),
+      });
+
+      if (duplicateCheck && duplicateCheck.length > 0) {
+        setDuplicates(duplicateCheck);
+        setShowDuplicateWarning(true);
+        return;
+      }
+    } catch (error) {
+      console.error('Erro ao verificar duplicatas:', error);
     }
 
     // Preparar payload
@@ -362,18 +385,31 @@ export default function CreateMercadoPagoDebt() {
                 <div className="grid md:grid-cols-2 gap-4">
                   {!isPersonalDebt ? (
                     <>
-                      <div>
-                        <Label htmlFor="debtorEmail">Email do Devedor *</Label>
-                        <Input
-                          id="debtorEmail"
-                          type="email"
-                          {...register('debtorEmail', { required: 'Email do devedor é obrigatório' })}
-                          placeholder="devedor@example.com"
-                        />
-                        {errors.debtorEmail && (
-                          <p className="text-sm text-destructive mt-1">{errors.debtorEmail.message}</p>
-                        )}
-                      </div>
+                      {/* Campo oculto para validação */}
+                      <input
+                        type="hidden"
+                        {...register('debtorEmail', {
+                          required: 'Email do devedor é obrigatório',
+                          pattern: {
+                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                            message: 'Email inválido'
+                          }
+                        })}
+                      />
+                      <EmailAutocomplete
+                        id="debtorEmail"
+                        label="Email do Devedor"
+                        value={watch('debtorEmail') || ''}
+                        onChange={(value) => {
+                          setValue('debtorEmail', value, { shouldValidate: true });
+                        }}
+                        onBlur={() => {
+                          trigger('debtorEmail');
+                        }}
+                        error={errors.debtorEmail?.message}
+                        placeholder="devedor@example.com"
+                        required
+                      />
                       <div>
                         <Label htmlFor="debtorName">Nome do Devedor</Label>
                         <Input
@@ -408,18 +444,31 @@ export default function CreateMercadoPagoDebt() {
                       </div>
                       {!isPersonalDebtForMyself && (
                         <>
-                          <div>
-                            <Label htmlFor="creditorEmail">Email do Credor *</Label>
-                            <Input
-                              id="creditorEmail"
-                              type="email"
-                              {...register('creditorEmail', { required: !isPersonalDebtForMyself ? 'Email do credor é obrigatório' : false })}
-                              placeholder="credor@example.com"
-                            />
-                            {errors.creditorEmail && (
-                              <p className="text-sm text-destructive mt-1">{errors.creditorEmail.message}</p>
-                            )}
-                          </div>
+                          {/* Campo oculto para validação */}
+                          <input
+                            type="hidden"
+                            {...register('creditorEmail', {
+                              required: !isPersonalDebtForMyself ? 'Email do credor é obrigatório' : false,
+                              pattern: {
+                                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                message: 'Email inválido'
+                              }
+                            })}
+                          />
+                          <EmailAutocomplete
+                            id="creditorEmail"
+                            label="Email do Credor (para quem você deve)"
+                            value={watch('creditorEmail') || ''}
+                            onChange={(value) => {
+                              setValue('creditorEmail', value, { shouldValidate: true });
+                            }}
+                            onBlur={() => {
+                              trigger('creditorEmail');
+                            }}
+                            error={errors.creditorEmail?.message}
+                            placeholder="credor@example.com"
+                            required={!isPersonalDebtForMyself}
+                          />
                           <div>
                             <Label htmlFor="creditorName">Nome do Credor</Label>
                             <Input
@@ -779,6 +828,104 @@ export default function CreateMercadoPagoDebt() {
           </CardContent>
         </Card>
       </form>
+
+      {/* Modal de Aviso de Duplicatas */}
+      <DuplicateDebtWarning
+        open={showDuplicateWarning}
+        onOpenChange={setShowDuplicateWarning}
+        duplicates={duplicates}
+        onResponse={async (action) => {
+          if (action === 'cancel') {
+            setShowDuplicateWarning(false);
+            setDuplicates([]);
+            return;
+          }
+          
+          if (action === 'edit') {
+            setShowDuplicateWarning(false);
+            setDuplicates([]);
+            // Redirecionar para editar a dívida mais similar
+            if (duplicates.length > 0) {
+              navigate(`/debts/${duplicates[0].id}`);
+            }
+            return;
+          }
+
+          // action === 'create' - continuar com a criação
+          setShowDuplicateWarning(false);
+          const formData = watch();
+          // Recalcular dados finais
+          let finalCreditorEmail: string | undefined;
+          let finalCreditorName: string | undefined;
+          let finalDebtorEmail: string;
+          let finalDebtorName: string | undefined;
+
+          if (isPersonalDebt) {
+            finalDebtorEmail = user?.email || '';
+            finalDebtorName = user?.name || undefined;
+            finalCreditorEmail = isPersonalDebtForMyself 
+              ? user?.email 
+              : (formData.creditorEmail || undefined);
+            finalCreditorName = isPersonalDebtForMyself
+              ? user?.name || undefined
+              : (formData.creditorName || undefined);
+          } else {
+            finalDebtorEmail = formData.debtorEmail;
+            finalDebtorName = formData.debtorName || undefined;
+            finalCreditorEmail = user?.email;
+            finalCreditorName = user?.name || undefined;
+          }
+
+          let dueDate: string | undefined = undefined;
+          if (formData.dueDate) {
+            try {
+              const [year, month, day] = String(formData.dueDate).split('-');
+              const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59));
+              dueDate = date.toISOString();
+            } catch (error) {
+              // Ignorar erro de data
+            }
+          }
+
+          // Recriar payload e chamar createDebt diretamente
+          const payload: any = {
+            debtorEmail: finalDebtorEmail,
+            debtorName: finalDebtorName,
+            creditorEmail: finalCreditorEmail,
+            creditorName: finalCreditorName,
+            description: formData.description.trim(),
+            totalAmount: Number(formData.totalAmount),
+            dueDate,
+            useGateway: true,
+            preferredGateway: 'MERCADOPAGO',
+            mercadoPagoPaymentType: formData.paymentType,
+            isPersonalDebt,
+          };
+
+          if (formData.paymentType === 'INSTALLMENT') {
+            payload.installments = formData.installments || 1;
+            payload.installmentConfig = {
+              interval: formData.installmentInterval || 'MONTHLY',
+              intervalCount: 1,
+            };
+          } else if (formData.paymentType === 'RECURRING_PIX' || formData.paymentType === 'RECURRING_CARD') {
+            payload.recurringConfig = {
+              subscriptionName: formData.subscriptionName || `${formData.description} - ${finalDebtorName || finalDebtorEmail}`,
+              durationMonths: formData.durationMonths || null,
+            };
+          }
+
+          await createDebt(payload, {
+            onSuccess: () => {
+              toast.success('Dívida criada com sucesso!');
+              navigate('/debts');
+            },
+            onError: (error: any) => {
+              toast.error(error?.response?.data?.message || 'Erro ao criar dívida');
+            },
+          });
+        }}
+      />
     </div>
   );
 }

@@ -25,13 +25,13 @@ import Charges from '@/pages/user/Charges';
 import CreateDebt from '@/pages/user/CreateDebt';
 import CreateMercadoPagoDebt from '@/pages/user/CreateMercadoPagoDebt';
 import Settings from '@/pages/user/Settings';
-import Accounts from '@/pages/user/Accounts';
-import CreateAccount from '@/pages/user/CreateAccount';
 import MercadoPagoCallback from '@/pages/settings/MercadoPagoCallback';
 import CompiledDebts from '@/pages/user/CompiledDebts';
 import DebtDetail from '@/pages/user/DebtDetail';
 import Activity from '@/pages/user/Activity';
 import Savings from '@/pages/user/Savings';
+import Wallets from '@/pages/user/Wallets';
+import FinancialOnboarding from '@/pages/onboarding/FinancialOnboarding';
 
 // Admin pages
 import AdminDashboard from '@/pages/admin/Dashboard';
@@ -138,22 +138,6 @@ export const AppRoutes = () => {
         }
       />
       <Route
-        path="/accounts"
-        element={
-          <PrivateRoute>
-            <Accounts />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/accounts/new"
-        element={
-          <PrivateRoute>
-            <CreateAccount />
-          </PrivateRoute>
-        }
-      />
-      <Route
         path="/debts/compiled"
         element={
           <PrivateRoute>
@@ -166,6 +150,22 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <Savings />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/wallets"
+        element={
+          <PrivateRoute>
+            <Wallets />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          <PrivateRoute>
+            <FinancialOnboarding />
           </PrivateRoute>
         }
       />

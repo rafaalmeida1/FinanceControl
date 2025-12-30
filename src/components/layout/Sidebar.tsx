@@ -13,7 +13,6 @@ export const Sidebar = () => {
     { to: '/debts/compiled', icon: Layers, label: 'Dívidas Compiladas' },
     { to: '/charges', icon: CreditCard, label: 'Cobranças' },
     { to: '/savings', icon: Sparkles, label: 'Economias' },
-    { to: '/accounts', icon: CreditCard, label: 'Contas' },
     { to: '/settings', icon: Settings, label: 'Configurações' },
   ];
 
@@ -23,7 +22,6 @@ export const Sidebar = () => {
     { to: '/debts/compiled', icon: Layers, label: 'Dívidas Compiladas' },
     { to: '/charges', icon: CreditCard, label: 'Cobranças' },
     { to: '/savings', icon: Sparkles, label: 'Economias' },
-    { to: '/accounts', icon: CreditCard, label: 'Contas' },
     { to: '/admin', icon: Shield, label: 'Admin' },
     { to: '/admin/jobs', icon: PlayCircle, label: 'Rotinas' },
     { to: '/settings', icon: Settings, label: 'Configurações' },

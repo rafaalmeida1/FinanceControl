@@ -30,6 +30,7 @@ import toast from 'react-hot-toast';
 import { Debt } from '@/types/api.types';
 import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
 import { HelpIconButton } from '@/components/help/HelpIconButton';
+import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
 
 interface EditDebtFormData {
   debtorName?: string;
@@ -53,6 +54,7 @@ export default function Debts() {
   const { debts, isLoading, sendLink, cancelDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [cancelRecurringDebt, setCancelRecurringDebt] = useState<Debt | null>(null);
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EditDebtFormData>();
 
   // Função helper para determinar a perspectiva da dívida do ponto de vista do usuário atual
@@ -385,29 +387,44 @@ export default function Debts() {
                     <Edit size={14} className="md:w-4 md:h-4" />
                     <span className="hidden sm:inline">Editar</span>
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm('Deseja realmente cancelar esta dívida?')) {
-                        cancelDebt(debt.id);
-                      }
-                    }}
-                    className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
-                    disabled={debt.status === 'PAID' || isCancelingDebt}
-                  >
-                {isCancelingDebt ? (
-                  <>
-                    <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
-                    <span className="hidden sm:inline">Cancelando...</span>
-                    <span className="sm:hidden">...</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle size={14} className="md:w-4 md:h-4" />
-                    <span className="hidden sm:inline">Cancelar</span>
-                  </>
-                )}
-              </button>
+                  {debt.isRecurring && debt.recurringStatus === 'ACTIVE' ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCancelRecurringDebt(debt);
+                      }}
+                      className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
+                      disabled={isCancelingDebt}
+                    >
+                      <XCircle size={14} className="md:w-4 md:h-4" />
+                      <span className="hidden sm:inline">Cancelar Assinatura</span>
+                      <span className="sm:hidden">Cancelar</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('Deseja realmente cancelar esta dívida?')) {
+                          cancelDebt(debt.id);
+                        }
+                      }}
+                      className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
+                      disabled={debt.status === 'PAID' || isCancelingDebt}
+                    >
+                      {isCancelingDebt ? (
+                        <>
+                          <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
+                          <span className="hidden sm:inline">Cancelando...</span>
+                          <span className="sm:hidden">...</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle size={14} className="md:w-4 md:h-4" />
+                          <span className="hidden sm:inline">Cancelar</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -699,6 +716,25 @@ export default function Debts() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Cancelamento de Assinatura */}
+      {cancelRecurringDebt && (
+        <CancelRecurringModal
+          open={!!cancelRecurringDebt}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCancelRecurringDebt(null);
+            }
+          }}
+          debtId={cancelRecurringDebt.id}
+          debtDescription={cancelRecurringDebt.description || 'Assinatura recorrente'}
+          isMercadoPago={cancelRecurringDebt.useGateway && cancelRecurringDebt.preferredGateway === 'MERCADOPAGO'}
+          onSuccess={() => {
+            setCancelRecurringDebt(null);
+            // Invalida queries para atualizar a lista
+          }}
+        />
+      )}
     </div>
   );
 }

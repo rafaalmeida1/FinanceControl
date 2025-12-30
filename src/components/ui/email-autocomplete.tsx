@@ -120,7 +120,7 @@ export function EmailAutocomplete({
   // Sincronizar inputValue com value prop (apenas se não estiver selecionando)
   useEffect(() => {
     if (!isSelectingRef.current) {
-      setInputValue(value);
+    setInputValue(value);
     }
   }, [value]);
 
@@ -184,8 +184,8 @@ export function EmailAutocomplete({
           // Delay para permitir clique na sugestão
           setTimeout(() => {
             if (!containerRef.current?.contains(document.activeElement)) {
-              setShowSuggestions(false);
-              onBlur?.();
+            setShowSuggestions(false);
+            onBlur?.();
             }
           }, 200);
         }}

@@ -74,5 +74,30 @@ export const debtsService = {
     const response = await api.post(`/debts/${id}/mark-paid`, { notes });
     return response.data;
   },
+
+  checkDuplicates: async (data: any): Promise<Array<{
+    id: string;
+    description: string;
+    totalAmount: number;
+    debtorEmail: string;
+    creditorEmail: string | null;
+    isRecurring: boolean;
+    similarityScore: number;
+    reason: string;
+  }>> => {
+    const response = await api.post('/debts/check-duplicates', data);
+    return response.data;
+  },
+
+  cancelRecurringDebt: async (debtId: string, reason?: string): Promise<{
+    success: boolean;
+    debtId: string;
+    cancelled: boolean;
+    mercadoPagoCancelled: boolean;
+    mercadoPagoRedirectUrl: string | null;
+  }> => {
+    const response = await api.patch(`/debts/${debtId}/cancel-recurring`, { reason });
+    return response.data;
+  },
 };
 

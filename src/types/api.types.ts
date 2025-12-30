@@ -66,6 +66,11 @@ export interface Debt {
   };
   isOwner?: boolean;
   userRole?: 'debtor' | 'creditor' | 'owner';
+  isRecurring?: boolean;
+  recurringStatus?: 'ACTIVE' | 'PAUSED' | 'CANCELLED';
+  recurringInterval?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'CUSTOM';
+  recurringDay?: number;
+  nextRecurrenceDate?: string;
 }
 
 // Charge types
