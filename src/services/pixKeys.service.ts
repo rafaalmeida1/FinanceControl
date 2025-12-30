@@ -4,6 +4,7 @@ export interface PixKey {
   id: string;
   userId: string;
   accountId?: string;
+  walletId?: string;
   keyType: 'CPF' | 'EMAIL' | 'PHONE' | 'RANDOM';
   keyValue: string;
   label: string;
@@ -18,6 +19,12 @@ export interface PixKey {
     id: string;
     name: string;
   };
+  wallet?: {
+    id: string;
+    name: string;
+    color?: string;
+    icon?: string;
+  };
 }
 
 export interface CreatePixKeyDto {
@@ -25,6 +32,7 @@ export interface CreatePixKeyDto {
   keyValue: string;
   label?: string;
   accountId?: string;
+  walletId?: string;
   isDefault?: boolean;
   isThirdParty?: boolean;
   contactEmail?: string;
@@ -34,6 +42,7 @@ export interface CreatePixKeyDto {
 export interface UpdatePixKeyDto {
   label?: string;
   accountId?: string;
+  walletId?: string;
   isActive?: boolean;
 }
 

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pixKeysService, PixKey, CreatePixKeyDto } from '@/services/pixKeys.service';
+import { useWallets } from '@/hooks/useWallets';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Copy, Star, StarOff, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Copy, Star, StarOff, Loader2, Edit } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -21,12 +22,15 @@ import { Switch } from '@/components/ui/switch';
 
 export function PixKeysTab() {
   const queryClient = useQueryClient();
+  const { wallets } = useWallets();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const { register, handleSubmit, reset, watch, setValue } = useForm<CreatePixKeyDto>({
+  const [editingKey, setEditingKey] = useState<PixKey | null>(null);
+  const { register, handleSubmit, reset, watch, setValue } = useForm<CreatePixKeyDto & { walletId?: string }>({
     defaultValues: {
       keyType: 'CPF',
       isDefault: false,
       isThirdParty: false,
+      walletId: undefined,
     },
   });
 
@@ -70,12 +74,40 @@ export function PixKeysTab() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { walletId?: string; label?: string } }) =>
+      pixKeysService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pix-keys'] });
+      toast.success('Chave PIX atualizada!');
+      setEditingKey(null);
+      setIsCreateDialogOpen(false);
+      reset();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao atualizar chave PIX');
+    },
+  });
+
   const handleCopy = (key: string) => {
     navigator.clipboard.writeText(key);
     toast.success('Chave PIX copiada!');
   };
 
-  const onSubmit = (data: CreatePixKeyDto) => {
+  const onSubmit = (data: CreatePixKeyDto & { walletId?: string }) => {
+    if (editingKey) {
+      // Atualizar chave existente
+      updateMutation.mutate({
+        id: editingKey.id,
+        data: {
+          walletId: data.walletId,
+          label: data.label,
+        },
+      });
+      return;
+    }
+
+    // Criar nova chave
     // Se não for chave de terceiro, remover contactEmail e contactName
     const submitData: CreatePixKeyDto = {
       ...data,
@@ -88,6 +120,21 @@ export function PixKeysTab() {
     }
     
     createMutation.mutate(submitData);
+  };
+
+  const handleEdit = (key: PixKey) => {
+    setEditingKey(key);
+    reset({
+      keyType: key.keyType as any,
+      keyValue: key.keyValue,
+      label: key.label,
+      isDefault: key.isDefault,
+      isThirdParty: key.isThirdParty,
+      walletId: (key as any).walletId || undefined,
+      contactEmail: key.contactEmail,
+      contactName: key.contactName,
+    });
+    setIsCreateDialogOpen(true);
   };
 
   if (isLoading) {
@@ -139,8 +186,21 @@ export function PixKeysTab() {
                         {key.contactEmail && ` (${key.contactEmail})`}
                       </p>
                     )}
+                    {key.wallet && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        Carteira: {key.wallet.name}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(key)}
+                      title="Editar chave"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                     {!key.isDefault && (
                       <Button
                         variant="outline"
@@ -197,13 +257,19 @@ export function PixKeysTab() {
         </CardContent>
       </Card>
 
-      {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      {/* Create/Edit Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+        setIsCreateDialogOpen(open);
+        if (!open) {
+          setEditingKey(null);
+          reset();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova Chave PIX</DialogTitle>
+            <DialogTitle>{editingKey ? 'Editar Chave PIX' : 'Nova Chave PIX'}</DialogTitle>
             <DialogDescription>
-              Adicione uma nova chave PIX para recebimento de pagamentos
+              {editingKey ? 'Atualize as informações da chave PIX' : 'Adicione uma nova chave PIX para recebimento de pagamentos'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -225,14 +291,16 @@ export function PixKeysTab() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="keyValue">Valor da Chave *</Label>
-                <Input
-                  id="keyValue"
-                  {...register('keyValue', { required: true })}
-                  placeholder="Ex: 11999999999"
-                />
-              </div>
+              {!editingKey && (
+                <div>
+                  <Label htmlFor="keyValue">Valor da Chave *</Label>
+                  <Input
+                    id="keyValue"
+                    {...register('keyValue', { required: !editingKey })}
+                    placeholder="Ex: 11999999999"
+                  />
+                </div>
+              )}
               <div>
                 <Label htmlFor="label">Rótulo (Opcional)</Label>
                 <Input
@@ -241,6 +309,30 @@ export function PixKeysTab() {
                   placeholder="Ex: PIX Principal"
                 />
               </div>
+              {wallets && wallets.length > 0 && (
+                <div>
+                  <Label htmlFor="walletId">Carteira (Opcional)</Label>
+                  <Select
+                    value={watch('walletId') || ''}
+                    onValueChange={(value) => setValue('walletId', value || undefined)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma carteira" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma carteira</SelectItem>
+                      {wallets.map((wallet) => (
+                        <SelectItem key={wallet.id} value={wallet.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{wallet.icon || '💳'}</span>
+                            <span>{wallet.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex items-center space-x-2">
                 <Switch
                   id="isDefault"
@@ -249,15 +341,17 @@ export function PixKeysTab() {
                 />
                 <Label htmlFor="isDefault">Definir como padrão</Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="isThirdParty"
-                  checked={watch('isThirdParty')}
-                  onCheckedChange={(checked) => setValue('isThirdParty', checked)}
-                />
-                <Label htmlFor="isThirdParty">Chave de terceiro</Label>
-              </div>
-              {watch('isThirdParty') && (
+              {!editingKey && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isThirdParty"
+                    checked={watch('isThirdParty')}
+                    onCheckedChange={(checked) => setValue('isThirdParty', checked)}
+                  />
+                  <Label htmlFor="isThirdParty">Chave de terceiro</Label>
+                </div>
+              )}
+              {watch('isThirdParty') && !editingKey && (
                 <>
                   <div>
                     <Label htmlFor="contactEmail">Email do Contato (Opcional)</Label>
@@ -283,14 +377,14 @@ export function PixKeysTab() {
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? (
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                {createMutation.isPending || updateMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Criando...
+                    {editingKey ? 'Atualizando...' : 'Criando...'}
                   </>
                 ) : (
-                  'Criar Chave PIX'
+                  editingKey ? 'Atualizar Chave PIX' : 'Criar Chave PIX'
                 )}
               </Button>
             </DialogFooter>
