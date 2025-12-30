@@ -431,23 +431,24 @@ export default function DebtDetail() {
           <CardContent>
             {debt.charges && debt.charges.length > 0 ? (
               <div className="space-y-4">
-                {pendingCharges.map((charge) => (
+                {pendingCharges.map((charge, index) => (
                   <div
                     key={charge.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 border rounded-lg bg-muted/50"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 border rounded-lg bg-card"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs">
                           {charge.installmentNumber ? `Parcela ${charge.installmentNumber}/${charge.totalInstallments}` : 'Cobrança'}
                         </Badge>
                         <Badge className={getStatusColor(charge.status)}>
                           {getStatusLabel(charge.status)}
                         </Badge>
                       </div>
-                      <p className="text-lg font-bold">{formatCurrency(charge.amount)}</p>
+                      <p className="text-lg md:text-xl font-bold truncate">{formatCurrency(charge.amount)}</p>
                       {charge.dueDate && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                          <Calendar className="h-3 w-3" />
                           Vencimento: {formatDateShort(charge.dueDate)}
                         </p>
                       )}
@@ -456,7 +457,8 @@ export default function DebtDetail() {
                       <Button
                         onClick={() => handlePayCharge(charge)}
                         disabled={markChargePaidMutation.isPending}
-                        className="w-full"
+                        className="w-full sm:w-auto flex-shrink-0"
+                        variant={index === 0 ? "default" : "outline"}
                       >
                         {markChargePaidMutation.isPending ? (
                           <>
@@ -472,10 +474,10 @@ export default function DebtDetail() {
                       </Button>
                     )}
                     {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
-                      <div className="flex flex-col gap-2 w-full">
+                      <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
                         {charge.mercadoPagoPaymentLink && (
                           <Button
-                            variant="outline"
+                            variant={index === 0 ? "default" : "outline"}
                             size="sm"
                             onClick={() => handleOpenPaymentLink(charge.mercadoPagoPaymentLink!)}
                             className="w-full"
@@ -507,18 +509,19 @@ export default function DebtDetail() {
                     {paidCharges.map((charge) => (
                       <div
                         key={charge.id}
-                        className="flex items-center justify-between p-4 border rounded-lg opacity-60"
+                        className="flex items-center justify-between p-4 border rounded-lg bg-muted/30 opacity-75"
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge variant="outline">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                            <Badge variant="outline" className="text-xs">
                               {charge.installmentNumber ? `Parcela ${charge.installmentNumber}/${charge.totalInstallments}` : 'Cobrança'}
                             </Badge>
-                            <Badge className="bg-green-600">Paga</Badge>
+                            <Badge className="bg-green-600 dark:bg-green-700">Paga</Badge>
                           </div>
-                          <p className="text-lg font-bold">{formatCurrency(charge.amount)}</p>
+                          <p className="text-lg md:text-xl font-bold truncate">{formatCurrency(charge.amount)}</p>
                           {charge.paidAt && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                              <Calendar className="h-3 w-3" />
                               Paga em: {formatDateShort(charge.paidAt)}
                             </p>
                           )}
