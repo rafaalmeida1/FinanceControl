@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStats } from '@/hooks/useStats';
 import { useFinancialProfile } from '@/hooks/useFinancialProfile';
 import { useFinancial } from '@/hooks/useFinancial';
 import { useWallets } from '@/hooks/useWallets';
+import { useWindowSize } from '@/hooks/useWindowSize';
+import { getSocket } from '@/lib/socket';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import {
   ArrowUpRight,
@@ -47,8 +50,36 @@ export default function Dashboard() {
   const { monthlySummary, history, totalBalance, isLoading: isLoadingFinancial } = useFinancial();
   const { wallets, isLoading: isLoadingWallets } = useWallets();
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const { width } = useWindowSize();
+  const chartHeight = width < 768 ? 200 : 280;
+  const queryClient = useQueryClient();
 
   const isLoading = isLoadingStats || isLoadingProfile || isLoadingFinancial || isLoadingWallets;
+
+  // Escutar eventos WebSocket para atualizar dados em tempo real
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleDataUpdated = () => {
+      // Invalidar queries relevantes quando dados forem atualizados
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['wallets'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['charges'] });
+    };
+
+    socket.on('data.updated', handleDataUpdated);
+    socket.on('debt.created', handleDataUpdated);
+    socket.on('payment.received', handleDataUpdated);
+
+    return () => {
+      socket.off('data.updated', handleDataUpdated);
+      socket.off('debt.created', handleDataUpdated);
+      socket.off('payment.received', handleDataUpdated);
+    };
+  }, [queryClient]);
 
   // Preparar dados do gráfico
   const monthNames = [
@@ -272,17 +303,19 @@ export default function Dashboard() {
                 <CardDescription>Últimos 12 meses</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
                     <XAxis
                       dataKey="month"
                       className="text-xs"
-                      tick={{ fill: 'currentColor' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                      stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis
                       className="text-xs"
-                      tick={{ fill: 'currentColor' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                      stroke="hsl(var(--muted-foreground))"
                       tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip
@@ -291,29 +324,34 @@ export default function Dashboard() {
                         backgroundColor: 'hsl(var(--popover))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
+                        color: 'hsl(var(--popover-foreground))',
                       }}
+                      labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
                     <Line
                       type="monotone"
                       dataKey="Receitas"
-                      stroke="#10b981"
+                      stroke="hsl(142, 71%, 45%)"
                       strokeWidth={2}
-                      dot={{ r: 3 }}
+                      dot={{ fill: 'hsl(142, 71%, 45%)', r: 4 }}
+                      activeDot={{ r: 6 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="Despesas"
-                      stroke="#ef4444"
+                      stroke="hsl(0, 84%, 60%)"
                       strokeWidth={2}
-                      dot={{ r: 3 }}
+                      dot={{ fill: 'hsl(0, 84%, 60%)', r: 4 }}
+                      activeDot={{ r: 6 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="Saldo"
-                      stroke="#3b82f6"
+                      stroke="hsl(217, 91%, 60%)"
                       strokeWidth={2}
-                      dot={{ r: 3 }}
+                      dot={{ fill: 'hsl(217, 91%, 60%)', r: 4 }}
+                      activeDot={{ r: 6 }}
                       strokeDasharray="5 5"
                     />
                   </LineChart>
@@ -409,17 +447,19 @@ export default function Dashboard() {
                 <CardDescription>Receitas vs Despesas</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
                     <XAxis
                       dataKey="month"
                       className="text-xs"
-                      tick={{ fill: 'currentColor' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                      stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis
                       className="text-xs"
-                      tick={{ fill: 'currentColor' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                      stroke="hsl(var(--muted-foreground))"
                       tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip
@@ -428,11 +468,13 @@ export default function Dashboard() {
                         backgroundColor: 'hsl(var(--popover))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
+                        color: 'hsl(var(--popover-foreground))',
                       }}
+                      labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                     />
-                    <Legend />
-                    <Bar dataKey="Receitas" fill="#10b981" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="Despesas" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                    <Bar dataKey="Receitas" fill="hsl(142, 71%, 45%)" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="Despesas" fill="hsl(0, 84%, 60%)" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

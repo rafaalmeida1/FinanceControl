@@ -58,7 +58,6 @@ interface DebtFormData {
   // Opções de Pagamento
   useGateway: boolean;
   preferredGateway: 'MERCADOPAGO';
-  addInterest: boolean;
   interestRate?: number;
   penaltyRate?: number;
   
@@ -77,13 +76,13 @@ export default function CreateDebt() {
       installments: 1,
       useGateway: false,
       preferredGateway: 'MERCADOPAGO',
-      addInterest: false,
       interestRate: 2.0,
       penaltyRate: 5.0,
     }
   });
   
-  const [currentStep, setCurrentStep] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'mercadopago' | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
   const [isPersonalDebt, setIsPersonalDebt] = useState(false);
   const [isPersonalDebtForMyself, setIsPersonalDebtForMyself] = useState(true);
   const [selectedPixKeyId, setSelectedPixKeyId] = useState<string | 'new' | null>(null);
@@ -91,12 +90,15 @@ export default function CreateDebt() {
   const [duplicates, setDuplicates] = useState<DuplicateDebt[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState<DebtFormData | null>(null);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringInterval, setRecurringInterval] = useState<'MONTHLY' | 'WEEKLY' | 'BIWEEKLY'>('MONTHLY');
+  const [recurringDay, setRecurringDay] = useState<number>(1);
+  const [debtStatus, setDebtStatus] = useState<'PENDING' | 'IN_PROGRESS'>('PENDING');
 
-  const totalSteps = 3;
+  const totalSteps = 4; // 0: Método de pagamento, 1: Informações, 2: Valores, 3: Revisão
 
   // Watch values
   const useGateway = watch('useGateway');
-  const addInterest = watch('addInterest');
   const installments = watch('installments') || 1;
   const totalAmount = watch('totalAmount');
   const walletId = watch('walletId');
@@ -114,11 +116,32 @@ export default function CreateDebt() {
     }
   }, [defaultWallet, walletId, setValue]);
 
+  // Preencher email do devedor quando "Eu devo" e "Para mim mesmo"
+  React.useEffect(() => {
+    if (isPersonalDebt && isPersonalDebtForMyself && user?.email) {
+      setValue('debtorEmail', user.email);
+      setValue('debtorName', user.name || '');
+      setValue('creditorEmail', user.email);
+      setValue('creditorName', user.name || '');
+    } else if (isPersonalDebt && !isPersonalDebtForMyself && user?.email) {
+      setValue('debtorEmail', user.email);
+      setValue('debtorName', user.name || '');
+    }
+  }, [isPersonalDebt, isPersonalDebtForMyself, user, setValue]);
+
   const nextStep = async () => {
     let isValid = false;
 
-    if (currentStep === 1) {
-      isValid = await trigger(['debtorEmail', 'debtorName', 'description']);
+    if (currentStep === 0) {
+      // Step 0: Seleção de método de pagamento - apenas verificar se foi selecionado
+      if (paymentMethod) {
+        setValue('useGateway', paymentMethod === 'mercadopago');
+        setCurrentStep(1);
+        return;
+      }
+      return;
+    } else if (currentStep === 1) {
+      isValid = await trigger(['debtorEmail', 'description']);
       if (isPersonalDebt && !isPersonalDebtForMyself) {
         isValid = isValid && await trigger('creditorEmail');
       }
@@ -129,13 +152,13 @@ export default function CreateDebt() {
       }
     }
 
-    if (isValid && currentStep < totalSteps) {
+    if (isValid && currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
+    if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
   const onSubmit = async (data: DebtFormData) => {
@@ -176,13 +199,24 @@ export default function CreateDebt() {
         isPersonalDebt,
         useGateway: data.useGateway,
         preferredGateway: data.useGateway ? 'MERCADOPAGO' : undefined,
-        addInterest: data.addInterest,
-        interestRate: data.addInterest ? data.interestRate : undefined,
-        penaltyRate: data.addInterest ? data.penaltyRate : undefined,
+        interestRate: data.interestRate,
+        penaltyRate: data.penaltyRate,
+        isRecurring,
+        recurringInterval: isRecurring ? recurringInterval : undefined,
+        recurringDay: isRecurring ? recurringDay : undefined,
+        isInProgress: debtStatus === 'IN_PROGRESS',
       };
 
       if (!data.useGateway && selectedPixKeyId && selectedPixKeyId !== 'new') {
         debtData.pixKeyId = selectedPixKeyId;
+      }
+
+      // Adicionar configuração de recorrência se for Mercado Pago
+      if (data.useGateway && isRecurring) {
+        debtData.recurringConfig = {
+          subscriptionName: data.description || 'Assinatura Recorrente',
+          durationMonths: null, // Indefinida por padrão
+        };
       }
 
       await createDebt(debtData, {
@@ -228,38 +262,108 @@ export default function CreateDebt() {
         </div>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-6">
-          {[1, 2, 3].map((step) => (
-            <React.Fragment key={step}>
-              <div className="flex items-center">
-                <div
-                className={cn(
-                    'h-10 w-10 rounded-full flex items-center justify-center font-semibold transition-colors',
-                    currentStep >= step
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  {currentStep > step ? <Check className="h-5 w-5" /> : step}
-                      </div>
-                      <span className={cn(
-                  'ml-2 text-sm font-medium hidden sm:block',
-                  currentStep >= step ? 'text-foreground' : 'text-muted-foreground'
-                      )}>
-                  {step === 1 ? 'Informações' : step === 2 ? 'Valores' : 'Revisão'}
-                      </span>
-                    </div>
-              {step < totalSteps && (
-                      <div className={cn(
-                  'flex-1 h-1 mx-2 transition-colors',
-                  currentStep > step ? 'bg-primary' : 'bg-muted'
-                      )} />
+        {paymentMethod && (
+          <div className="flex items-center justify-between mb-6">
+            {[0, 1, 2, 3].map((step) => (
+              <React.Fragment key={step}>
+                <div className="flex items-center">
+                  <div
+                    className={cn(
+                      'h-10 w-10 rounded-full flex items-center justify-center font-semibold transition-colors',
+                      currentStep >= step
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
                     )}
-                  </React.Fragment>
-          ))}
+                  >
+                    {currentStep > step ? <Check className="h-5 w-5" /> : step + 1}
+                  </div>
+                  <span className={cn(
+                    'ml-2 text-sm font-medium hidden sm:block',
+                    currentStep >= step ? 'text-foreground' : 'text-muted-foreground'
+                  )}>
+                    {step === 0 ? 'Pagamento' : step === 1 ? 'Informações' : step === 2 ? 'Valores' : 'Revisão'}
+                  </span>
+                </div>
+                {step < totalSteps - 1 && (
+                  <div className={cn(
+                    'flex-1 h-1 mx-2 transition-colors',
+                    currentStep > step ? 'bg-primary' : 'bg-muted'
+                  )} />
+                )}
+              </React.Fragment>
+            ))}
           </div>
+        )}
 
       <form onSubmit={handleSubmit(onSubmit)}>
+          {/* STEP 0: Seleção de Método de Pagamento */}
+          {currentStep === 0 && (
+            <div className="space-y-6 animate-fade-in">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Método de Pagamento
+                  </CardTitle>
+                  <CardDescription>
+                    Escolha como deseja receber/pagar esta dívida
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button
+                      type="button"
+                      variant={paymentMethod === 'pix' ? 'default' : 'outline'}
+                      className="h-auto py-8 flex-col gap-3"
+                      onClick={() => {
+                        setPaymentMethod('pix');
+                        setValue('useGateway', false);
+                      }}
+                    >
+                      <CreditCard className="h-8 w-8" />
+                      <span className="text-base font-semibold">PIX Manual</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        Você receberá a chave PIX e fará o controle manual dos pagamentos
+                      </span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={paymentMethod === 'mercadopago' ? 'default' : 'outline'}
+                      className="h-auto py-8 flex-col gap-3"
+                      onClick={() => {
+                        setPaymentMethod('mercadopago');
+                        setValue('useGateway', true);
+                      }}
+                    >
+                      <Sparkles className="h-8 w-8" />
+                      <span className="text-base font-semibold">Mercado Pago</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        Sistema cria links de pagamento e QR Codes automaticamente
+                      </span>
+                    </Button>
+                  </div>
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Ambos os métodos suportam dívidas recorrentes. Você poderá configurar isso nas próximas etapas.
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
+              <div className="flex justify-end">
+                <Button 
+                  type="button" 
+                  onClick={nextStep} 
+                  size="lg"
+                  disabled={!paymentMethod}
+                >
+                  Continuar
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* STEP 1: Informações Básicas */}
             {currentStep === 1 && (
               <div className="space-y-6 animate-fade-in">
@@ -300,23 +404,36 @@ export default function CreateDebt() {
                       </div>
                       
                   {/* Email do Devedor */}
-                  <div>
-                    <Label htmlFor="debtorEmail">
-                      Email do Devedor {!isPersonalDebt && <span className="text-destructive">*</span>}
-                    </Label>
+                  {!isPersonalDebt && (
+                    <div>
                       <EmailAutocomplete
                         id="debtorEmail"
                         label="Email do Devedor"
                         value={watch('debtorEmail') || ''}
-                      onChange={(value) => {
-                        setValue('debtorEmail', value, { shouldValidate: true });
-                      }}
-                      onBlur={() => trigger('debtorEmail')}
+                        onChange={(value) => {
+                          setValue('debtorEmail', value, { shouldValidate: true });
+                        }}
+                        onBlur={() => trigger('debtorEmail')}
                         error={errors.debtorEmail?.message}
-                      placeholder="devedor@email.com"
-                      required={!isPersonalDebt}
+                        placeholder="devedor@email.com"
+                        required
                       />
-                  </div>
+                    </div>
+                  )}
+                  {isPersonalDebt && (
+                    <div>
+                      <Label htmlFor="debtorEmail">Email do Devedor</Label>
+                      <Input
+                        id="debtorEmail"
+                        value={user?.email || ''}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Você é o devedor nesta dívida
+                      </p>
+                    </div>
+                  )}
 
                   {/* Nome do Devedor */}
                       <div>
@@ -353,24 +470,35 @@ export default function CreateDebt() {
                         </div>
                       </div>
 
+                      {isPersonalDebtForMyself && (
+                        <div>
+                          <Label htmlFor="creditorEmail">Email do Credor</Label>
+                          <Input
+                            id="creditorEmail"
+                            value={user?.email || ''}
+                            disabled
+                            className="bg-muted"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Você está pagando para você mesmo
+                          </p>
+                        </div>
+                      )}
                       {!isPersonalDebtForMyself && (
                         <>
                           <div>
-                            <Label htmlFor="creditorEmail">
-                              Email do Credor <span className="text-destructive">*</span>
-                            </Label>
-                          <EmailAutocomplete
-                            id="creditorEmail"
-                            label="Email do Credor"
-                            value={watch('creditorEmail') || ''}
+                            <EmailAutocomplete
+                              id="creditorEmail"
+                              label="Email do Credor"
+                              value={watch('creditorEmail') || ''}
                               onChange={(value) => {
                                 setValue('creditorEmail', value, { shouldValidate: true });
                               }}
                               onBlur={() => trigger('creditorEmail')}
-                            error={errors.creditorEmail?.message}
-                            placeholder="credor@email.com"
+                              error={errors.creditorEmail?.message}
+                              placeholder="credor@email.com"
                               required
-                          />
+                            />
                           </div>
                           <div>
                             <Label htmlFor="creditorName">Nome do Credor</Label>
@@ -529,41 +657,77 @@ export default function CreateDebt() {
                           )}
                       </div>
 
-                  {/* Forma de Pagamento */}
-                          <div className="space-y-3">
-                    <Label>Forma de Pagamento</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button
-                        type="button"
-                        variant={!useGateway ? 'default' : 'outline'}
-                        className="h-auto py-4 flex-col gap-2"
-                        onClick={() => setValue('useGateway', false)}
-                          >
-                        <CreditCard className="h-5 w-5" />
-                        <span className="text-sm">PIX Manual</span>
-                      </Button>
-                            <Button
-                              type="button"
-                        variant={useGateway ? 'default' : 'outline'}
-                        className="h-auto py-4 flex-col gap-2"
-                              onClick={() => {
-                          setValue('useGateway', true);
-                          navigate('/debts/create-mercadopago');
-                              }}
-                            >
-                        <Sparkles className="h-5 w-5" />
-                        <span className="text-sm">Mercado Pago</span>
-                            </Button>
+                  {/* Status e Recorrência */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Status da Dívida</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Dívida já está em andamento?
+                        </p>
                       </div>
-                    <Alert>
-                      <Info className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        {!useGateway
-                          ? 'PIX Manual: você receberá a chave PIX e fará o controle manual dos pagamentos.'
-                          : 'Mercado Pago: sistema cria links de pagamento e QR Codes automaticamente.'}
-                      </AlertDescription>
-                    </Alert>
+                      <Select
+                        value={debtStatus}
+                        onValueChange={(value: 'PENDING' | 'IN_PROGRESS') => setDebtStatus(value)}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PENDING">Pendente</SelectItem>
+                          <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Dívida Recorrente</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Esta dívida se repete periodicamente?
+                        </p>
+                      </div>
+                      <Switch
+                        checked={isRecurring}
+                        onCheckedChange={setIsRecurring}
+                      />
+                    </div>
+
+                    {isRecurring && (
+                      <div className="space-y-3 mt-4 p-4 bg-muted rounded-lg">
+                        <div>
+                          <Label htmlFor="recurringInterval">Intervalo de Recorrência</Label>
+                          <Select
+                            value={recurringInterval}
+                            onValueChange={(value: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY') => setRecurringInterval(value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="MONTHLY">Mensal</SelectItem>
+                              <SelectItem value="WEEKLY">Semanal</SelectItem>
+                              <SelectItem value="BIWEEKLY">Quinzenal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="recurringDay">Dia da Recorrência</Label>
+                          <Input
+                            id="recurringDay"
+                            type="number"
+                            min="1"
+                            max="31"
+                            value={recurringDay}
+                            onChange={(e) => setRecurringDay(parseInt(e.target.value) || 1)}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Dia do mês em que a cobrança será gerada (1-31)
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Chave PIX (se PIX Manual) */}
                   {!useGateway && (
@@ -616,47 +780,40 @@ export default function CreateDebt() {
                     {showAdvanced && (
                       <div className="space-y-4 mt-4">
                         {/* Juros e Multa */}
-                        <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="mb-2 block">Juros e Multa</Label>
+                          <p className="text-xs text-muted-foreground mb-4">
+                            Aplicados apenas em caso de atraso (opcional)
+                          </p>
+                          <div className="space-y-3">
                             <div>
-                            <Label>Adicionar Juros e Multa</Label>
-                            <p className="text-xs text-muted-foreground">
-                              Aplicados apenas em caso de atraso
-                            </p>
-                            </div>
-                                  <Switch
-                            checked={addInterest}
-                            onCheckedChange={(checked) => setValue('addInterest', checked)}
-                                  />
-                                </div>
-
-                        {addInterest && (
-                                  <>
-                                    <div>
                               <Label htmlFor="interestRate">Juros ao Mês (%)</Label>
-                                      <Input
+                              <Input
                                 id="interestRate"
                                 type="number"
                                 step="0.1"
                                 min="0"
                                 max="100"
                                 {...register('interestRate')}
-                                      />
-                                    </div>
-                                    <div>
+                                placeholder="0.0"
+                              />
+                            </div>
+                            <div>
                               <Label htmlFor="penaltyRate">Multa por Atraso (%)</Label>
-                                      <Input
+                              <Input
                                 id="penaltyRate"
                                 type="number"
                                 step="0.1"
                                 min="0"
                                 max="100"
                                 {...register('penaltyRate')}
-                                      />
-                                    </div>
-                                  </>
-                                )}
+                                placeholder="0.0"
+                              />
                             </div>
-                      )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     </div>
                       </CardContent>
                     </Card>
@@ -729,14 +886,38 @@ export default function CreateDebt() {
                       <span className="text-sm text-muted-foreground">Pagamento:</span>
                       <Badge>{useGateway ? 'Mercado Pago' : 'PIX Manual'}</Badge>
                     </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Status:</span>
+                      <Badge variant={debtStatus === 'IN_PROGRESS' ? 'default' : 'secondary'}>
+                        {debtStatus === 'IN_PROGRESS' ? 'Em Andamento' : 'Pendente'}
+                      </Badge>
+                    </div>
+                    {isRecurring && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Recorrente:</span>
+                          <Badge variant="outline">Sim</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Intervalo:</span>
+                          <p className="font-medium">
+                            {recurringInterval === 'MONTHLY' ? 'Mensal' : recurringInterval === 'WEEKLY' ? 'Semanal' : 'Quinzenal'}
+                          </p>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Dia da Recorrência:</span>
+                          <p className="font-medium">{recurringDay}</p>
+                        </div>
+                      </>
+                    )}
                     {wallets && walletId && (
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Carteira:</span>
                         <p className="font-medium">
                           {wallets.find((w) => w.id === walletId)?.name || 'Padrão'}
                         </p>
-              </div>
-            )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { ArrowRight, ArrowLeft, TrendingUp, Calendar, Info, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, TrendingUp, Calendar, Info, Sparkles, Wallet as WalletIcon } from 'lucide-react';
 import { useFinancialProfile } from '@/hooks/useFinancialProfile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { formatCurrency } from '@/lib/utils';
 interface OnboardingFormData {
   monthlyIncome: number;
   payday: number;
+  initialBalance?: number;
 }
 
 export default function FinancialOnboarding() {
@@ -30,6 +31,7 @@ export default function FinancialOnboarding() {
     defaultValues: {
       monthlyIncome: undefined,
       payday: undefined,
+      initialBalance: undefined,
     },
   });
 
@@ -41,6 +43,7 @@ export default function FinancialOnboarding() {
       await createProfile.mutateAsync({
         monthlyIncome: parseFloat(String(data.monthlyIncome)),
         payday: parseInt(String(data.payday)),
+        initialBalance: data.initialBalance ? parseFloat(String(data.initialBalance)) : undefined,
       });
 
       // Marcar onboarding como completo
@@ -211,6 +214,37 @@ export default function FinancialOnboarding() {
                         Você recebe todo dia {payday} de cada mês
                       </p>
                     )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="initialBalance" className="flex items-center gap-2 mb-2">
+                      <WalletIcon className="h-4 w-4" />
+                      Saldo Inicial (Opcional)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        R$
+                      </span>
+                      <Input
+                        id="initialBalance"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="pl-8"
+                        placeholder="0.00"
+                        {...register('initialBalance', {
+                          min: { value: 0, message: 'Valor não pode ser negativo' },
+                        })}
+                      />
+                    </div>
+                    {errors.initialBalance && (
+                      <p className="text-sm text-destructive mt-1">
+                        {errors.initialBalance.message}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Este valor será adicionado à sua carteira padrão
+                    </p>
                   </div>
 
                   <div className="flex gap-3 pt-4">

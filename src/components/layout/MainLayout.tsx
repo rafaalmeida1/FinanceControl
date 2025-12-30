@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useScrollToTop } from '@/hooks/useScrollToTop';
 import { 
   DollarSign, 
   Home, 
@@ -94,6 +95,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   const { theme, toggleTheme } = useUIStore();
   const { user, logout } = authStore();
   const navigate = useNavigate();
+  
+  // Scroll para o topo ao trocar de página
+  useScrollToTop();
   
   // Inicializar WebSocket para notificações em tempo real
   useSocket();

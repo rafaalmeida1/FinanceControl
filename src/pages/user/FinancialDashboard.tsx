@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useFinancial } from '@/hooks/useFinancial';
 import { useWallets } from '@/hooks/useWallets';
+import { useWindowSize } from '@/hooks/useWindowSize';
 import { formatCurrency } from '@/lib/utils';
 import {
   Wallet,
@@ -31,6 +32,8 @@ export function FinancialDashboard() {
   const navigate = useNavigate();
   const { monthlySummary, history, totalBalance, isLoading } = useFinancial();
   const { wallets } = useWallets();
+  const { width } = useWindowSize();
+  const chartHeight = width < 768 ? 200 : 280;
 
   const monthNames = [
     'Janeiro',
@@ -170,17 +173,19 @@ export function FinancialDashboard() {
             <CardDescription>Últimos 12 meses de receitas e despesas</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={chartHeight}>
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
                 <XAxis
                   dataKey="month"
                   className="text-xs"
-                  tick={{ fill: 'currentColor' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  stroke="hsl(var(--muted-foreground))"
                 />
                 <YAxis
                   className="text-xs"
-                  tick={{ fill: 'currentColor' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  stroke="hsl(var(--muted-foreground))"
                   tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
@@ -189,29 +194,34 @@ export function FinancialDashboard() {
                     backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px',
+                    color: 'hsl(var(--popover-foreground))',
                   }}
+                  labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
                 <Line
                   type="monotone"
                   dataKey="Receitas"
-                  stroke="#10b981"
+                  stroke="hsl(142, 71%, 45%)"
                   strokeWidth={2}
-                  dot={{ r: 4 }}
+                  dot={{ fill: 'hsl(142, 71%, 45%)', r: 4 }}
+                  activeDot={{ r: 6 }}
                 />
                 <Line
                   type="monotone"
                   dataKey="Despesas"
-                  stroke="#ef4444"
+                  stroke="hsl(0, 84%, 60%)"
                   strokeWidth={2}
-                  dot={{ r: 4 }}
+                  dot={{ fill: 'hsl(0, 84%, 60%)', r: 4 }}
+                  activeDot={{ r: 6 }}
                 />
                 <Line
                   type="monotone"
                   dataKey="Saldo"
-                  stroke="#3b82f6"
+                  stroke="hsl(217, 91%, 60%)"
                   strokeWidth={2}
-                  dot={{ r: 4 }}
+                  dot={{ fill: 'hsl(217, 91%, 60%)', r: 4 }}
+                  activeDot={{ r: 6 }}
                   strokeDasharray="5 5"
                 />
               </LineChart>
@@ -228,17 +238,19 @@ export function FinancialDashboard() {
             <CardDescription>Receitas vs Despesas por mês</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={chartHeight}>
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
                 <XAxis
                   dataKey="month"
                   className="text-xs"
-                  tick={{ fill: 'currentColor' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  stroke="hsl(var(--muted-foreground))"
                 />
                 <YAxis
                   className="text-xs"
-                  tick={{ fill: 'currentColor' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  stroke="hsl(var(--muted-foreground))"
                   tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
@@ -247,11 +259,13 @@ export function FinancialDashboard() {
                     backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px',
+                    color: 'hsl(var(--popover-foreground))',
                   }}
+                  labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
                 />
-                <Legend />
-                <Bar dataKey="Receitas" fill="#10b981" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="Despesas" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                <Bar dataKey="Receitas" fill="hsl(142, 71%, 45%)" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="Despesas" fill="hsl(0, 84%, 60%)" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
