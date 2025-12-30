@@ -13,14 +13,12 @@ export interface FinancialProfile {
 export interface CreateFinancialProfileDto {
   monthlyIncome?: number;
   payday?: number;
-  initialBalance?: number;
 }
 
 export interface UpdateFinancialProfileDto {
   monthlyIncome?: number;
   payday?: number;
   onboardingCompleted?: boolean;
-  initialBalance?: number;
 }
 
 export const financialProfileService = {

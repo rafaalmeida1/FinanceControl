@@ -27,7 +27,7 @@ import { authService } from '@/services/auth.service';
 import { paymentsService } from '@/services/payments.service';
 import { PixKeysTab } from '@/components/settings/PixKeysTab';
 import { useFinancialProfile } from '@/hooks/useFinancialProfile';
-import { TrendingUp, Calendar, Wallet as WalletIcon } from 'lucide-react';
+import { TrendingUp, Calendar } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 const profileSchema = z.object({
@@ -53,7 +53,6 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 const financialProfileSchema = z.object({
   monthlyIncome: z.number().min(0, 'Salário deve ser maior ou igual a zero').optional(),
   payday: z.number().min(1).max(31, 'Dia deve ser entre 1 e 31').optional(),
-  initialBalance: z.number().min(0, 'Saldo inicial não pode ser negativo').optional(),
 });
 
 type FinancialProfileFormData = z.infer<typeof financialProfileSchema>;
@@ -550,7 +549,6 @@ function FinancialProfileTab() {
     defaultValues: {
       monthlyIncome: profile?.monthlyIncome ? parseFloat(String(profile.monthlyIncome)) : undefined,
       payday: profile?.payday || undefined,
-      initialBalance: undefined,
     },
   });
 
@@ -559,7 +557,6 @@ function FinancialProfileTab() {
       reset({
         monthlyIncome: profile.monthlyIncome ? parseFloat(String(profile.monthlyIncome)) : undefined,
         payday: profile.payday || undefined,
-        initialBalance: undefined,
       });
     }
   }, [profile, reset]);
@@ -570,7 +567,6 @@ function FinancialProfileTab() {
       await updateProfile.mutateAsync({
         monthlyIncome: data.monthlyIncome,
         payday: data.payday,
-        initialBalance: data.initialBalance,
       });
       toast.success('Perfil financeiro atualizado com sucesso!');
     } catch (error: any) {
@@ -666,37 +662,6 @@ function FinancialProfileTab() {
                 Você recebe todo dia {profile.payday} de cada mês
               </p>
             )}
-          </div>
-
-          <div>
-            <Label htmlFor="initialBalance" className="flex items-center gap-2 mb-2">
-              <WalletIcon className="h-4 w-4" />
-              Saldo Inicial (Opcional)
-            </Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                R$
-              </span>
-              <Input
-                id="initialBalance"
-                type="number"
-                step="0.01"
-                min="0"
-                className="pl-8"
-                placeholder="0.00"
-                {...register('initialBalance', {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
-            {errors.initialBalance && (
-              <p className="text-sm text-destructive mt-1">
-                {errors.initialBalance.message}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">
-              Este valor será adicionado à sua carteira padrão
-            </p>
           </div>
         </CardContent>
         <CardFooter>

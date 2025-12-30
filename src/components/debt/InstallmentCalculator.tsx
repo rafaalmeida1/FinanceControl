@@ -27,6 +27,9 @@ interface InstallmentCalculatorProps {
   onInProgressChange: (value: boolean) => void;
   paidInstallments: number;
   onPaidInstallmentsChange: (value: number) => void;
+  
+  // Tipo de dívida (opcional, para desabilitar parcelas quando for único)
+  debtType?: 'single' | 'installment' | 'recurring' | null;
 }
 
 export function InstallmentCalculator({
@@ -42,6 +45,7 @@ export function InstallmentCalculator({
   onInProgressChange,
   paidInstallments,
   onPaidInstallmentsChange,
+  debtType,
 }: InstallmentCalculatorProps) {
   // Calcular valores automaticamente baseado no modo de entrada
   useEffect(() => {
@@ -160,11 +164,30 @@ export function InstallmentCalculator({
             id="installments"
             type="number"
             min="1"
+            max={debtType === 'single' ? 1 : undefined}
             className="mt-2"
             placeholder="1"
             value={installments}
-            onChange={(e) => onInstallmentsChange(parseInt(e.target.value) || 1)}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || 1;
+              if (debtType === 'single') {
+                onInstallmentsChange(1);
+              } else {
+                onInstallmentsChange(value);
+              }
+            }}
+            disabled={debtType === 'single'}
           />
+          {debtType === 'single' && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Pagamento único: apenas 1 parcela permitida
+            </p>
+          )}
+          {debtType === 'recurring' && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Dívida recorrente: será cobrada mensalmente
+            </p>
+          )}
         </div>
 
         {/* Dívida em Andamento */}

@@ -234,7 +234,7 @@ export default function Accounts() {
 
       {/* Dialog de Edição */}
       <Dialog open={!!editingAccount} onOpenChange={(open) => !open && setEditingAccount(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Editar Conta</DialogTitle>
             <DialogDescription>

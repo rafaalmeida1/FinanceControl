@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinancial } from '@/hooks/useFinancial';
 import { useWallets } from '@/hooks/useWallets';
@@ -16,6 +17,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
   LineChart,
   Line,
   BarChart,
@@ -30,7 +39,8 @@ import {
 
 export function FinancialDashboard() {
   const navigate = useNavigate();
-  const { monthlySummary, history, totalBalance, isLoading } = useFinancial();
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  const { monthlySummary, history, totalBalance, isLoading } = useFinancial(undefined, undefined, selectedWalletId);
   const { wallets } = useWallets();
   const { width } = useWindowSize();
   const chartHeight = width < 768 ? 200 : 280;
@@ -73,13 +83,43 @@ export function FinancialDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header com Saldo Total */}
+      {/* Header com Saldo Total e Filtro */}
       <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
         <CardHeader>
-          <CardDescription>Saldo Total</CardDescription>
-          <CardTitle className="text-4xl font-bold">
-            {formatCurrency(totalBalance || 0)}
-          </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1">
+              <CardDescription>Saldo Total</CardDescription>
+              <CardTitle className="text-4xl font-bold">
+                {formatCurrency(totalBalance || 0)}
+              </CardTitle>
+            </div>
+            {wallets && wallets.length > 0 && (
+              <div className="flex-shrink-0 w-full sm:w-auto">
+                <Label htmlFor="wallet-filter" className="text-xs text-muted-foreground mb-1 block">
+                  Filtrar por Carteira
+                </Label>
+                <Select
+                  value={selectedWalletId || 'all'}
+                  onValueChange={(value) => setSelectedWalletId(value === 'all' ? null : value)}
+                >
+                  <SelectTrigger id="wallet-filter" className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="Todas as carteiras" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as carteiras</SelectItem>
+                    {wallets.map((wallet) => (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{wallet.icon || '💳'}</span>
+                          <span>{wallet.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">

@@ -20,9 +20,9 @@ export interface FinancialHistory {
 }
 
 export const financialService = {
-  getMonthlySummary: async (month: number, year: number): Promise<MonthlyFinancialSummary> => {
+  getMonthlySummary: async (month: number, year: number, walletId?: string): Promise<MonthlyFinancialSummary> => {
     const response = await api.get('/financial/monthly-summary', {
-      params: { month, year },
+      params: { month, year, ...(walletId && { walletId }) },
     });
     return response.data;
   },
@@ -34,8 +34,10 @@ export const financialService = {
     return response.data;
   },
 
-  getTotalBalance: async (): Promise<number> => {
-    const response = await api.get('/financial/total-balance');
+  getTotalBalance: async (walletId?: string): Promise<number> => {
+    const response = await api.get('/financial/total-balance', {
+      params: { ...(walletId && { walletId }) },
+    });
     return response.data;
   },
 };

@@ -313,14 +313,14 @@ export function PixKeysTab() {
                 <div>
                   <Label htmlFor="walletId">Carteira (Opcional)</Label>
                   <Select
-                    value={watch('walletId') || ''}
-                    onValueChange={(value) => setValue('walletId', value || undefined)}
+                    value={watch('walletId') || 'none'}
+                    onValueChange={(value) => setValue('walletId', value === 'none' ? undefined : value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma carteira" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma carteira</SelectItem>
+                      <SelectItem value="none">Nenhuma carteira</SelectItem>
                       {wallets.map((wallet) => (
                         <SelectItem key={wallet.id} value={wallet.id}>
                           <div className="flex items-center gap-2">

@@ -152,21 +152,21 @@ export default function Dashboard() {
               )}
             </Button>
           </div>
-          <CardTitle className="text-4xl md:text-5xl font-bold">
+          <CardTitle className="text-4xl md:text-5xl font-bold truncate">
             {balanceVisible ? formatCurrency(totalBalance || 0) : '••••••'}
           </CardTitle>
         </CardHeader>
         <CardContent className="relative z-10">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-primary-foreground/70 mb-1">Receitas do Mês</p>
-              <p className="text-lg font-semibold">
+            <div className="min-w-0">
+              <p className="text-xs text-primary-foreground/70 mb-1 truncate">Receitas do Mês</p>
+              <p className="text-lg font-semibold truncate">
                 {formatCurrency(monthlySummary?.totalIncome || 0)}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-primary-foreground/70 mb-1">Despesas do Mês</p>
-              <p className="text-lg font-semibold">
+            <div className="min-w-0">
+              <p className="text-xs text-primary-foreground/70 mb-1 truncate">Despesas do Mês</p>
+              <p className="text-lg font-semibold truncate">
                 {formatCurrency(monthlySummary?.totalExpenses || 0)}
               </p>
             </div>
@@ -221,66 +221,66 @@ export default function Dashboard() {
       {/* Cards Principais - Para Receber, Para Pagar, Sobra */}
       <div className="grid gap-4 md:grid-cols-3">
         {/* Para Receber */}
-        <Card className="border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 hover:shadow-lg transition-shadow">
+        <Card className="border-green-200 dark:border-green-900/50 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/30 dark:border-green-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
+              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-200">
                 Para Receber
               </CardTitle>
-              <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                <ArrowUpRight className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <div className="h-8 w-8 rounded-full bg-green-500/20 dark:bg-green-500/30 flex items-center justify-center">
+                <ArrowUpRight className="h-4 w-4 text-green-600 dark:text-green-300" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-green-700 dark:text-green-300 mb-1">
+            <div className="text-2xl md:text-3xl font-bold text-green-700 dark:text-green-200 mb-1 truncate">
               {formatCurrency(monthlySummary?.pendingIncome || 0)}
             </div>
-            <p className="text-xs text-green-600 dark:text-green-400">
+            <p className="text-xs text-green-600 dark:text-green-300 truncate">
               Receitas do mês: {formatCurrency(monthlySummary?.totalIncome || 0)}
             </p>
           </CardContent>
         </Card>
 
         {/* Para Pagar */}
-        <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20 hover:shadow-lg transition-shadow">
+        <Card className="border-red-200 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/30 dark:border-red-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
+              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-200">
                 Para Pagar
               </CardTitle>
-              <div className="h-8 w-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                <ArrowDownRight className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <div className="h-8 w-8 rounded-full bg-red-500/20 dark:bg-red-500/30 flex items-center justify-center">
+                <ArrowDownRight className="h-4 w-4 text-red-600 dark:text-red-300" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-red-700 dark:text-red-300 mb-1">
+            <div className="text-2xl md:text-3xl font-bold text-red-700 dark:text-red-200 mb-1 truncate">
               {formatCurrency(monthlySummary?.pendingExpenses || 0)}
             </div>
-            <p className="text-xs text-red-600 dark:text-red-400">
+            <p className="text-xs text-red-600 dark:text-red-300 truncate">
               Despesas do mês: {formatCurrency(monthlySummary?.totalExpenses || 0)}
             </p>
           </CardContent>
         </Card>
 
         {/* Sobra no Mês */}
-        <Card className="border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 hover:shadow-lg transition-shadow">
+        <Card className="border-blue-200 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 dark:border-blue-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-200">
                 Sobra no Mês
               </CardTitle>
-              <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <div className="h-8 w-8 rounded-full bg-blue-500/20 dark:bg-blue-500/30 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-300" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-300 mb-1">
+            <div className="text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-200 mb-1 truncate">
               {formatCurrency(monthlySummary?.projectedBalance || 0)}
             </div>
-            <p className="text-xs text-blue-600 dark:text-blue-400">
+            <p className="text-xs text-blue-600 dark:text-blue-300 truncate">
               Saldo atual: {formatCurrency(monthlySummary?.balance || 0)}
             </p>
           </CardContent>

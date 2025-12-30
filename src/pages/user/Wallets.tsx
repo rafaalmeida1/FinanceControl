@@ -187,7 +187,7 @@ export default function Wallets() {
               Nova Carteira
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="max-w-[95vw] sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Nova Carteira</DialogTitle>
               <DialogDescription>

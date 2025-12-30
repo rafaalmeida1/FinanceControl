@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { ArrowRight, ArrowLeft, TrendingUp, Calendar, Info, Sparkles, Wallet as WalletIcon } from 'lucide-react';
 import { useFinancialProfile } from '@/hooks/useFinancialProfile';
+import { useWallets } from '@/hooks/useWallets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,16 +11,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface OnboardingFormData {
   monthlyIncome: number;
   payday: number;
-  initialBalance?: number;
+  walletName: string;
+  walletBalance: number;
 }
 
 export default function FinancialOnboarding() {
   const navigate = useNavigate();
   const { createProfile, updateProfile } = useFinancialProfile();
+  const { createWallet } = useWallets();
   const [currentStep, setCurrentStep] = useState(1);
 
   const {
@@ -31,29 +35,45 @@ export default function FinancialOnboarding() {
     defaultValues: {
       monthlyIncome: undefined,
       payday: undefined,
-      initialBalance: undefined,
+      walletName: 'Carteira Principal',
+      walletBalance: 0,
     },
   });
 
   const monthlyIncome = watch('monthlyIncome');
   const payday = watch('payday');
+  const walletName = watch('walletName');
+  const walletBalance = watch('walletBalance');
 
   const onSubmit = async (data: OnboardingFormData) => {
     try {
+      // Criar perfil financeiro
       await createProfile.mutateAsync({
         monthlyIncome: parseFloat(String(data.monthlyIncome)),
         payday: parseInt(String(data.payday)),
-        initialBalance: data.initialBalance ? parseFloat(String(data.initialBalance)) : undefined,
       });
+
+      // Criar carteira padrão com saldo inicial
+      if (data.walletName && data.walletName.trim() !== '') {
+        await createWallet.mutateAsync({
+          name: data.walletName.trim(),
+          color: '#10b981',
+          icon: '💳',
+          isDefault: true,
+          balance: data.walletBalance ? parseFloat(String(data.walletBalance)) : 0,
+        });
+      }
 
       // Marcar onboarding como completo
       await updateProfile.mutateAsync({
         onboardingCompleted: true,
       });
 
+      toast.success('Perfil configurado com sucesso!');
       navigate('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar perfil:', error);
+      toast.error(error?.response?.data?.message || 'Erro ao configurar perfil');
     }
   };
 
@@ -98,17 +118,28 @@ export default function FinancialOnboarding() {
               currentStep >= 2 ? 'bg-primary' : 'bg-muted'
             }`}
           />
+          <div
+            className={`h-2 flex-1 rounded-full transition-colors ${
+              currentStep >= 3 ? 'bg-primary' : 'bg-muted'
+            }`}
+          />
         </div>
 
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>
-              {currentStep === 1 ? 'Informações Financeiras' : 'Dia do Pagamento'}
+              {currentStep === 1
+                ? 'Informações Financeiras'
+                : currentStep === 2
+                ? 'Dia do Pagamento'
+                : 'Criar Carteira'}
             </CardTitle>
             <CardDescription>
               {currentStep === 1
                 ? 'Essas informações nos ajudam a personalizar sua experiência'
-                : 'Quando você recebe seu salário mensalmente?'}
+                : currentStep === 2
+                ? 'Quando você recebe seu salário mensalmente?'
+                : 'Crie sua primeira carteira para começar a controlar suas finanças'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -216,37 +247,6 @@ export default function FinancialOnboarding() {
                     )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="initialBalance" className="flex items-center gap-2 mb-2">
-                      <WalletIcon className="h-4 w-4" />
-                      Saldo Inicial (Opcional)
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        R$
-                      </span>
-                      <Input
-                        id="initialBalance"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="pl-8"
-                        placeholder="0.00"
-                        {...register('initialBalance', {
-                          min: { value: 0, message: 'Valor não pode ser negativo' },
-                        })}
-                      />
-                    </div>
-                    {errors.initialBalance && (
-                      <p className="text-sm text-destructive mt-1">
-                        {errors.initialBalance.message}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Este valor será adicionado à sua carteira padrão
-                    </p>
-                  </div>
-
                   <div className="flex gap-3 pt-4">
                     <Button
                       type="button"
@@ -258,14 +258,109 @@ export default function FinancialOnboarding() {
                       Voltar
                     </Button>
                     <Button
-                      type="submit"
-                      disabled={createProfile.isPending || !payday || errors.payday !== undefined}
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      disabled={!payday || errors.payday !== undefined}
                       className="flex-1"
                     >
-                      {createProfile.isPending ? (
+                      Continuar
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 3 && (
+                <div className="space-y-6 animate-fade-in">
+                  <Alert>
+                    <WalletIcon className="h-4 w-4" />
+                    <AlertDescription>
+                      Crie sua primeira carteira para organizar suas finanças. Você pode adicionar
+                      um saldo inicial se já tiver dinheiro disponível.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div>
+                    <Label htmlFor="walletName" className="flex items-center gap-2 mb-2">
+                      <WalletIcon className="h-4 w-4" />
+                      Nome da Carteira <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="walletName"
+                      placeholder="Ex: Carteira Principal"
+                      {...register('walletName', {
+                        required: 'Nome da carteira é obrigatório',
+                        minLength: { value: 2, message: 'Nome deve ter pelo menos 2 caracteres' },
+                      })}
+                    />
+                    {errors.walletName && (
+                      <p className="text-sm text-destructive mt-1">{errors.walletName.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="walletBalance" className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Saldo Inicial (Opcional)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        R$
+                      </span>
+                      <Input
+                        id="walletBalance"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="pl-8"
+                        placeholder="0.00"
+                        {...register('walletBalance', {
+                          min: { value: 0, message: 'Saldo não pode ser negativo' },
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                    {errors.walletBalance && (
+                      <p className="text-sm text-destructive mt-1">
+                        {errors.walletBalance.message}
+                      </p>
+                    )}
+                    {walletBalance && walletBalance > 0 && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Saldo inicial: {formatCurrency(parseFloat(String(walletBalance)))}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Se você já tem dinheiro disponível, informe o valor inicial da carteira.
+                      Caso contrário, deixe em zero.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCurrentStep(2)}
+                      className="flex-1"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Voltar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        createProfile.isPending ||
+                        createWallet.isPending ||
+                        !walletName ||
+                        errors.walletName !== undefined ||
+                        errors.walletBalance !== undefined
+                      }
+                      className="flex-1"
+                    >
+                      {createProfile.isPending || createWallet.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Salvando...
+                          Finalizando...
                         </>
                       ) : (
                         <>

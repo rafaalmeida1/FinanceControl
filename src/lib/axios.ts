@@ -78,19 +78,26 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
           return api(originalRequest);
         } catch (refreshError) {
+          // Token inválido ou expirado - fazer logout silencioso
           authStore.getState().logout();
+          toast.error('Sessão expirada. Por favor, faça login novamente.');
           window.location.href = '/login';
           return Promise.reject(refreshError);
         }
       } else {
+        // Sem refresh token - fazer logout silencioso
         authStore.getState().logout();
+        toast.error('Sessão expirada. Por favor, faça login novamente.');
         window.location.href = '/login';
+        return Promise.reject(error);
       }
     }
 
-    // Mostrar toast de erro (mas não redirecionar para login em endpoints públicos)
-    const message = error.response?.data?.message || 'Erro ao processar requisição';
-    toast.error(message);
+    // Mostrar toast de erro apenas se não for 401 (já tratado acima) e não for endpoint público
+    if (error.response?.status !== 401 && !isPublicDebtorEndpoint) {
+      const message = error.response?.data?.message || 'Erro ao processar requisição';
+      toast.error(message);
+    }
 
     return Promise.reject(error);
   },

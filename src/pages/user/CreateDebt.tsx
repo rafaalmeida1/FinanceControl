@@ -22,7 +22,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
@@ -113,14 +112,32 @@ export default function CreateDebt() {
     }
   }, [isInProgress]);
   
+  // Tipo de dívida PIX: 'single' | 'installment' | 'recurring'
+  const [pixDebtType, setPixDebtType] = useState<'single' | 'installment' | 'recurring' | null>(null);
+  
   // Calculate total steps based on payment method
   const getTotalSteps = () => {
     if (!paymentMethod) return 1; // Step 0 only
-    if (paymentMethod === 'pix') return 6; // 0: Método, 1: Info, 2: Carteira/PIX, 3: Valores, 4: Recorrência, 5: Revisão
+    if (paymentMethod === 'pix') return 7; // 0: Método, 1: Info, 2: Carteira/PIX, 3: Tipo Dívida, 4: Valores, 5: Recorrência, 6: Revisão
     return 6; // 0: Método, 1: Tipo MP, 2: Info, 3: Carteira, 4: Valores, 5: Revisão
   };
   
   const totalSteps = getTotalSteps();
+  
+  // Ajustar recorrência e parcelas baseado no tipo de dívida PIX
+  React.useEffect(() => {
+    if (paymentMethod === 'pix' && pixDebtType) {
+      if (pixDebtType === 'single') {
+        setValue('installments', 1);
+        setIsRecurring(false);
+      } else if (pixDebtType === 'installment') {
+        setIsRecurring(false);
+      } else if (pixDebtType === 'recurring') {
+        setIsRecurring(true);
+        setValue('installments', 1); // Recorrente sempre tem 1 parcela por vez
+      }
+    }
+  }, [pixDebtType, paymentMethod, setValue]);
 
   // Watch values
   const useGateway = watch('useGateway');
@@ -215,10 +232,18 @@ export default function CreateDebt() {
           isValid = false;
         }
       } else if (currentStep === 3) {
-        // Step 3: Valores e Parcelas
-        isValid = await trigger(['totalAmount', 'installments', 'dueDate']);
+        // Step 3: Tipo de Dívida (única, parcelada, recorrente)
+        isValid = !!pixDebtType;
       } else if (currentStep === 4) {
-        // Step 4: Recorrência (sempre válido, opcional)
+        // Step 4: Valores e Parcelas
+        isValid = await trigger(['totalAmount', 'installments', 'dueDate']);
+      } else if (currentStep === 5) {
+        // Step 5: Recorrência (sempre válido, opcional)
+        // Se não for recorrente, pular este step
+        if (pixDebtType !== 'recurring') {
+          setCurrentStep(6);
+          return;
+        }
         isValid = true;
       }
     }
@@ -345,9 +370,9 @@ export default function CreateDebt() {
         {paymentMethod && (
           <div className="flex items-center justify-between mb-6 overflow-x-auto">
             {paymentMethod === 'pix' ? (
-              // Steps PIX Manual: 0: Método, 1: Info, 2: Carteira/PIX, 3: Valores, 4: Recorrência, 5: Revisão
-              [0, 1, 2, 3, 4, 5].map((step) => {
-                const stepLabels = ['Método', 'Info', 'Carteira/PIX', 'Valores', 'Recorrência', 'Revisão'];
+              // Steps PIX Manual: 0: Método, 1: Info, 2: Carteira/PIX, 3: Tipo Dívida, 4: Valores, 5: Recorrência, 6: Revisão
+              [0, 1, 2, 3, 4, 5, 6].map((step) => {
+                const stepLabels = ['Método', 'Info', 'Carteira/PIX', 'Tipo Dívida', 'Valores', 'Recorrência', 'Revisão'];
                 return (
                   <React.Fragment key={step}>
                     <div className="flex items-center flex-shrink-0">
@@ -825,6 +850,106 @@ export default function CreateDebt() {
             </div>
           )}
 
+          {/* STEP 3 (PIX): Tipo de Dívida - Única, Parcelada ou Recorrente */}
+          {currentStep === 3 && paymentMethod === 'pix' && (
+            <div className="space-y-6 animate-fade-in">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="h-5 w-5" />
+                    Tipo de Dívida
+                  </CardTitle>
+                  <CardDescription>
+                    Selecione o tipo de dívida para entender melhor o impacto financeiro
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <Button
+                      type="button"
+                      variant={pixDebtType === 'single' ? 'default' : 'outline'}
+                      className="h-auto py-6 flex-col gap-3 text-left items-start"
+                      onClick={() => setPixDebtType('single')}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Check className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-base mb-1">Pagamento Único</div>
+                          <div className="text-sm text-muted-foreground">
+                            Uma única cobrança, sem parcelas e sem recorrência. Ex: Pagamento de serviço pontual.
+                          </div>
+                        </div>
+                      </div>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant={pixDebtType === 'installment' ? 'default' : 'outline'}
+                      className="h-auto py-6 flex-col gap-3 text-left items-start"
+                      onClick={() => setPixDebtType('installment')}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <CreditCard className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-base mb-1">Pagamento Parcelado</div>
+                          <div className="text-sm text-muted-foreground">
+                            Dividido em múltiplas parcelas, sem recorrência. Ex: Compra parcelada, empréstimo.
+                          </div>
+                        </div>
+                      </div>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant={pixDebtType === 'recurring' ? 'default' : 'outline'}
+                      className="h-auto py-6 flex-col gap-3 text-left items-start"
+                      onClick={() => setPixDebtType('recurring')}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Sparkles className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-base mb-1">Dívida Recorrente Mensal</div>
+                          <div className="text-sm text-muted-foreground">
+                            Cobrança que se repete mensalmente. Ex: Mensalidade de academia, assinatura, aluguel.
+                          </div>
+                        </div>
+                      </div>
+                    </Button>
+                  </div>
+
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      <strong>Importante:</strong> Esta escolha define como a dívida será gerenciada. 
+                      Você poderá configurar os valores e detalhes nas próximas etapas.
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
+              <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={prevStep}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={nextStep} 
+                  size="lg"
+                  disabled={!pixDebtType}
+                >
+                  Continuar
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* STEP 3 (Mercado Pago): Carteira */}
           {currentStep === 3 && paymentMethod === 'mercadopago' && (
             <div className="space-y-6 animate-fade-in">
@@ -889,8 +1014,8 @@ export default function CreateDebt() {
             </div>
           )}
 
-          {/* STEP 3 (PIX) / STEP 4 (Mercado Pago): Valores e Parcelas */}
-            {((currentStep === 3 && paymentMethod === 'pix') || (currentStep === 4 && paymentMethod === 'mercadopago')) && (
+          {/* STEP 4 (PIX) / STEP 4 (Mercado Pago): Valores e Parcelas */}
+            {((currentStep === 4 && paymentMethod === 'pix') || (currentStep === 4 && paymentMethod === 'mercadopago')) && (
               <div className="space-y-6 animate-fade-in">
                 <InstallmentCalculator
                   inputMode={inputMode}
@@ -905,6 +1030,7 @@ export default function CreateDebt() {
                   onInProgressChange={setIsInProgress}
                   paidInstallments={paidInstallments}
                   onPaidInstallmentsChange={setPaidInstallments}
+                  debtType={paymentMethod === 'pix' ? pixDebtType : null}
                 />
                 
                 {/* Data de Vencimento */}
@@ -942,40 +1068,26 @@ export default function CreateDebt() {
               </div>
             )}
 
-          {/* STEP 4 (PIX): Recorrência */}
-          {currentStep === 4 && paymentMethod === 'pix' && (
+          {/* STEP 5 (PIX): Recorrência - Só mostra se tipo for recorrente */}
+          {currentStep === 5 && paymentMethod === 'pix' && pixDebtType === 'recurring' && (
             <div className="space-y-6 animate-fade-in">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Info className="h-5 w-5" />
-                    Recorrência
+                    Configuração de Recorrência
                   </CardTitle>
                   <CardDescription>
-                    Configure se esta dívida é recorrente
+                    Configure os detalhes da recorrência mensal
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-sm">
-                      <strong>Dívida Recorrente:</strong> Ative esta opção se esta dívida se repete periodicamente (ex: aluguel, assinatura, salário).
+                      <strong>Dívida Recorrente Mensal:</strong> Esta dívida será cobrada automaticamente todo mês no dia configurado abaixo.
                     </AlertDescription>
                   </Alert>
-
-                  <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                    <div className="flex-1 min-w-0 pr-4">
-                      <Label className="text-base font-semibold">Esta é uma dívida recorrente?</Label>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        A cobrança será gerada automaticamente conforme o intervalo configurado
-                      </p>
-                    </div>
-                    <Switch
-                      checked={isRecurring}
-                      onCheckedChange={setIsRecurring}
-                      className="flex-shrink-0"
-                    />
-                  </div>
 
                   {isRecurring && (
                     <div className="space-y-4 mt-4 p-4 bg-muted/30 border rounded-lg">
@@ -1186,8 +1298,8 @@ export default function CreateDebt() {
             </div>
           )}
 
-          {/* STEP 5 (PIX) / STEP 5 (Mercado Pago): Revisão */}
-          {((currentStep === 5 && paymentMethod === 'pix') || (currentStep === 5 && paymentMethod === 'mercadopago')) && (
+          {/* STEP 6 (PIX) / STEP 5 (Mercado Pago): Revisão */}
+          {((currentStep === 6 && paymentMethod === 'pix') || (currentStep === 5 && paymentMethod === 'mercadopago')) && (
             <div className="space-y-6 animate-fade-in">
               <Card>
                 <CardHeader>

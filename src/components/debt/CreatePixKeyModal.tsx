@@ -70,7 +70,7 @@ export function CreatePixKeyModal({ open, onOpenChange, walletId, onSuccess }: C
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Nova Chave PIX</DialogTitle>
           <DialogDescription>
