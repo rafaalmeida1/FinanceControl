@@ -345,7 +345,7 @@ export default function CreateDebt() {
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
-                      Ambos os métodos suportam dívidas recorrentes. Você poderá configurar isso nas próximas etapas.
+                      <strong>Importante:</strong> Ambos os métodos suportam dívidas recorrentes. Você poderá configurar a recorrência na etapa de valores.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -657,10 +657,79 @@ export default function CreateDebt() {
                           )}
                       </div>
 
-                  {/* Status e Recorrência */}
+                  {/* Recorrência */}
                   <div className="space-y-4 border-t pt-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        <strong>Dívida Recorrente:</strong> Ative esta opção se esta dívida se repete periodicamente (ex: aluguel, assinatura, salário).
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <Label className="text-base font-semibold">Esta é uma dívida recorrente?</Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          A cobrança será gerada automaticamente conforme o intervalo configurado
+                        </p>
+                      </div>
+                      <Switch
+                        checked={isRecurring}
+                        onCheckedChange={setIsRecurring}
+                        className="flex-shrink-0"
+                      />
+                    </div>
+
+                    {isRecurring && (
+                      <div className="space-y-4 mt-4 p-4 bg-muted/30 border rounded-lg">
+                        <div>
+                          <Label htmlFor="recurringInterval" className="text-base font-semibold">
+                            Intervalo de Recorrência <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={recurringInterval}
+                            onValueChange={(value: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY') => setRecurringInterval(value)}
+                          >
+                            <SelectTrigger className="mt-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="MONTHLY">Mensal</SelectItem>
+                              <SelectItem value="WEEKLY">Semanal</SelectItem>
+                              <SelectItem value="BIWEEKLY">Quinzenal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Com que frequência esta dívida se repete?
+                          </p>
+                        </div>
+                        <div>
+                          <Label htmlFor="recurringDay" className="text-base font-semibold">
+                            Dia da Recorrência <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id="recurringDay"
+                            type="number"
+                            min="1"
+                            max="31"
+                            value={recurringDay}
+                            onChange={(e) => setRecurringDay(parseInt(e.target.value) || 1)}
+                            className="mt-2"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {recurringInterval === 'MONTHLY' 
+                              ? 'Dia do mês em que a cobrança será gerada (1-31)'
+                              : recurringInterval === 'WEEKLY'
+                              ? 'Dia da semana (1=Segunda, 7=Domingo)'
+                              : 'Dia do mês para cobranças quinzenais (1-31)'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Status da Dívida */}
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <div className="flex-1 min-w-0 pr-4">
                         <Label>Status da Dívida</Label>
                         <p className="text-xs text-muted-foreground">
                           Dívida já está em andamento?
@@ -670,7 +739,7 @@ export default function CreateDebt() {
                         value={debtStatus}
                         onValueChange={(value: 'PENDING' | 'PARTIAL') => setDebtStatus(value)}
                       >
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[180px] flex-shrink-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -679,54 +748,6 @@ export default function CreateDebt() {
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Dívida Recorrente</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Esta dívida se repete periodicamente?
-                        </p>
-                      </div>
-                      <Switch
-                        checked={isRecurring}
-                        onCheckedChange={setIsRecurring}
-                      />
-                    </div>
-
-                    {isRecurring && (
-                      <div className="space-y-3 mt-4 p-4 bg-muted rounded-lg">
-                        <div>
-                          <Label htmlFor="recurringInterval">Intervalo de Recorrência</Label>
-                          <Select
-                            value={recurringInterval}
-                            onValueChange={(value: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY') => setRecurringInterval(value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="MONTHLY">Mensal</SelectItem>
-                              <SelectItem value="WEEKLY">Semanal</SelectItem>
-                              <SelectItem value="BIWEEKLY">Quinzenal</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="recurringDay">Dia da Recorrência</Label>
-                          <Input
-                            id="recurringDay"
-                            type="number"
-                            min="1"
-                            max="31"
-                            value={recurringDay}
-                            onChange={(e) => setRecurringDay(parseInt(e.target.value) || 1)}
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Dia do mês em que a cobrança será gerada (1-31)
-                          </p>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Chave PIX (se PIX Manual) */}
@@ -850,70 +871,70 @@ export default function CreateDebt() {
                       <span className="text-sm text-muted-foreground">Tipo:</span>
                       <Badge>{isPersonalDebt ? 'Eu devo' : 'Alguém me deve'}</Badge>
                             </div>
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm text-muted-foreground">Devedor:</span>
-                      <div className="text-right">
-                        <p className="font-medium">{watch('debtorName') || watch('debtorEmail')}</p>
-                        <p className="text-xs text-muted-foreground">{watch('debtorEmail')}</p>
-                            </div>
-                            </div>
+                    <div className="flex justify-between items-start gap-4">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">Devedor:</span>
+                      <div className="text-right min-w-0 flex-1">
+                        <p className="font-medium truncate">{watch('debtorName') || watch('debtorEmail')}</p>
+                        <p className="text-xs text-muted-foreground truncate">{watch('debtorEmail')}</p>
+                      </div>
+                    </div>
                     {isPersonalDebt && !isPersonalDebtForMyself && (
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Credor:</span>
-                        <div className="text-right">
-                          <p className="font-medium">{watch('creditorName') || watch('creditorEmail')}</p>
-                          <p className="text-xs text-muted-foreground">{watch('creditorEmail')}</p>
-                                </div>
-                                    </div>
+                      <div className="flex justify-between items-start gap-4">
+                        <span className="text-sm text-muted-foreground flex-shrink-0">Credor:</span>
+                        <div className="text-right min-w-0 flex-1">
+                          <p className="font-medium truncate">{watch('creditorName') || watch('creditorEmail')}</p>
+                          <p className="text-xs text-muted-foreground truncate">{watch('creditorEmail')}</p>
+                        </div>
+                      </div>
                     )}
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm text-muted-foreground">Descrição:</span>
-                      <p className="font-medium text-right max-w-[60%]">{watch('description')}</p>
-                            </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Valor Total:</span>
-                      <p className="font-bold text-lg">{formatCurrency(parseFloat(String(totalAmount || 0)))}</p>
-                          </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Parcelas:</span>
-                      <p className="font-medium">{installments}x de {formatCurrency(installmentValue)}</p>
+                    <div className="flex justify-between items-start gap-4">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">Descrição:</span>
+                      <p className="font-medium text-right truncate min-w-0 flex-1">{watch('description')}</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Vencimento:</span>
-                      <p className="font-medium">{new Date(watch('dueDate')).toLocaleDateString('pt-BR')}</p>
-                </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Pagamento:</span>
-                      <Badge>{useGateway ? 'Mercado Pago' : 'PIX Manual'}</Badge>
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">Valor Total:</span>
+                      <p className="font-bold text-lg truncate min-w-0 flex-1 text-right">{formatCurrency(parseFloat(String(totalAmount || 0)))}</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Status:</span>
-                      <Badge variant={debtStatus === 'PARTIAL' ? 'default' : 'secondary'}>
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">Parcelas:</span>
+                      <p className="font-medium truncate min-w-0 flex-1 text-right">{installments}x de {formatCurrency(installmentValue)}</p>
+                    </div>
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">Vencimento:</span>
+                      <p className="font-medium truncate min-w-0 flex-1 text-right">{new Date(watch('dueDate')).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">Pagamento:</span>
+                      <Badge className="flex-shrink-0">{useGateway ? 'Mercado Pago' : 'PIX Manual'}</Badge>
+                    </div>
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-sm text-muted-foreground flex-shrink-0">Status:</span>
+                      <Badge variant={debtStatus === 'PARTIAL' ? 'default' : 'secondary'} className="flex-shrink-0">
                         {debtStatus === 'PARTIAL' ? 'Em Andamento' : 'Pendente'}
                       </Badge>
                     </div>
                     {isRecurring && (
                       <>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Recorrente:</span>
-                          <Badge variant="outline">Sim</Badge>
+                        <div className="flex justify-between items-center gap-4">
+                          <span className="text-sm text-muted-foreground flex-shrink-0">Recorrente:</span>
+                          <Badge variant="outline" className="flex-shrink-0">Sim</Badge>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Intervalo:</span>
-                          <p className="font-medium">
+                        <div className="flex justify-between items-center gap-4">
+                          <span className="text-sm text-muted-foreground flex-shrink-0">Intervalo:</span>
+                          <p className="font-medium truncate min-w-0 flex-1 text-right">
                             {recurringInterval === 'MONTHLY' ? 'Mensal' : recurringInterval === 'WEEKLY' ? 'Semanal' : 'Quinzenal'}
                           </p>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Dia da Recorrência:</span>
-                          <p className="font-medium">{recurringDay}</p>
+                        <div className="flex justify-between items-center gap-4">
+                          <span className="text-sm text-muted-foreground flex-shrink-0">Dia da Recorrência:</span>
+                          <p className="font-medium truncate min-w-0 flex-1 text-right">{recurringDay}</p>
                         </div>
                       </>
                     )}
                     {wallets && walletId && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Carteira:</span>
-                        <p className="font-medium">
+                      <div className="flex justify-between items-center gap-4">
+                        <span className="text-sm text-muted-foreground flex-shrink-0">Carteira:</span>
+                        <p className="font-medium truncate min-w-0 flex-1 text-right">
                           {wallets.find((w) => w.id === walletId)?.name || 'Padrão'}
                         </p>
                       </div>

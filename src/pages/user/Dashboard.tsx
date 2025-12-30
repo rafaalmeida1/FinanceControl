@@ -412,8 +412,8 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right ml-4">
-                        <p className="font-semibold">{formatCurrency(charge.amount)}</p>
+                      <div className="text-right ml-4 flex-shrink-0 min-w-0">
+                        <p className="font-semibold truncate">{formatCurrency(charge.amount)}</p>
                         <Badge
                           variant={
                             charge.status === 'OVERDUE' ? 'destructive' :

@@ -271,52 +271,50 @@ export default function Debts() {
       <div className="space-y-4">
         {debtsList.map((debt) => (
           <div key={debt.id} className="card cursor-pointer hover:border-primary transition-colors" onClick={() => navigate(`/debts/${debt.id}`)}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
+            <div className="flex items-start justify-between mb-4 gap-4">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-xl font-bold">
+                  <h3 className="text-xl font-bold truncate">
                     {getDebtPerspective(debt) 
                       ? (debt.creditorName || debt.creditorEmail || 'Credor não informado')
                       : (debt.debtorName || debt.debtorEmail)}
                   </h3>
-                  {debt.isPersonalDebt !== undefined && (
-                    <Badge variant={getDebtPerspective(debt) ? 'destructive' : 'default'}>
-                      {getDebtPerspective(debt) ? 'Eu devo' : 'Alguém me deve'}
-                    </Badge>
-                  )}
+                  <Badge variant={getDebtPerspective(debt) ? 'destructive' : 'default'} className="flex-shrink-0">
+                    {getDebtPerspective(debt) ? 'Eu devo' : 'Alguém me deve'}
+                  </Badge>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
+                <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
                   {getDebtPerspective(debt)
                     ? `Credor: ${debt.creditorName || debt.creditorEmail || 'Não informado'}` 
                     : `Devedor: ${debt.debtorName || debt.debtorEmail}`}
                 </p>
                 {debt.description && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{debt.description}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">{debt.description}</p>
                 )}
               </div>
-              <span className={`badge ${getStatusColor(debt.status)}`}>
+              <span className={`badge ${getStatusColor(debt.status)} flex-shrink-0`}>
                 {getStatusLabel(debt.status)}
               </span>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm text-gray-600 dark:text-gray-300">Valor Total</p>
-                <p className="text-lg font-bold dark:text-white">{formatCurrency(debt.totalAmount)}</p>
+                <p className="text-lg font-bold dark:text-white truncate">{formatCurrency(debt.totalAmount)}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm text-gray-600 dark:text-gray-300">Pago</p>
-                <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                <p className="text-lg font-bold text-green-600 dark:text-green-400 truncate">
                   {formatCurrency(debt.paidAmount)}
                 </p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm text-gray-600 dark:text-gray-300">Parcelas</p>
-                <p className="text-lg font-bold dark:text-white">{debt.installments}x</p>
+                <p className="text-lg font-bold dark:text-white truncate">{debt.installments}x</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm text-gray-600 dark:text-gray-300">Vencimento</p>
-                <p className="text-lg font-bold dark:text-white">
+                <p className="text-lg font-bold dark:text-white truncate">
                   {debt.dueDate ? formatDateShort(debt.dueDate) : '-'}
                 </p>
               </div>
