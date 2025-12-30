@@ -16,13 +16,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Info, Loader2 } from 'lucide-react';
 import { authStore } from '@/stores/authStore';
-import { usersService, NotificationPreferences } from '@/services/users.service';
+import { usersService } from '@/services/users.service';
 import { authService } from '@/services/auth.service';
 import { paymentsService } from '@/services/payments.service';
 import { PixKeysTab } from '@/components/settings/PixKeysTab';
@@ -63,15 +61,6 @@ export default function Settings() {
   const [mercadoPagoConnected, setMercadoPagoConnected] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
-    paymentReminders: true,
-    overdueNotifications: true,
-    monthlySummary: false,
-    debtCreated: true,
-    disputeNotifications: true,
-    paymentConfirmationRequest: true,
-  });
 
   const {
     register: registerProfile,
@@ -95,18 +84,6 @@ export default function Settings() {
     resolver: zodResolver(passwordSchema),
   });
 
-  // Carregar preferências de notificação ao montar componente
-  useEffect(() => {
-    const loadNotificationPreferences = async () => {
-      try {
-        const prefs = await usersService.getNotificationPreferences();
-        setNotificationPrefs(prefs);
-      } catch (error) {
-        console.error('Erro ao carregar preferências:', error);
-      }
-    };
-    loadNotificationPreferences();
-  }, []);
 
   // Carregar status de conexão de pagamento
   useEffect(() => {
@@ -182,18 +159,6 @@ export default function Settings() {
     }
   };
 
-  const handleSaveNotificationPreferences = async () => {
-    setLoadingNotifications(true);
-    try {
-      const updated = await usersService.updateNotificationPreferences(notificationPrefs);
-      setNotificationPrefs(updated);
-      toast.success('Preferências salvas com sucesso!');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao salvar preferências');
-    } finally {
-      setLoadingNotifications(false);
-    }
-  };
 
   const connectMercadoPago = async () => {
     try {
@@ -232,19 +197,17 @@ export default function Settings() {
             <TabsTrigger value="seguranca" className="whitespace-nowrap flex-shrink-0">Segurança</TabsTrigger>
             <TabsTrigger value="pagamentos" className="whitespace-nowrap flex-shrink-0">Pagamentos</TabsTrigger>
             <TabsTrigger value="pix" className="whitespace-nowrap flex-shrink-0">Chaves PIX</TabsTrigger>
-            <TabsTrigger value="notificacoes" className="whitespace-nowrap flex-shrink-0">Notificações</TabsTrigger>
           </TabsList>
         </div>
         
         {/* Desktop: Grid Tabs */}
         <div className="hidden md:block">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="perfil">Perfil</TabsTrigger>
             <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
             <TabsTrigger value="seguranca">Segurança</TabsTrigger>
             <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
             <TabsTrigger value="pix">Chaves PIX</TabsTrigger>
-            <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
           </TabsList>
         </div>
 
@@ -419,117 +382,6 @@ export default function Settings() {
           <PixKeysTab />
         </TabsContent>
 
-        {/* Aba: Notificações */}
-        <TabsContent value="notificacoes">
-          <div className="space-y-4">
-            {/* Preferências de Notificação */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Preferências de Notificação</CardTitle>
-              <CardDescription>Configure quando receber emails</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Lembretes de Pagamento</Label>
-                  <p className="text-sm text-muted-foreground">D-5, D-2 e no dia do vencimento</p>
-                </div>
-                <Switch
-                  checked={notificationPrefs.paymentReminders}
-                  onCheckedChange={(checked) =>
-                    setNotificationPrefs({ ...notificationPrefs, paymentReminders: checked })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Notificações de Atraso</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Quando houver pagamentos atrasados
-                  </p>
-                </div>
-                <Switch
-                  checked={notificationPrefs.overdueNotifications}
-                  onCheckedChange={(checked) =>
-                    setNotificationPrefs({ ...notificationPrefs, overdueNotifications: checked })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Resumo Mensal</Label>
-                  <p className="text-sm text-muted-foreground">Relatório de atividades do mês</p>
-                </div>
-                <Switch
-                  checked={notificationPrefs.monthlySummary}
-                  onCheckedChange={(checked) =>
-                    setNotificationPrefs({ ...notificationPrefs, monthlySummary: checked })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Nova Dívida Criada</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Quando uma nova dívida for registrada
-                  </p>
-                </div>
-                <Switch
-                  checked={notificationPrefs.debtCreated}
-                  onCheckedChange={(checked) =>
-                    setNotificationPrefs({ ...notificationPrefs, debtCreated: checked })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Contestações</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Quando houver contestações de dívidas
-                  </p>
-                </div>
-                <Switch
-                  checked={notificationPrefs.disputeNotifications}
-                  onCheckedChange={(checked) =>
-                    setNotificationPrefs({ ...notificationPrefs, disputeNotifications: checked })
-                  }
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Confirmação de Pagamento</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receber email quando pagamento for confirmado pelo credor
-                  </p>
-                </div>
-                <Switch
-                  checked={notificationPrefs.paymentConfirmationRequest}
-                  onCheckedChange={(checked) =>
-                    setNotificationPrefs({ ...notificationPrefs, paymentConfirmationRequest: checked })
-                  }
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSaveNotificationPreferences} disabled={loadingNotifications}>
-                {loadingNotifications ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  'Salvar Preferências'
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );

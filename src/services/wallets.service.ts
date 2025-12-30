@@ -26,6 +26,7 @@ export interface CreateWalletDto {
 
 export interface UpdateWalletDto {
   name?: string;
+  balance?: number;
   color?: string;
   icon?: string;
   isDefault?: boolean;

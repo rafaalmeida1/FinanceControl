@@ -41,6 +41,11 @@ export const debtsService = {
   },
 
   cancel: async (id: string): Promise<Debt> => {
+    const response = await api.patch(`/debts/${id}/cancel`);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     const response = await api.delete(`/debts/${id}`);
     return response.data;
   },

@@ -36,6 +36,18 @@ export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: b
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: debtsService.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast.success('Dívida deletada com sucesso!');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao deletar dívida');
+    },
+  });
+
   const sendLinkMutation = useMutation({
     mutationFn: debtsService.sendLink,
     onSuccess: () => {
@@ -59,6 +71,8 @@ export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: b
     debts,
     isLoading,
     createDebt: createMutation.mutate,
+    deleteDebt: deleteMutation.mutate,
+    isDeletingDebt: deleteMutation.isPending,
     isCreatingDebt: createMutation.isPending,
     updateDebt: (params: { id: string; data: any }, options?: { onSuccess?: () => void; onError?: (error: any) => void }) => {
       updateMutation.mutate(params, {

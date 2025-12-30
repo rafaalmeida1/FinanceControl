@@ -12,8 +12,8 @@ export function useFinancial(month?: number, year?: number, walletId?: string | 
   });
 
   const { data: history, isLoading: isLoadingHistory } = useQuery<FinancialHistory[]>({
-    queryKey: ['financial', 'history'],
-    queryFn: () => financialService.getHistory(12),
+    queryKey: ['financial', 'history', walletId],
+    queryFn: () => financialService.getHistory(12, walletId || undefined),
   });
 
   const { data: totalBalance, isLoading: isLoadingBalance } = useQuery<number>({

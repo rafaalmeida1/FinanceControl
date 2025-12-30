@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
+import { debtsService } from '@/services/debts.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check, Loader2 } from 'lucide-react';
+import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check, Loader2, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +17,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,11 +64,18 @@ export default function Debts() {
   const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party' | 'archived'>('all');
   const debtType = activeTab === 'all' ? undefined : activeTab === 'personal' ? 'personal' : activeTab === 'third-party' ? 'third-party' : undefined;
   const archived = activeTab === 'archived' ? true : false;
-  const { debts, isLoading, sendLink, cancelDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived);
+  const { debts, isLoading, sendLink, cancelDebt, deleteDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isDeletingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived);
+  const [deletingDebtId, setDeletingDebtId] = useState<string | null>(null);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [cancelRecurringDebt, setCancelRecurringDebt] = useState<Debt | null>(null);
+  const [showCompiled, setShowCompiled] = useState(false);
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EditDebtFormData>();
+  const { data: compiledDebts, isLoading: isLoadingCompiled } = useQuery({
+    queryKey: ['compiled-debts'],
+    queryFn: () => debtsService.getCompiledByPix(),
+    enabled: showCompiled,
+  });
 
   // Função helper para determinar a perspectiva da dívida do ponto de vista do usuário atual
   const getDebtPerspective = (debt: Debt): boolean => {
@@ -399,29 +419,55 @@ export default function Debts() {
                       <span className="sm:hidden">Cancelar</span>
                     </button>
                   ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm('Deseja realmente cancelar esta dívida?')) {
-                          cancelDebt(debt.id);
-                        }
-                      }}
-                      className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
-                      disabled={debt.status === 'PAID' || isCancelingDebt}
-                    >
-                      {isCancelingDebt ? (
-                        <>
-                          <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
-                          <span className="hidden sm:inline">Cancelando...</span>
-                          <span className="sm:hidden">...</span>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle size={14} className="md:w-4 md:h-4" />
-                          <span className="hidden sm:inline">Cancelar</span>
-                        </>
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Deseja realmente cancelar esta dívida?')) {
+                            cancelDebt(debt.id);
+                          }
+                        }}
+                        className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
+                        disabled={debt.status === 'PAID' || isCancelingDebt}
+                      >
+                        {isCancelingDebt ? (
+                          <>
+                            <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
+                            <span className="hidden sm:inline">Cancelando...</span>
+                            <span className="sm:hidden">...</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle size={14} className="md:w-4 md:h-4" />
+                            <span className="hidden sm:inline">Cancelar</span>
+                          </>
+                        )}
+                      </button>
+                      {/* Botão Deletar - apenas para dívidas PAID ou CANCELLED */}
+                      {(debt.status === 'PAID' || debt.status === 'CANCELLED') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingDebtId(debt.id);
+                          }}
+                          className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2 bg-red-600 hover:bg-red-700"
+                          disabled={isDeletingDebt || deletingDebtId === debt.id}
+                        >
+                          {isDeletingDebt && deletingDebtId === debt.id ? (
+                            <>
+                              <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
+                              <span className="hidden sm:inline">Deletando...</span>
+                              <span className="sm:hidden">...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={14} className="md:w-4 md:h-4" />
+                              <span className="hidden sm:inline">Deletar</span>
+                            </>
+                          )}
+                        </button>
                       )}
-                    </button>
+                    </>
                   )}
                 </>
               )}
@@ -461,71 +507,160 @@ export default function Debts() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party' | 'archived')}>
-        {/* Mobile: Horizontal Scrollable Tabs */}
-        <div className="md:hidden overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
-          <TabsList className="inline-flex w-max min-w-full">
-            <TabsTrigger value="all" className="whitespace-nowrap flex-shrink-0">Todas</TabsTrigger>
-            <TabsTrigger value="personal" className="whitespace-nowrap flex items-center gap-1.5 flex-shrink-0">
-              <TrendingDown className="h-3.5 w-3.5" />
-              Eu devo
-            </TabsTrigger>
-            <TabsTrigger value="third-party" className="whitespace-nowrap flex items-center gap-1.5 flex-shrink-0">
-              <TrendingUp className="h-3.5 w-3.5" />
-              Me devem
-            </TabsTrigger>
-            <TabsTrigger value="archived" className="whitespace-nowrap flex-shrink-0">Arquivadas</TabsTrigger>
-          </TabsList>
+      {/* Toggle para Visualização Compilada */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="compiled-view"
+            checked={showCompiled}
+            onCheckedChange={setShowCompiled}
+          />
+          <Label htmlFor="compiled-view" className="cursor-pointer">
+            Ver Dívidas Compiladas
+          </Label>
         </div>
-        
-        {/* Desktop: Grid Tabs */}
-        <div className="hidden md:block">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="all">Todas</TabsTrigger>
-            <TabsTrigger value="personal" className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4" />
-              Eu devo
-            </TabsTrigger>
-            <TabsTrigger value="third-party" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Alguém me deve
-            </TabsTrigger>
-            <TabsTrigger value="archived">Arquivadas</TabsTrigger>
-          </TabsList>
+      </div>
+
+      {showCompiled ? (
+        /* Visualização Compilada */
+        <div className="space-y-4">
+          {isLoadingCompiled ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : compiledDebts && compiledDebts.length > 0 ? (
+            compiledDebts.map((group: any, index: number) => (
+              <Card key={index}>
+                <CardHeader>
+                  <CardTitle className="text-lg truncate">
+                    {group.debtorName || group.debtorEmail}
+                  </CardTitle>
+                  <CardDescription>
+                    {group.debts.length} dívida(s) • Total: {formatCurrency(
+                      group.debts.reduce((sum: number, d: any) => {
+                        const chargesTotal = d.charges?.reduce(
+                          (s: number, c: any) => s + Number(c.amount),
+                          0,
+                        ) || 0;
+                        return sum + (chargesTotal || Number(d.totalAmount) || 0);
+                      }, 0),
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {group.debts.map((debt: any) => {
+                      const chargesTotal = debt.charges?.reduce(
+                        (sum: number, c: any) => sum + Number(c.amount),
+                        0,
+                      ) || 0;
+                      return (
+                        <div
+                          key={debt.id}
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{debt.description || 'Sem descrição'}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {debt.dueDate ? formatDateShort(debt.dueDate) : 'Sem vencimento'}
+                              {debt.charges && debt.charges.length > 0 && (
+                                <span className="ml-2">
+                                  • {debt.charges.length} parcela(s) pendente(s)
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-right ml-4 flex-shrink-0 min-w-0">
+                            <p className="font-bold truncate">{formatCurrency(chargesTotal || debt.totalAmount)}</p>
+                            {chargesTotal !== debt.totalAmount && (
+                              <p className="text-xs text-muted-foreground line-through truncate">
+                                {formatCurrency(debt.totalAmount)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground">Nenhuma dívida compilada encontrada</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
+      ) : (
+        /* Visualização Normal */
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party' | 'archived')}>
+          {/* Mobile: Horizontal Scrollable Tabs */}
+          <div className="md:hidden overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+            <TabsList className="inline-flex w-max min-w-full">
+              <TabsTrigger value="all" className="whitespace-nowrap flex-shrink-0">Todas</TabsTrigger>
+              <TabsTrigger value="personal" className="whitespace-nowrap flex items-center gap-1.5 flex-shrink-0">
+                <TrendingDown className="h-3.5 w-3.5" />
+                Eu devo
+              </TabsTrigger>
+              <TabsTrigger value="third-party" className="whitespace-nowrap flex items-center gap-1.5 flex-shrink-0">
+                <TrendingUp className="h-3.5 w-3.5" />
+                Me devem
+              </TabsTrigger>
+              <TabsTrigger value="archived" className="whitespace-nowrap flex-shrink-0">Arquivadas</TabsTrigger>
+            </TabsList>
+          </div>
+          
+          {/* Desktop: Grid Tabs */}
+          <div className="hidden md:block">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="all">Todas</TabsTrigger>
+              <TabsTrigger value="personal" className="flex items-center gap-2">
+                <TrendingDown className="h-4 w-4" />
+                Eu devo
+              </TabsTrigger>
+              <TabsTrigger value="third-party" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Alguém me deve
+              </TabsTrigger>
+              <TabsTrigger value="archived">Arquivadas</TabsTrigger>
+            </TabsList>
+          </div>
 
-        <TabsContent value="all" className="mt-6">
-          {isLoading ? (
-            <div className="text-center py-12">Carregando...</div>
-          ) : (
-            renderDebtList(debts)
-          )}
-        </TabsContent>
+          <TabsContent value="all" className="mt-6">
+            {isLoading ? (
+              <div className="text-center py-12">Carregando...</div>
+            ) : (
+              renderDebtList(debts)
+            )}
+          </TabsContent>
 
-        <TabsContent value="personal" className="mt-6">
-          {isLoading ? (
-            <div className="text-center py-12">Carregando...</div>
-          ) : (
-            renderDebtList(debts)
-          )}
-        </TabsContent>
+          <TabsContent value="personal" className="mt-6">
+            {isLoading ? (
+              <div className="text-center py-12">Carregando...</div>
+            ) : (
+              renderDebtList(debts)
+            )}
+          </TabsContent>
 
-        <TabsContent value="third-party" className="mt-6">
-          {isLoading ? (
-            <div className="text-center py-12">Carregando...</div>
-          ) : (
-            renderDebtList(debts)
-          )}
-        </TabsContent>
+          <TabsContent value="third-party" className="mt-6">
+            {isLoading ? (
+              <div className="text-center py-12">Carregando...</div>
+            ) : (
+              renderDebtList(debts)
+            )}
+          </TabsContent>
 
-        <TabsContent value="archived" className="mt-6">
-          {isLoading ? (
-            <div className="text-center py-12">Carregando...</div>
-          ) : (
-            renderDebtList(debts)
-          )}
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="archived" className="mt-6">
+            {isLoading ? (
+              <div className="text-center py-12">Carregando...</div>
+            ) : (
+              renderDebtList(debts)
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
 
       {/* Dialog de Edição */}
       <Dialog open={!!editingDebt} onOpenChange={(open) => !open && setEditingDebt(null)}>
@@ -733,6 +868,46 @@ export default function Debts() {
           }}
         />
       )}
+
+      {/* Dialog de Confirmação de Deleção */}
+      <AlertDialog open={!!deletingDebtId} onOpenChange={(open) => !open && setDeletingDebtId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar esta dívida permanentemente? Esta ação não pode ser desfeita.
+              <br />
+              <br />
+              <strong>Atenção:</strong> Apenas dívidas pagas ou canceladas podem ser deletadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingDebtId(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingDebtId) {
+                  deleteDebt(deletingDebtId, {
+                    onSuccess: () => {
+                      setDeletingDebtId(null);
+                    },
+                  });
+                }
+              }}
+              disabled={isDeletingDebt}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingDebt ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deletando...
+                </>
+              ) : (
+                'Deletar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

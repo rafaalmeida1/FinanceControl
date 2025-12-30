@@ -21,8 +21,10 @@ export const usersService = {
     return response.data;
   },
 
-  getStats: async (): Promise<UserStats> => {
-    const response = await api.get('/users/me/stats');
+  getStats: async (walletId?: string): Promise<UserStats> => {
+    const response = await api.get('/users/me/stats', {
+      params: { ...(walletId && { walletId }) },
+    });
     return response.data;
   },
 

@@ -30,6 +30,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import {
   LineChart,
   Line,
@@ -45,10 +47,15 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data: stats, isLoading: isLoadingStats } = useStats();
-  const { profile, isLoading: isLoadingProfile } = useFinancialProfile();
-  const { monthlySummary, history, totalBalance, isLoading: isLoadingFinancial } = useFinancial();
   const { wallets, isLoading: isLoadingWallets } = useWallets();
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  const { data: stats, isLoading: isLoadingStats } = useStats(selectedWalletId);
+  const { profile, isLoading: isLoadingProfile } = useFinancialProfile();
+  const { monthlySummary, history, totalBalance, isLoading: isLoadingFinancial } = useFinancial(
+    undefined,
+    undefined,
+    selectedWalletId || undefined,
+  );
   const [balanceVisible, setBalanceVisible] = useState(true);
   const { width } = useWindowSize();
   const chartHeight = width < 768 ? 200 : 280;
@@ -131,18 +138,55 @@ export default function Dashboard() {
         </Alert>
       )}
 
+      {/* Filtro por Carteira */}
+      {!isLoadingWallets && wallets && wallets.length > 1 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <Label htmlFor="wallet-filter" className="text-sm font-medium whitespace-nowrap">
+                Filtrar por Carteira:
+              </Label>
+              <Select
+                value={selectedWalletId || 'all'}
+                onValueChange={(value) => setSelectedWalletId(value === 'all' ? null : value)}
+              >
+                <SelectTrigger id="wallet-filter" className="w-full sm:w-[300px]">
+                  <SelectValue placeholder="Selecione uma carteira" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Carteiras</SelectItem>
+                  {wallets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={wallet.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{wallet.icon || '💳'}</span>
+                        <span>{wallet.name}</span>
+                        {wallet.isDefault && (
+                          <Badge variant="secondary" className="text-xs">
+                            Padrão
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header com Saldo Total - Estilo App Bancário */}
-      <Card className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground border-0 shadow-xl overflow-hidden relative">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,white,transparent)]" />
+      <Card className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-primary-foreground dark:text-slate-50 border-0 shadow-xl overflow-hidden relative">
+        <div className="absolute inset-0 bg-grid-white/10 dark:bg-grid-white/5 [mask-image:linear-gradient(0deg,white,transparent)]" />
         <CardHeader className="relative z-10 pb-3">
           <div className="flex items-center justify-between mb-2">
-            <CardDescription className="text-primary-foreground/80">
+            <CardDescription className="text-primary-foreground/80 dark:text-slate-300">
               Saldo Total
             </CardDescription>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              className="h-8 w-8 text-primary-foreground/80 dark:text-slate-300 hover:text-primary-foreground dark:hover:text-slate-50 hover:bg-primary-foreground/10 dark:hover:bg-slate-700"
               onClick={() => setBalanceVisible(!balanceVisible)}
             >
               {balanceVisible ? (
@@ -159,13 +203,13 @@ export default function Dashboard() {
         <CardContent className="relative z-10">
           <div className="grid grid-cols-2 gap-4">
             <div className="min-w-0">
-              <p className="text-xs text-primary-foreground/70 mb-1 truncate">Receitas do Mês</p>
+              <p className="text-xs text-primary-foreground/70 dark:text-slate-300 mb-1 truncate">Receitas do Mês</p>
               <p className="text-lg font-semibold truncate">
                 {formatCurrency(monthlySummary?.totalIncome || 0)}
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-primary-foreground/70 mb-1 truncate">Despesas do Mês</p>
+              <p className="text-xs text-primary-foreground/70 dark:text-slate-300 mb-1 truncate">Despesas do Mês</p>
               <p className="text-lg font-semibold truncate">
                 {formatCurrency(monthlySummary?.totalExpenses || 0)}
               </p>
@@ -221,19 +265,19 @@ export default function Dashboard() {
       {/* Cards Principais - Para Receber, Para Pagar, Sobra */}
       <div className="grid gap-4 md:grid-cols-3">
         {/* Para Receber */}
-        <Card className="border-green-200 dark:border-green-900/50 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/30 dark:border-green-800/50 hover:shadow-lg transition-shadow">
+        <Card className="border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/20 dark:border-green-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-200">
+              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-100">
                 Para Receber
               </CardTitle>
-              <div className="h-8 w-8 rounded-full bg-green-500/20 dark:bg-green-500/30 flex items-center justify-center">
-                <ArrowUpRight className="h-4 w-4 text-green-600 dark:text-green-300" />
+              <div className="h-8 w-8 rounded-full bg-green-500/20 dark:bg-green-500/20 flex items-center justify-center">
+                <ArrowUpRight className="h-4 w-4 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-green-700 dark:text-green-200 mb-1 truncate">
+            <div className="text-2xl md:text-3xl font-bold text-green-700 dark:text-green-100 mb-1 truncate">
               {formatCurrency(monthlySummary?.pendingIncome || 0)}
             </div>
             <p className="text-xs text-green-600 dark:text-green-300 truncate">
@@ -243,19 +287,19 @@ export default function Dashboard() {
         </Card>
 
         {/* Para Pagar */}
-        <Card className="border-red-200 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/30 dark:border-red-800/50 hover:shadow-lg transition-shadow">
+        <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/20 dark:border-red-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-200">
+              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-100">
                 Para Pagar
               </CardTitle>
-              <div className="h-8 w-8 rounded-full bg-red-500/20 dark:bg-red-500/30 flex items-center justify-center">
-                <ArrowDownRight className="h-4 w-4 text-red-600 dark:text-red-300" />
+              <div className="h-8 w-8 rounded-full bg-red-500/20 dark:bg-red-500/20 flex items-center justify-center">
+                <ArrowDownRight className="h-4 w-4 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-red-700 dark:text-red-200 mb-1 truncate">
+            <div className="text-2xl md:text-3xl font-bold text-red-700 dark:text-red-100 mb-1 truncate">
               {formatCurrency(monthlySummary?.pendingExpenses || 0)}
             </div>
             <p className="text-xs text-red-600 dark:text-red-300 truncate">
@@ -265,19 +309,19 @@ export default function Dashboard() {
         </Card>
 
         {/* Sobra no Mês */}
-        <Card className="border-blue-200 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 dark:border-blue-800/50 hover:shadow-lg transition-shadow">
+        <Card className="border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/20 dark:border-blue-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-200">
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-100">
                 Sobra no Mês
               </CardTitle>
-              <div className="h-8 w-8 rounded-full bg-blue-500/20 dark:bg-blue-500/30 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+              <div className="h-8 w-8 rounded-full bg-blue-500/20 dark:bg-blue-500/20 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-200 mb-1 truncate">
+            <div className="text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-100 mb-1 truncate">
               {formatCurrency(monthlySummary?.projectedBalance || 0)}
             </div>
             <p className="text-xs text-blue-600 dark:text-blue-300 truncate">

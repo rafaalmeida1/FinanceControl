@@ -27,9 +27,9 @@ export const financialService = {
     return response.data;
   },
 
-  getHistory: async (months: number = 12): Promise<FinancialHistory[]> => {
+  getHistory: async (months: number = 12, walletId?: string): Promise<FinancialHistory[]> => {
     const response = await api.get('/financial/history', {
-      params: { months },
+      params: { months, ...(walletId && { walletId }) },
     });
     return response.data;
   },

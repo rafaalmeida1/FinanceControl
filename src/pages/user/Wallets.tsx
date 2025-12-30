@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Star, Wallet as WalletIcon, ArrowLeft } from 'lucide-react';
+import { Plus, Edit, Trash2, Star, Wallet as WalletIcon, ArrowLeft, DollarSign } from 'lucide-react';
 import { useWallets } from '@/hooks/useWallets';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,9 +28,16 @@ import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
 import { formatCurrency } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 interface WalletFormData {
   name: string;
+  balance: number;
   color: string;
   icon: string;
   isDefault: boolean;
@@ -67,6 +74,7 @@ export default function Wallets() {
   } = useForm<WalletFormData>({
     defaultValues: {
       name: '',
+      balance: 0,
       color: '#10b981',
       icon: '💳',
       isDefault: false,
@@ -86,6 +94,7 @@ export default function Wallets() {
     createWallet.mutate(
       {
         name: data.name,
+        balance: data.balance || 0,
         color: data.color,
         icon: data.icon,
         isDefault: data.isDefault,
@@ -107,6 +116,7 @@ export default function Wallets() {
         id: selectedWallet,
         data: {
           name: data.name,
+          balance: data.balance || 0,
           color: data.color,
           icon: data.icon,
           isDefault: data.isDefault,
@@ -128,6 +138,7 @@ export default function Wallets() {
       setSelectedWallet(walletId);
       resetEdit({
         name: wallet.name,
+        balance: wallet.balance || 0,
         color: wallet.color || '#10b981',
         icon: wallet.icon || '💳',
         isDefault: wallet.isDefault,
@@ -196,6 +207,7 @@ export default function Wallets() {
             </DialogHeader>
             <form onSubmit={handleSubmitCreate(onSubmitCreate)}>
               <div className="space-y-4 py-4">
+                {/* Seção Principal - Sempre Visível */}
                 <div>
                   <Label htmlFor="name">Nome da Carteira *</Label>
                   <Input
@@ -209,67 +221,106 @@ export default function Wallets() {
                 </div>
 
                 <div>
-                  <Label htmlFor="icon">Ícone</Label>
-                  <div className="grid grid-cols-6 gap-2 mt-2">
-                    {WALLET_ICONS.map((icon) => (
-                      <button
-                        key={icon}
-                        type="button"
-                        onClick={() => {
-                          resetCreate({ ...getCreateValues(), icon });
-                        }}
-                        className="p-2 text-2xl hover:bg-muted rounded-md transition-colors"
-                      >
-                        {icon}
-                      </button>
-                    ))}
-                  </div>
-                  <Input
-                    id="icon"
-                    {...registerCreate('icon')}
-                    className="mt-2"
-                    placeholder="💳"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="color">Cor</Label>
-                  <div className="grid grid-cols-4 gap-2 mt-2">
-                    {WALLET_COLORS.map((color) => (
-                      <button
-                        key={color.value}
-                        type="button"
-                        onClick={() => {
-                          resetCreate({ ...getCreateValues(), color: color.value });
-                        }}
-                        className="h-10 rounded-md border-2 transition-all"
-                        style={{
-                          backgroundColor: color.value,
-                          borderColor: watchCreate('color') === color.value ? '#000' : 'transparent',
-                        }}
-                        title={color.label}
-                      />
-                    ))}
-                  </div>
-                  <Input
-                    id="color"
-                    type="color"
-                    {...registerCreate('color')}
-                    className="mt-2"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isDefault"
-                    {...registerCreate('isDefault')}
-                    className="rounded"
-                  />
-                  <Label htmlFor="isDefault" className="cursor-pointer">
-                    Definir como carteira padrão
+                  <Label htmlFor="balance" className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Saldo Inicial *
                   </Label>
+                  <div className="relative mt-2">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      R$
+                    </span>
+                    <Input
+                      id="balance"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="pl-8"
+                      placeholder="0.00"
+                      {...registerCreate('balance', {
+                        valueAsNumber: true,
+                        required: 'Saldo inicial é obrigatório',
+                        min: { value: 0, message: 'Saldo não pode ser negativo' },
+                      })}
+                    />
+                  </div>
+                  {errorsCreate.balance && (
+                    <p className="text-sm text-destructive mt-1">{errorsCreate.balance.message}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Este será o saldo inicial da sua nova carteira.
+                  </p>
                 </div>
+
+                {/* Acordeon de Personalização */}
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="personalization">
+                    <AccordionTrigger>Personalizar (Opcional)</AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-4">
+                      <div>
+                        <Label htmlFor="icon">Ícone</Label>
+                        <div className="grid grid-cols-6 gap-2 mt-2">
+                          {WALLET_ICONS.map((icon) => (
+                            <button
+                              key={icon}
+                              type="button"
+                              onClick={() => {
+                                resetCreate({ ...getCreateValues(), icon });
+                              }}
+                              className="p-2 text-2xl hover:bg-muted rounded-md transition-colors"
+                            >
+                              {icon}
+                            </button>
+                          ))}
+                        </div>
+                        <Input
+                          id="icon"
+                          {...registerCreate('icon')}
+                          className="mt-2"
+                          placeholder="💳"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="color">Cor</Label>
+                        <div className="grid grid-cols-4 gap-2 mt-2">
+                          {WALLET_COLORS.map((color) => (
+                            <button
+                              key={color.value}
+                              type="button"
+                              onClick={() => {
+                                resetCreate({ ...getCreateValues(), color: color.value });
+                              }}
+                              className="h-10 rounded-md border-2 transition-all"
+                              style={{
+                                backgroundColor: color.value,
+                                borderColor: watchCreate('color') === color.value ? '#000' : 'transparent',
+                              }}
+                              title={color.label}
+                            />
+                          ))}
+                        </div>
+                        <Input
+                          id="color"
+                          type="color"
+                          {...registerCreate('color')}
+                          className="mt-2"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="isDefault"
+                          {...registerCreate('isDefault')}
+                          className="rounded"
+                        />
+                        <Label htmlFor="isDefault" className="cursor-pointer">
+                          Definir como carteira padrão
+                        </Label>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
               <DialogFooter>
                 <Button
@@ -398,6 +449,7 @@ export default function Wallets() {
           </DialogHeader>
           <form onSubmit={handleSubmitEdit(onSubmitEdit)}>
             <div className="space-y-4 py-4">
+              {/* Seção Principal - Sempre Visível */}
               <div>
                 <Label htmlFor="edit-name">Nome da Carteira *</Label>
                 <Input
@@ -410,56 +462,96 @@ export default function Wallets() {
               </div>
 
               <div>
-                <Label htmlFor="edit-icon">Ícone</Label>
-                <div className="grid grid-cols-6 gap-2 mt-2">
-                  {WALLET_ICONS.map((icon) => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => {
-                        resetEdit({ ...getEditValues(), icon });
-                      }}
-                      className="p-2 text-2xl hover:bg-muted rounded-md transition-colors"
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-                <Input id="edit-icon" {...registerEdit('icon')} className="mt-2" />
-              </div>
-
-              <div>
-                <Label htmlFor="edit-color">Cor</Label>
-                <div className="grid grid-cols-4 gap-2 mt-2">
-                  {WALLET_COLORS.map((color) => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => {
-                          resetEdit({ ...getEditValues(), color: color.value });
-                        }}
-                        className="h-10 rounded-md border-2 transition-all"
-                        style={{
-                          backgroundColor: color.value,
-                          borderColor: watchEdit('color') === color.value ? '#000' : 'transparent',
-                        }}
-                    />
-                  ))}
-                </div>
-                <Input id="edit-color" type="color" {...registerEdit('color')} className="mt-2" />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="edit-isDefault"
-                  {...registerEdit('isDefault')}
-                  className="rounded"
-                />
-                <Label htmlFor="edit-isDefault" className="cursor-pointer">
-                  Definir como carteira padrão
+                <Label htmlFor="edit-balance" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Saldo Inicial *
                 </Label>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    R$
+                  </span>
+                  <Input
+                    id="edit-balance"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="pl-8"
+                    placeholder="0.00"
+                    {...registerEdit('balance', {
+                      valueAsNumber: true,
+                      required: 'Saldo inicial é obrigatório',
+                      min: { value: 0, message: 'Saldo não pode ser negativo' },
+                    })}
+                  />
+                </div>
+                {errorsEdit.balance && (
+                  <p className="text-sm text-destructive mt-1">{errorsEdit.balance.message}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Este será o saldo inicial da carteira.
+                </p>
               </div>
+
+              {/* Acordeon de Personalização */}
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="personalization">
+                  <AccordionTrigger>Personalizar (Opcional)</AccordionTrigger>
+                  <AccordionContent className="space-y-4 pt-4">
+                    <div>
+                      <Label htmlFor="edit-icon">Ícone</Label>
+                      <div className="grid grid-cols-6 gap-2 mt-2">
+                        {WALLET_ICONS.map((icon) => (
+                          <button
+                            key={icon}
+                            type="button"
+                            onClick={() => {
+                              resetEdit({ ...getEditValues(), icon });
+                            }}
+                            className="p-2 text-2xl hover:bg-muted rounded-md transition-colors"
+                          >
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                      <Input id="edit-icon" {...registerEdit('icon')} className="mt-2" />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="edit-color">Cor</Label>
+                      <div className="grid grid-cols-4 gap-2 mt-2">
+                        {WALLET_COLORS.map((color) => (
+                          <button
+                            key={color.value}
+                            type="button"
+                            onClick={() => {
+                              resetEdit({ ...getEditValues(), color: color.value });
+                            }}
+                            className="h-10 rounded-md border-2 transition-all"
+                            style={{
+                              backgroundColor: color.value,
+                              borderColor: watchEdit('color') === color.value ? '#000' : 'transparent',
+                            }}
+                            title={color.label}
+                          />
+                        ))}
+                      </div>
+                      <Input id="edit-color" type="color" {...registerEdit('color')} className="mt-2" />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="edit-isDefault"
+                        {...registerEdit('isDefault')}
+                        className="rounded"
+                      />
+                      <Label htmlFor="edit-isDefault" className="cursor-pointer">
+                        Definir como carteira padrão
+                      </Label>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
             <DialogFooter>
               <Button
