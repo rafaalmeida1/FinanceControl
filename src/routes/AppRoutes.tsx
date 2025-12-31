@@ -31,6 +31,7 @@ import DebtDetail from '@/pages/user/DebtDetail';
 import Activity from '@/pages/user/Activity';
 import Savings from '@/pages/user/Savings';
 import Wallets from '@/pages/user/Wallets';
+import Statement from '@/pages/user/Statement';
 import FinancialOnboarding from '@/pages/onboarding/FinancialOnboarding';
 
 // Admin pages
@@ -158,6 +159,14 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <Wallets />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/statement"
+        element={
+          <PrivateRoute>
+            <Statement />
           </PrivateRoute>
         }
       />

@@ -48,7 +48,11 @@ const isInRedirectCooldown = () => {
 // Endpoints públicos que não devem disparar logout
 const publicEndpoints = [
   '/auth/login',
+  '/auth/login/step1',
+  '/auth/login/step2',
   '/auth/register',
+  '/auth/register/step1',
+  '/auth/register/step2',
   '/auth/refresh',
   '/auth/forgot-password',
   '/auth/reset-password',

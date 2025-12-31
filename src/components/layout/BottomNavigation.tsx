@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Wallet, Settings, Plus } from 'lucide-react';
+import { LayoutDashboard, FileText, Wallet, Settings, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
@@ -34,8 +34,8 @@ export const BottomNavigation = () => {
   return (
     <>
       {/* Navegação Inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border md:hidden shadow-2xl">
-        <div className="flex items-center justify-around h-20 px-1 sm:px-2 safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border md:hidden shadow-2xl overflow-visible">
+        <div className="flex items-center justify-around h-20 px-1 sm:px-2 safe-area-bottom overflow-visible">
           {navItems.slice(0, 2).map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.to || 
@@ -75,17 +75,22 @@ export const BottomNavigation = () => {
           })}
 
           {/* Botão Central - Criar Movimentação */}
-          <Button
-            size="lg"
-            className={cn(
-              'h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all relative -mt-6',
-              'bg-primary hover:bg-primary/90 text-primary-foreground',
-              'flex items-center justify-center'
-            )}
-            onClick={() => setOpen(true)}
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
+          <div className="flex items-center justify-center flex-1 h-full relative overflow-visible">
+            <Button
+              size="lg"
+              className={cn(
+                'h-16 w-16 rounded-full shadow-2xl hover:shadow-3xl transition-all',
+                'bg-primary hover:bg-primary/90 text-primary-foreground',
+                'flex items-center justify-center',
+                'absolute -top-6 z-20',
+                'ring-4 ring-background/95',
+                'border-2 border-background'
+              )}
+              onClick={() => setOpen(true)}
+            >
+              <Receipt className="h-7 w-7" />
+            </Button>
+          </div>
 
           {navItems.slice(2).map((item) => {
             const Icon = item.icon;

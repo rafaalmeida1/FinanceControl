@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
 import { useWallets } from '@/hooks/useWallets';
+import { useWindowSize } from '@/hooks/useWindowSize';
 import {
   ArrowLeft,
   ArrowRight,
@@ -33,11 +34,14 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
-  DrawerTitle,
 } from '@/components/ui/drawer';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { EmailAutocomplete } from '@/components/ui/email-autocomplete';
 import { DuplicateDebtWarning, DuplicateDebt } from '@/components/debt/DuplicateDebtWarning';
@@ -86,6 +90,8 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
   const { createDebt, isCreatingDebt } = useDebts();
   const { wallets, isLoading: isLoadingWallets } = useWallets();
   const { user } = authStore();
+  const { width } = useWindowSize();
+  const isMobile = width < 768; // md breakpoint
 
   const [currentStep, setCurrentStep] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'mercadopago' | 'pix' | null>(null);
@@ -126,16 +132,17 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
   const creditorEmail = watch('creditorEmail');
   const dueDate = watch('dueDate');
 
-  // Buscar chaves PIX
-  const { data: pixKeys } = useQuery({
-    queryKey: ['pixKeys', walletId],
+  // Buscar chaves PIX - sempre buscar todas, independente da carteira
+  const { data: pixKeys, isLoading: isLoadingPixKeys } = useQuery({
+    queryKey: ['pixKeys'],
     queryFn: () => pixKeysService.getAll(),
-    enabled: !!walletId,
+    enabled: open, // Só buscar quando o drawer estiver aberto
   });
 
   // Filtrar chaves PIX da carteira selecionada
   const walletPixKeys = React.useMemo(() => {
-    if (!pixKeys || !walletId) return pixKeys || [];
+    if (!pixKeys) return [];
+    if (!walletId) return pixKeys; // Se não tiver carteira selecionada, mostrar todas
     return pixKeys.filter(key => key.walletId === walletId);
   }, [pixKeys, walletId]);
 
@@ -918,29 +925,42 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Select
-                    value={selectedPixKeyId || ''}
-                    onValueChange={(value) => {
-                      if (value === 'new') {
-                        setShowCreatePixKeyModal(true);
-                      } else {
-                        setSelectedPixKeyId(value);
-                        setValue('pixKeyId', value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma chave PIX" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {walletPixKeys?.map((key) => (
-                        <SelectItem key={key.id} value={key.id}>
-                          {key.label} ({key.keyValue})
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="new">+ Criar nova chave PIX</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {isLoadingPixKeys ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="ml-2 text-sm text-muted-foreground">Carregando chaves PIX...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={selectedPixKeyId || ''}
+                      onValueChange={(value) => {
+                        if (value === 'new') {
+                          setShowCreatePixKeyModal(true);
+                        } else {
+                          setSelectedPixKeyId(value);
+                          setValue('pixKeyId', value);
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma chave PIX" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {walletPixKeys && walletPixKeys.length > 0 ? (
+                          walletPixKeys.map((key) => (
+                            <SelectItem key={key.id} value={key.id}>
+                              {key.label} ({key.keyValue})
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            Nenhuma chave PIX encontrada
+                          </div>
+                        )}
+                        <SelectItem value="new">+ Criar nova chave PIX</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -1111,120 +1131,191 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     }
   };
 
+  // Componente compartilhado para header
+  const renderHeader = (CloseButton: any) => (
+    <div className="border-b pb-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex-1">
+          <h2 className="text-xl font-bold">
+            Nova Movimentação
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Passo {currentStep + 1} de {STEPS.length}: {STEPS[currentStep].title}
+          </p>
+        </div>
+        <CloseButton asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <X className="h-4 w-4" />
+          </Button>
+        </CloseButton>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between">
+          {STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = index === currentStep;
+            const isCompleted = index < currentStep;
+
+            return (
+              <React.Fragment key={step.id}>
+                <div className="flex flex-col items-center flex-1">
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all',
+                      isActive && 'border-primary bg-primary text-primary-foreground',
+                      isCompleted && 'border-primary bg-primary text-primary-foreground',
+                      !isActive && !isCompleted && 'border-muted bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {isCompleted ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Icon className="h-4 w-4" />
+                    )}
+                  </div>
+                  <p className={cn(
+                    'text-xs mt-1 text-center hidden sm:block',
+                    isActive && 'font-semibold text-primary',
+                    !isActive && 'text-muted-foreground'
+                  )}>
+                    {step.title}
+                  </p>
+                </div>
+                {index < STEPS.length - 1 && (
+                  <div className={cn(
+                    'h-0.5 flex-1 mx-2',
+                    index < currentStep ? 'bg-primary' : 'bg-muted'
+                  )} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Componente compartilhado para footer
+  const renderFooter = () => (
+    <div className="border-t pt-4">
+      <div className="flex justify-between gap-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={prevStep}
+          disabled={currentStep === 0}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+        {currentStep < STEPS.length - 1 ? (
+          <Button type="button" onClick={nextStep} size="lg" className="flex-1">
+            Continuar
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            form="create-movement-form"
+            size="lg"
+            disabled={isCreatingDebt}
+            className="flex-1"
+          >
+            {isCreatingDebt ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Criando...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Criar Movimentação
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  // Conteúdo do formulário
+  const formContent = (
+    <div 
+      className="overflow-y-auto flex-1 px-4 py-6" 
+      style={{ 
+        maxHeight: isMobile ? 'calc(95vh - 280px)' : 'calc(90vh - 280px)',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain',
+        touchAction: 'pan-y',
+      }}
+    >
+      <form 
+        onSubmit={handleSubmit(onSubmit)} 
+        id="create-movement-form"
+        onFocus={(e) => {
+          // Scroll suave para o input quando recebe foco no mobile
+          if (isMobile && e.target instanceof HTMLElement) {
+            setTimeout(() => {
+              e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+          }
+        }}
+      >
+        {renderStep()}
+      </form>
+    </div>
+  );
+
   return (
     <>
-      <Drawer open={open} onOpenChange={handleClose}>
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="border-b">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <DrawerTitle className="text-xl font-bold">
-                  Nova Movimentação
-                </DrawerTitle>
-                <DrawerDescription className="mt-1">
-                  Passo {currentStep + 1} de {STEPS.length}: {STEPS[currentStep].title}
-                </DrawerDescription>
+      {isMobile ? (
+        // Mobile: Usar Sheet (melhor para teclado virtual)
+        <Sheet open={open} onOpenChange={handleClose}>
+          <SheetContent 
+            side="bottom" 
+            className="h-[95vh] max-h-[95vh] p-0 flex flex-col rounded-t-2xl [&>button]:hidden"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onInteractOutside={(e) => {
+              // Prevenir fechamento ao tocar em inputs
+              const target = e.target as HTMLElement;
+              if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('input, textarea, select')) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <div className="flex flex-col h-full overflow-hidden">
+              <div className="px-4 pt-4 pb-2 flex-shrink-0 border-b bg-background">
+                {renderHeader(SheetClose)}
               </div>
-              <DrawerClose asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DrawerClose>
-            </div>
-
-            {/* Progress Steps */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between">
-                {STEPS.map((step, index) => {
-                  const Icon = step.icon;
-                  const isActive = index === currentStep;
-                  const isCompleted = index < currentStep;
-
-                  return (
-                    <React.Fragment key={step.id}>
-                      <div className="flex flex-col items-center flex-1">
-                        <div
-                          className={cn(
-                            'w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all',
-                            isActive && 'border-primary bg-primary text-primary-foreground',
-                            isCompleted && 'border-primary bg-primary text-primary-foreground',
-                            !isActive && !isCompleted && 'border-muted bg-muted text-muted-foreground'
-                          )}
-                        >
-                          {isCompleted ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Icon className="h-4 w-4" />
-                          )}
-                        </div>
-                        <p className={cn(
-                          'text-xs mt-1 text-center hidden sm:block',
-                          isActive && 'font-semibold text-primary',
-                          !isActive && 'text-muted-foreground'
-                        )}>
-                          {step.title}
-                        </p>
-                      </div>
-                      {index < STEPS.length - 1 && (
-                        <div className={cn(
-                          'h-0.5 flex-1 mx-2',
-                          index < currentStep ? 'bg-primary' : 'bg-muted'
-                        )} />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
+              
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {formContent}
+              </div>
+              
+              <div className="px-4 pb-4 pt-2 flex-shrink-0 border-t bg-background safe-area-inset-bottom">
+                {renderFooter()}
               </div>
             </div>
-          </DrawerHeader>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        // Desktop: Usar Drawer
+        <Drawer open={open} onOpenChange={handleClose} shouldScaleBackground={false}>
+          <DrawerContent className="max-h-[90vh] flex flex-col">
+            <DrawerHeader className="flex-shrink-0">
+              {renderHeader(DrawerClose)}
+            </DrawerHeader>
 
-          <div className="overflow-y-auto flex-1 px-4 py-6">
-            <form onSubmit={handleSubmit(onSubmit)} id="create-movement-form">
-              {renderStep()}
-            </form>
-          </div>
+            {formContent}
 
-          <DrawerFooter className="border-t">
-            <div className="flex justify-between gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={prevStep}
-                disabled={currentStep === 0}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-              </Button>
-              {currentStep < STEPS.length - 1 ? (
-                <Button type="button" onClick={nextStep} size="lg" className="flex-1">
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  form="create-movement-form"
-                  size="lg"
-                  disabled={isCreatingDebt}
-                  className="flex-1"
-                >
-                  {isCreatingDebt ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-4 w-4" />
-                      Criar Movimentação
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+            <DrawerFooter className="flex-shrink-0">
+              {renderFooter()}
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       <DuplicateDebtWarning
         open={showDuplicateWarning}

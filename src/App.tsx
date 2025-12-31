@@ -2,6 +2,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './routes/AppRoutes';
 import { CreateMovementProvider } from './contexts/CreateMovementContext';
 import { CreateMovementDrawer } from './components/debt/CreateMovementDrawer';
+import { InstallPrompt } from './components/pwa/InstallPrompt';
 import { useCreateMovement } from './contexts/CreateMovementContext';
 
 function AppContent() {
@@ -11,6 +12,7 @@ function AppContent() {
     <>
       <AppRoutes />
       <CreateMovementDrawer open={open} onOpenChange={setOpen} />
+      <InstallPrompt />
     </>
   );
 }

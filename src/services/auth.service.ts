@@ -61,5 +61,27 @@ export const authService = {
     const { data } = await api.post('/auth/resend-verification', { email });
     return data;
   },
+
+  // Registro com OTP (2 etapas)
+  registerStep1: async (email: string, name?: string): Promise<{ sessionToken: string; otp?: string }> => {
+    const { data } = await api.post('/auth/register/step1', { email, name });
+    return data;
+  },
+
+  registerStep2: async (email: string, otp: string, sessionToken: string): Promise<LoginResponse> => {
+    const { data } = await api.post('/auth/register/step2', { email, otp, sessionToken });
+    return data;
+  },
+
+  // Login com OTP (2 etapas)
+  loginStep1: async (email: string): Promise<{ sessionToken: string; otp?: string }> => {
+    const { data } = await api.post('/auth/login/step1', { email });
+    return data;
+  },
+
+  loginStep2: async (email: string, otp: string, sessionToken: string): Promise<LoginResponse> => {
+    const { data } = await api.post('/auth/login/step2', { email, otp, sessionToken });
+    return data;
+  },
 };
 

@@ -37,8 +37,11 @@ export function CreatePixKeyModal({ open, onOpenChange, walletId: suggestedWalle
   const createMutation = useMutation({
     mutationFn: (data: CreatePixKeyDto) => pixKeysService.create(data),
     onSuccess: (data) => {
+      // Invalidar todas as queries relacionadas a PIX keys
       queryClient.invalidateQueries({ queryKey: ['pix-keys'] });
       queryClient.invalidateQueries({ queryKey: ['pixKeys'] });
+      // Forçar refetch imediato
+      queryClient.refetchQueries({ queryKey: ['pixKeys'] });
       toast.success('Chave PIX criada com sucesso!');
       reset();
       onOpenChange(false);
