@@ -3,7 +3,7 @@ import api from '@/lib/axios';
 export interface FinancialProfile {
   id: string;
   userId: string;
-  monthlyIncome: number | null;
+  salaryAmount: number | null;
   payday: number | null;
   onboardingCompleted: boolean;
   createdAt: string;
@@ -11,12 +11,13 @@ export interface FinancialProfile {
 }
 
 export interface CreateFinancialProfileDto {
-  monthlyIncome?: number;
+  salaryAmount?: number;
   payday?: number;
+  onboardingCompleted?: boolean;
 }
 
 export interface UpdateFinancialProfileDto {
-  monthlyIncome?: number;
+  salaryAmount?: number;
   payday?: number;
   onboardingCompleted?: boolean;
 }

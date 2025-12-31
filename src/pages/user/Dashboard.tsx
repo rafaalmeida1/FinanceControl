@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStats } from '@/hooks/useStats';
 import { useFinancial } from '@/hooks/useFinancial';
-import { useWallets } from '@/hooks/useWallets';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import { useSocket } from '@/hooks/useSocket';
 import { getSocket } from '@/lib/socket';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickAddMovement } from '@/components/debt/QuickAddMovement';
+import { DisputesList } from '@/components/disputes/DisputesList';
+import { SalaryConfirmationCard } from '@/components/salary/SalaryConfirmationCard';
+import { DashboardPaymentModal } from '@/components/payment/DashboardPaymentModal';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import {
   ArrowUpRight,
   ArrowDownRight,
   Plus,
-  Wallet,
   Calendar,
   DollarSign,
   ArrowRight,
@@ -26,6 +27,7 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
+  CreditCard,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,21 +52,19 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setOpen } = useCreateMovement();
-  const { wallets, isLoading: isLoadingWallets } = useWallets();
-  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
-  const { data: stats, isLoading: isLoadingStats } = useStats(selectedWalletId);
-  const { monthlySummary, history, totalBalance, isLoading: isLoadingFinancial } = useFinancial(
-    undefined,
-    undefined,
-    selectedWalletId || undefined,
-  );
+  const { data: stats, isLoading: isLoadingStats } = useStats();
+  const { monthlySummary, history, totalBalance, isLoading: isLoadingFinancial } = useFinancial();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const { width } = useWindowSize();
   const chartHeight = width < 768 ? 200 : 280;
   const queryClient = useQueryClient();
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedDebt, setSelectedDebt] = useState<any>(null);
+  const [selectedCharges, setSelectedCharges] = useState<any[]>([]);
 
-  const isLoading = isLoadingStats || isLoadingFinancial || isLoadingWallets;
+  const isLoading = isLoadingStats || isLoadingFinancial;
 
   // Inicializar WebSocket para atualizações em tempo real
   useSocket();
@@ -82,10 +82,10 @@ export default function Dashboard() {
       // Usar queryKey prefix para invalidar todas as variações
       queryClient.invalidateQueries({ queryKey: ['stats'] }); // Invalida ['stats'] e ['stats', walletId]
       queryClient.invalidateQueries({ queryKey: ['financial'] }); // Invalida todas as queries ['financial', ...]
-      queryClient.invalidateQueries({ queryKey: ['wallets'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['charges'] });
       queryClient.invalidateQueries({ queryKey: ['compiled-debts'] });
+      queryClient.invalidateQueries({ queryKey: ['disputes'] });
       
       // Se for atualização específica, invalidar também
       if (data?.type === 'debts' || data?.type === 'all') {
@@ -94,9 +94,14 @@ export default function Dashboard() {
       if (data?.type === 'charges' || data?.type === 'all') {
         queryClient.invalidateQueries({ queryKey: ['charges'] });
       }
-      if (data?.type === 'wallets' || data?.type === 'all') {
-        queryClient.invalidateQueries({ queryKey: ['wallets'] });
+      if (data?.type === 'salary-confirmation') {
+        queryClient.invalidateQueries({ queryKey: ['salary-status'] });
       }
+    };
+
+    const handleDisputeCreated = (data: { disputeId: string; debtId: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
     };
 
     // O useSocket já registra os listeners básicos, mas adicionamos listeners específicos aqui
@@ -113,7 +118,7 @@ export default function Dashboard() {
       socket.off('debt.created', handleDataUpdated);
       socket.off('payment.received', handleDataUpdated);
     };
-  }, [queryClient, selectedWalletId]);
+  }, [queryClient]);
 
   // Invalidar queries quando voltar para a tela (focus/visibility)
   useEffect(() => {
@@ -122,7 +127,6 @@ export default function Dashboard() {
         // Quando a página volta a ficar visível, invalidar queries
         queryClient.invalidateQueries({ queryKey: ['stats'] });
         queryClient.invalidateQueries({ queryKey: ['financial'] });
-        queryClient.invalidateQueries({ queryKey: ['wallets'] });
       }
     };
 
@@ -130,7 +134,6 @@ export default function Dashboard() {
       // Quando a janela recebe foco, invalidar queries
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       queryClient.invalidateQueries({ queryKey: ['financial'] });
-      queryClient.invalidateQueries({ queryKey: ['wallets'] });
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -198,68 +201,16 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {/* Confirmação de Salário */}
+      {searchParams.get('salaryConfirm') === 'true' && <SalaryConfirmationCard />}
+      {!searchParams.get('salaryConfirm') && <SalaryConfirmationCard />}
+
       {/* Card de Adição Rápida */}
-      {!isLoadingWallets && wallets && wallets.length > 0 && (
-        <QuickAddMovement />
-      )}
+      <QuickAddMovement />
 
-      {/* Banner de Onboarding */}
-      {!isLoadingWallets && (!wallets || wallets.length === 0) && (
-        <Alert className="border-primary bg-gradient-to-r from-primary/10 to-primary/5">
-          <Wallet className="h-4 w-4 text-primary" />
-          <AlertTitle className="text-primary">Crie sua primeira carteira</AlertTitle>
-          <AlertDescription className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-sm">
-              Crie uma carteira para começar a controlar suas movimentações financeiras.
-            </span>
-            <Button
-              size="sm"
-              onClick={() => navigate('/wallets')}
-              className="shrink-0"
-            >
-              Criar Carteira
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Contestações Pendentes */}
+      <DisputesList />
 
-      {/* Filtro por Carteira */}
-      {!isLoadingWallets && wallets && wallets.length > 1 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <Label htmlFor="wallet-filter" className="text-sm font-medium whitespace-nowrap">
-                Filtrar por Carteira:
-              </Label>
-              <Select
-                value={selectedWalletId || 'all'}
-                onValueChange={(value) => setSelectedWalletId(value === 'all' ? null : value)}
-              >
-                <SelectTrigger id="wallet-filter" className="w-full sm:w-[300px]">
-                  <SelectValue placeholder="Selecione uma carteira" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as Carteiras</SelectItem>
-                  {wallets.map((wallet) => (
-                    <SelectItem key={wallet.id} value={wallet.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{wallet.icon || '💳'}</span>
-                        <span>{wallet.name}</span>
-                        {wallet.isDefault && (
-                          <Badge variant="secondary" className="text-xs">
-                            Padrão
-                          </Badge>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Header com Saldo Total - Estilo App Bancário */}
       <Card className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-primary-foreground dark:text-slate-50 border-0 shadow-xl overflow-hidden relative">
@@ -283,7 +234,7 @@ export default function Dashboard() {
             </Button>
           </div>
           <CardTitle className="text-4xl md:text-5xl font-bold truncate">
-            {balanceVisible ? formatCurrency(totalBalance || 0) : '••••••'}
+            {balanceVisible ? formatCurrency(stats?.totalBalance || 0) : '••••••'}
           </CardTitle>
         </CardHeader>
         <CardContent className="relative z-10">
@@ -315,16 +266,6 @@ export default function Dashboard() {
             <Plus className="h-5 w-5 text-primary" />
           </div>
           <span className="text-sm font-medium">Nova Movimentação</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-auto py-4 flex-col gap-2 hover:bg-primary/5 hover:border-primary/50 transition-all"
-          onClick={() => navigate('/wallets')}
-        >
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Wallet className="h-5 w-5 text-primary" />
-          </div>
-          <span className="text-sm font-medium">Carteiras</span>
         </Button>
         <Button
           variant="outline"
@@ -369,10 +310,10 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl md:text-3xl font-bold text-green-700 dark:text-green-100 mb-1 truncate">
-              {balanceVisible ? formatCurrency(monthlySummary?.pendingIncome || 0) : '••••••'}
+              {balanceVisible ? formatCurrency(stats?.totalToReceive || 0) : '••••••'}
             </div>
             <p className="text-xs text-green-600 dark:text-green-300 truncate">
-              Receitas pagas: {balanceVisible ? formatCurrency(monthlySummary?.totalIncome || 0) : '••••••'}
+              Receitas do mês: {balanceVisible ? formatCurrency(stats?.monthlyIncome || 0) : '••••••'}
             </p>
           </CardContent>
         </Card>
@@ -396,10 +337,10 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl md:text-3xl font-bold text-red-700 dark:text-red-100 mb-1 truncate">
-              {balanceVisible ? formatCurrency(monthlySummary?.pendingExpenses || 0) : '••••••'}
+              {balanceVisible ? formatCurrency(stats?.totalToPay || 0) : '••••••'}
             </div>
             <p className="text-xs text-red-600 dark:text-red-300 truncate">
-              Despesas pagas: {balanceVisible ? formatCurrency(monthlySummary?.totalExpenses || 0) : '••••••'}
+              Despesas do mês: {balanceVisible ? formatCurrency(stats?.monthlyExpenses || 0) : '••••••'}
             </p>
           </CardContent>
         </Card>
@@ -413,7 +354,7 @@ export default function Dashboard() {
                   Sobra no Mês
                 </CardTitle>
                 <CardDescription className="text-xs text-blue-600/80 dark:text-blue-300/80 mt-0.5">
-                  Projeção do mês atual
+                  Após pagamentos e recebimentos
                 </CardDescription>
               </div>
               <div className="h-8 w-8 rounded-full bg-blue-500/20 dark:bg-blue-500/20 flex items-center justify-center">
@@ -422,11 +363,20 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-100 mb-1 truncate">
-              {balanceVisible ? formatCurrency(monthlySummary?.projectedBalance || 0) : '••••••'}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-100 truncate">
+                {balanceVisible ? formatCurrency(stats?.monthlySurplus || 0) : '••••••'}
+              </div>
+              {stats?.isProjection && (
+                <Badge variant="secondary" className="text-xs">
+                  Projeção
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-blue-600 dark:text-blue-300 truncate">
-              Saldo atual: {balanceVisible ? formatCurrency(totalBalance || 0) : '••••••'}
+              {stats?.isProjection 
+                ? 'Baseado no salário esperado' 
+                : 'Baseado no salário confirmado'}
             </p>
           </CardContent>
         </Card>
@@ -528,56 +478,98 @@ export default function Dashboard() {
             <CardContent>
               {stats?.upcomingCharges && stats.upcomingCharges.length > 0 ? (
                 <div className="space-y-3">
-                  {stats.upcomingCharges.slice(0, 5).map((charge: any) => (
-                    <div
-                      key={charge.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer"
-                      onClick={() => {
-                        if (charge.debt?.id) {
-                          navigate(`/debts/${charge.debt.id}`);
-                        } else {
-                          navigate('/charges');
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                          charge.status === 'OVERDUE' ? 'bg-red-100 dark:bg-red-900/30' :
-                          charge.status === 'PENDING' ? 'bg-amber-100 dark:bg-amber-900/30' :
-                          'bg-green-100 dark:bg-green-900/30'
-                        }`}>
-                          {charge.status === 'OVERDUE' ? (
-                            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-                          ) : charge.status === 'PAID' ? (
-                            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                          ) : (
-                            <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
-                            {charge.debt?.description || charge.description || 'Cobrança'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDateShort(charge.dueDate)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right ml-4 flex-shrink-0 min-w-0">
-                        <p className="font-semibold truncate">{formatCurrency(charge.amount)}</p>
-                        <Badge
-                          variant={
-                            charge.status === 'OVERDUE' ? 'destructive' :
-                            charge.status === 'PAID' ? 'default' : 'secondary'
-                          }
-                          className="text-xs"
+                  {stats.upcomingCharges.slice(0, 5).map((charge: any) => {
+                    // Verificar se o usuário é o devedor desta cobrança
+                    const isUserDebtor = charge.debt?.isPersonalDebt || 
+                                        charge.debt?.debtorUserId === charge.debt?.userId;
+                    
+                    return (
+                      <div
+                        key={charge.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                      >
+                        <div
+                          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                          onClick={() => {
+                            if (charge.debt?.id) {
+                              navigate(`/debts/${charge.debt.id}`);
+                            } else {
+                              navigate('/charges');
+                            }
+                          }}
                         >
-                          {charge.status === 'OVERDUE' ? 'Atrasado' :
-                           charge.status === 'PAID' ? 'Pago' : 'Pendente'}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            charge.status === 'OVERDUE' ? 'bg-red-100 dark:bg-red-900/30' :
+                            charge.status === 'PENDING' ? 'bg-amber-100 dark:bg-amber-900/30' :
+                            'bg-green-100 dark:bg-green-900/30'
+                          }`}>
+                            {charge.status === 'OVERDUE' ? (
+                              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                            ) : charge.status === 'PAID' ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            ) : (
+                              <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">
+                              {charge.debt?.description || charge.description || 'Cobrança'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDateShort(charge.dueDate)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="text-right min-w-0">
+                            <p className="font-semibold truncate">{formatCurrency(charge.amount)}</p>
+                            <Badge
+                              variant={
+                                charge.status === 'OVERDUE' ? 'destructive' :
+                                charge.status === 'PAID' ? 'default' : 'secondary'
+                              }
+                              className="text-xs"
+                            >
+                              {charge.status === 'OVERDUE' ? 'Atrasado' :
+                               charge.status === 'PAID' ? 'Pago' : 'Pendente'}
+                            </Badge>
+                          </div>
+                          {isUserDebtor && charge.status !== 'PAID' && charge.debt && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="ml-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDebt(charge.debt);
+                                setSelectedCharges([charge]);
+                                setPaymentModalOpen(true);
+                              }}
+                            >
+                              <CreditCard className="h-4 w-4 mr-1" />
+                              Pagar
+                            </Button>
+                          )}
+      </div>
+
+      {/* Modal de Pagamento */}
+      {selectedDebt && selectedCharges.length > 0 && (
+        <DashboardPaymentModal
+          open={paymentModalOpen}
+          onOpenChange={setPaymentModalOpen}
+          debt={selectedDebt}
+          charges={selectedCharges}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['stats'] });
+            queryClient.invalidateQueries({ queryKey: ['debts'] });
+            queryClient.invalidateQueries({ queryKey: ['charges'] });
+            queryClient.invalidateQueries({ queryKey: ['financial'] });
+          }}
+        />
+      )}
+    </div>
+  );
+})}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -632,61 +624,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Carteiras */}
-          {wallets && wallets.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">Suas Carteiras</CardTitle>
-                    <CardDescription>{wallets.length} carteira(s) ativa(s)</CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate('/wallets')}
-                  >
-                    Gerenciar
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {wallets.slice(0, 3).map((wallet) => (
-                    <div
-                      key={wallet.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer"
-                      onClick={() => navigate('/wallets')}
-                      style={{
-                        borderLeft: `4px solid ${wallet.color || '#10b981'}`,
-                      }}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <div
-                          className="h-10 w-10 rounded-lg flex items-center justify-center text-xl"
-                          style={{ backgroundColor: `${wallet.color || '#10b981'}20` }}
-                        >
-                          {wallet.icon || '💳'}
-                        </div>
-                        <div>
-                          <p className="font-medium">{wallet.name}</p>
-                          {wallet.isDefault && (
-                            <Badge variant="secondary" className="text-xs mt-1">
-                              Padrão
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(wallet.balance || 0)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
     </div>

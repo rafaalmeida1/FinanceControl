@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft, Mail } from 'lucide-react';
 import { authService } from '@/services/auth.service';
 import { authStore } from '@/stores/authStore';
+import { financialProfileService } from '@/services/financial-profile.service';
 import toast from 'react-hot-toast';
 import {
   InputOTP,
@@ -66,6 +67,22 @@ export default function Login() {
       setUser(response.user);
       setTokens(response.accessToken, response.refreshToken);
       toast.success('Login realizado com sucesso!');
+      
+      // Verificar onboarding
+      if (response.user.role !== 'ADMIN') {
+        try {
+          const profile = await financialProfileService.get();
+          if (!profile || !profile.onboardingCompleted) {
+            navigate('/onboarding');
+            return;
+          }
+        } catch (error) {
+          // Se não conseguir buscar perfil, redirecionar para onboarding
+          navigate('/onboarding');
+          return;
+        }
+      }
+      
       navigate(response.user.role === 'ADMIN' ? '/admin' : '/dashboard');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Senha inválida');
@@ -126,7 +143,13 @@ export default function Login() {
       setUser(response.user);
       setTokens(response.accessToken, response.refreshToken);
       toast.success('Conta criada com sucesso!');
-      navigate('/dashboard');
+      
+      // Após registro, sempre redirecionar para onboarding
+      if (response.user.role !== 'ADMIN') {
+        navigate('/onboarding');
+      } else {
+        navigate('/admin');
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao criar conta');
       setPassword('');

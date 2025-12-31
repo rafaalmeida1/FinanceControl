@@ -9,30 +9,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useWallets } from '@/hooks/useWallets';
-
 interface CreatePixKeyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  walletId?: string;
+  walletId?: string; // Mantido para compatibilidade, mas não será usado
   onSuccess?: (pixKeyId: string) => void;
 }
 
-export function CreatePixKeyModal({ open, onOpenChange, walletId: suggestedWalletId, onSuccess }: CreatePixKeyModalProps) {
+export function CreatePixKeyModal({ open, onOpenChange, onSuccess }: CreatePixKeyModalProps) {
   const queryClient = useQueryClient();
-  const { wallets, isLoading: isLoadingWallets } = useWallets();
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<CreatePixKeyDto & { walletId?: string }>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<CreatePixKeyDto>({
     defaultValues: {
       keyType: 'CPF',
       isDefault: false,
       isThirdParty: false,
-      walletId: suggestedWalletId,
     },
   });
 
   const isThirdParty = watch('isThirdParty');
   const keyType = watch('keyType');
-  const selectedWalletId = watch('walletId');
 
   const createMutation = useMutation({
     mutationFn: (data: CreatePixKeyDto) => pixKeysService.create(data),
@@ -54,16 +49,12 @@ export function CreatePixKeyModal({ open, onOpenChange, walletId: suggestedWalle
     },
   });
 
-  const onSubmit = (data: CreatePixKeyDto & { walletId?: string }) => {
-    if (!data.walletId) {
-      toast.error('Selecione uma carteira');
-      return;
-    }
-
+  const onSubmit = (data: CreatePixKeyDto) => {
     const submitData: CreatePixKeyDto = {
       ...data,
-      walletId: data.walletId,
       isThirdParty: data.isThirdParty || false,
+      // walletId não é mais obrigatório - chaves PIX são no nível de usuário
+      walletId: undefined,
     };
     
     if (!submitData.isThirdParty) {
@@ -85,46 +76,11 @@ export function CreatePixKeyModal({ open, onOpenChange, walletId: suggestedWalle
         <DialogHeader>
           <DialogTitle>Nova Chave PIX</DialogTitle>
           <DialogDescription>
-            Crie uma nova chave PIX e associe à carteira selecionada
+            Crie uma nova chave PIX para receber pagamentos
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 py-4">
-            {/* Seleção de Carteira */}
-            <div>
-              <Label htmlFor="walletId">Carteira <span className="text-destructive">*</span></Label>
-              {isLoadingWallets ? (
-                <div className="h-10 w-full rounded-md border border-input bg-muted animate-pulse mt-2" />
-              ) : (
-                <Select
-                  value={selectedWalletId || ''}
-                  onValueChange={(value) => setValue('walletId', value)}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Selecione uma carteira" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {wallets?.map((wallet) => (
-                      <SelectItem key={wallet.id} value={wallet.id}>
-                        <div className="flex items-center">
-                          {wallet.icon && <span className="mr-2">{wallet.icon}</span>}
-                          {wallet.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {errors.walletId && (
-                <p className="text-sm text-destructive mt-1">{errors.walletId.message}</p>
-              )}
-              {suggestedWalletId && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Carteira sugerida baseada na movimentação selecionada
-                </p>
-              )}
-            </div>
-
             <div>
               <Label htmlFor="keyType">Tipo de Chave <span className="text-destructive">*</span></Label>
               <Select

@@ -128,13 +128,16 @@ export interface DebtorAccessToken {
 
 // Stats types
 export interface UserStats {
-  totalToReceive: number;
-  totalToPay: number;
+  totalToReceive: number; // A Receber (charges pendentes do mês atual)
+  totalToPay: number; // A Pagar (charges pendentes do mês atual)
   pendingDebtsCount: number;
   upcomingCharges: Charge[];
   recentPayments: Payment[];
-  monthlyIncome: number; // Receitas do mês (charges pagas)
-  monthlyExpenses: number; // Despesas do mês (charges pagas)
+  monthlyIncome: number; // Receitas do mês (soma de transações INCOME do mês)
+  monthlyExpenses: number; // Despesas do mês (soma de transações EXPENSE do mês)
+  totalBalance: number; // Saldo Total (soma histórica de todas as transações)
+  monthlySurplus: number; // Sobra do Mês (salário - a pagar + a receber)
+  isProjection?: boolean; // Se o monthlySurplus é uma projeção (salário não confirmado)
 }
 
 // Admin types

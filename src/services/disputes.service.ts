@@ -27,14 +27,25 @@ export const disputesService = {
     return response.data;
   },
 
+  findPending: async (): Promise<Dispute[]> => {
+    const response = await api.get('/debts/disputes/pending');
+    return response.data;
+  },
+
   findByDebt: async (debtId: string): Promise<Dispute | null> => {
     const response = await api.get(`/debts/${debtId}/dispute`);
     return response.data;
   },
 
-  approve: async (debtId: string, disputeId: string, creditorResponse?: string): Promise<Dispute> => {
+  approve: async (
+    debtId: string,
+    disputeId: string,
+    creditorResponse?: string,
+    chargeIds?: string[],
+  ): Promise<Dispute> => {
     const response = await api.patch(`/debts/${debtId}/dispute/${disputeId}/approve`, {
       creditorResponse,
+      chargeIds,
     });
     return response.data;
   },

@@ -59,13 +59,9 @@ const publicEndpoints = [
   '/auth/verify-email',
   '/auth/magic-link',
   '/auth/verify-magic-link',
-  '/debtor/',
+  '/debtor/', // Todas as rotas de debtor (inclui /debtor/:token, /debtor/compiled/:token, etc)
+  '/payments/confirm/', // Rotas de confirmação de pagamento
 ];
-
-const isPublicEndpoint = (url: string | undefined) => {
-  if (!url) return false;
-  return publicEndpoints.some(endpoint => url.startsWith(endpoint));
-};
 
 const api = axios.create({
   baseURL: getBaseURL(),
@@ -73,6 +69,14 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+const isPublicEndpoint = (url: string | undefined) => {
+  if (!url) return false;
+  // Remover baseURL se presente para comparar apenas o path
+  const baseURL = api.defaults.baseURL || '';
+  const path = url.startsWith(baseURL) ? url.replace(baseURL, '') : url;
+  return publicEndpoints.some(endpoint => path.startsWith(endpoint));
+};
 
 // Request interceptor - adicionar token apenas se não for endpoint público
 api.interceptors.request.use(
@@ -105,6 +109,12 @@ api.interceptors.response.use(
 
     // Não tentar refresh token para endpoints públicos
     const isPublic = isPublicEndpoint(originalRequest.url);
+
+    // Para endpoints públicos, não fazer logout nem redirecionar em caso de erro 401
+    // Apenas rejeitar o erro para que a página pública possa tratá-lo
+    if (error.response?.status === 401 && isPublic) {
+      return Promise.reject(error);
+    }
 
     // Se erro 401 e não é retry e não é endpoint público
     if (error.response?.status === 401 && !originalRequest._retry && !isPublic) {

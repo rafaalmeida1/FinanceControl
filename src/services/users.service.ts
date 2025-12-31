@@ -21,10 +21,8 @@ export const usersService = {
     return response.data;
   },
 
-  getStats: async (walletId?: string): Promise<UserStats> => {
-    const response = await api.get('/users/me/stats', {
-      params: { ...(walletId && { walletId }) },
-    });
+  getStats: async (): Promise<UserStats> => {
+    const response = await api.get('/users/me/stats');
     return response.data;
   },
 
@@ -35,6 +33,16 @@ export const usersService = {
 
   updateNotificationPreferences: async (data: Partial<NotificationPreferences>): Promise<NotificationPreferences> => {
     const response = await api.patch('/users/me/notification-preferences', data);
+    return response.data;
+  },
+
+  getSalaryStatus: async () => {
+    const response = await api.get('/users/salary/status');
+    return response.data;
+  },
+
+  confirmSalary: async (amount?: number) => {
+    const response = await api.post('/users/salary/confirm', { amount });
     return response.data;
   },
 };

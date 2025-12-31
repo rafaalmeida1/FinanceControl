@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { ArrowRight, Info, Sparkles, Wallet as WalletIcon } from 'lucide-react';
-import { useWallets } from '@/hooks/useWallets';
+import { ArrowRight, Info, Sparkles, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,18 +9,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import toast from 'react-hot-toast';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { financialProfileService } from '@/services/financial-profile.service';
 
 interface OnboardingFormData {
-  walletName: string;
-  walletBalance: number;
-  walletColor?: string;
-  walletIcon?: string;
+  salaryAmount: number;
+  payday: number;
 }
 
 export default function FinancialOnboarding() {
   const navigate = useNavigate();
-  const { createWallet } = useWallets();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -30,39 +28,44 @@ export default function FinancialOnboarding() {
     formState: { errors },
   } = useForm<OnboardingFormData>({
     defaultValues: {
-      walletName: 'Carteira Principal',
-      walletBalance: 0,
-      walletColor: '#10b981',
-      walletIcon: '💳',
+      salaryAmount: 0,
+      payday: 5,
     },
   });
 
-  const walletName = watch('walletName');
-  const walletBalance = watch('walletBalance');
-  const walletColor = watch('walletColor');
-  const walletIcon = watch('walletIcon');
+  const salaryAmount = watch('salaryAmount');
+  const payday = watch('payday');
+
+  const createProfile = useMutation({
+    mutationFn: (data: OnboardingFormData) =>
+      financialProfileService.create({
+        salaryAmount: data.salaryAmount,
+        payday: data.payday,
+        onboardingCompleted: true,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial-profile'] });
+      toast.success('Perfil financeiro criado com sucesso!');
+      navigate('/dashboard');
+    },
+    onError: (error: any) => {
+      console.error('Erro ao criar perfil financeiro:', error);
+      toast.error(error?.response?.data?.message || 'Erro ao criar perfil financeiro');
+    },
+  });
 
   const onSubmit = async (data: OnboardingFormData) => {
-    try {
-      // Criar carteira padrão com saldo inicial
-      await createWallet.mutateAsync({
-        name: data.walletName.trim(),
-        color: data.walletColor || '#10b981',
-        icon: data.walletIcon || '💳',
-        isDefault: true,
-        balance: data.walletBalance ? parseFloat(String(data.walletBalance)) : 0,
-      });
-
-      toast.success('Carteira criada com sucesso!');
-      navigate('/dashboard');
-    } catch (error: any) {
-      console.error('Erro ao criar carteira:', error);
-      toast.error(error?.response?.data?.message || 'Erro ao criar carteira');
+    if (!data.salaryAmount || data.salaryAmount <= 0) {
+      toast.error('Por favor, informe o valor do seu salário');
+      return;
     }
-  };
 
-  const handleSkip = () => {
-    navigate('/dashboard');
+    if (!data.payday || data.payday < 1 || data.payday > 31) {
+      toast.error('Por favor, informe um dia válido (1-31)');
+      return;
+    }
+
+    await createProfile.mutateAsync(data);
   };
 
   return (
@@ -79,18 +82,18 @@ export default function FinancialOnboarding() {
             Bem-vindo ao Finance Control!
           </h1>
           <p className="text-muted-foreground text-lg">
-            Vamos criar sua primeira carteira para começar a controlar suas finanças
+            Configure seu perfil financeiro para começar a controlar suas finanças
           </p>
         </div>
 
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <WalletIcon className="h-5 w-5" />
-              Criar Carteira
+              <DollarSign className="h-5 w-5" />
+              Configurar Perfil Financeiro
             </CardTitle>
             <CardDescription>
-              Crie sua primeira carteira para organizar suas movimentações financeiras
+              Informe seu salário e dia do pagamento para começarmos
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -98,159 +101,95 @@ export default function FinancialOnboarding() {
               <Alert>
                 <Info className="h-4 w-4" />
                 <AlertDescription>
-                  A carteira é onde você organiza suas movimentações. Você pode criar quantas
-                  carteiras quiser depois.
+                  Essas informações nos ajudam a calcular seus saldos e te lembrar quando seu salário cai.
+                  Você pode alterar essas informações depois nas configurações.
                 </AlertDescription>
               </Alert>
 
-              {/* Nome da Carteira */}
-              <div>
-                <Label htmlFor="walletName" className="text-base font-semibold">
-                  Nome da Carteira <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="walletName"
-                  placeholder="Ex: Carteira Principal, Conta Corrente..."
-                  className="mt-2"
-                  {...register('walletName', {
-                    required: 'Nome da carteira é obrigatório',
-                    minLength: { value: 2, message: 'Nome deve ter pelo menos 2 caracteres' },
-                  })}
-                />
-                {errors.walletName && (
-                  <p className="text-sm text-destructive mt-1">{errors.walletName.message}</p>
-                )}
-              </div>
-
-              {/* Saldo Inicial - Destaque */}
+              {/* Salário Mensal */}
               <div className="p-4 rounded-lg border-2 border-primary/20 bg-primary/5">
-                <Label htmlFor="walletBalance" className="text-base font-semibold">
-                  Saldo Inicial <span className="text-muted-foreground font-normal">(Opcional)</span>
+                <Label htmlFor="salaryAmount" className="text-base font-semibold">
+                  Salário Mensal <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative mt-2">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
                     R$
                   </span>
                   <Input
-                    id="walletBalance"
+                    id="salaryAmount"
                     type="number"
                     step="0.01"
                     min="0"
                     className="pl-10 text-lg font-semibold"
-                    placeholder="0.00"
-                    {...register('walletBalance', {
-                      min: { value: 0, message: 'Saldo não pode ser negativo' },
+                    placeholder="5000.00"
+                    {...register('salaryAmount', {
+                      required: 'Salário é obrigatório',
+                      min: { value: 0.01, message: 'Salário deve ser maior que zero' },
                       valueAsNumber: true,
                     })}
                   />
                 </div>
-                {errors.walletBalance && (
-                  <p className="text-sm text-destructive mt-1">{errors.walletBalance.message}</p>
+                {errors.salaryAmount && (
+                  <p className="text-sm text-destructive mt-1">{errors.salaryAmount.message}</p>
                 )}
-                {walletBalance && walletBalance > 0 && (
+                {salaryAmount && salaryAmount > 0 && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    Saldo inicial: <span className="font-semibold">{formatCurrency(parseFloat(String(walletBalance)))}</span>
+                    Salário: <span className="font-semibold">{formatCurrency(parseFloat(String(salaryAmount)))}</span>
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground mt-2">
-                  Se você já tem dinheiro disponível, informe o valor inicial. Caso contrário, deixe em zero.
+                  Informe o valor do seu salário líquido mensal (após descontos).
                 </p>
               </div>
 
-              {/* Personalização - Acordeon */}
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="personalization">
-                  <AccordionTrigger className="text-sm font-medium">
-                    Personalizar Carteira (Opcional)
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-4 pt-4">
-                    <div>
-                      <Label htmlFor="walletIcon">Ícone</Label>
-                      <Input
-                        id="walletIcon"
-                        placeholder="💳"
-                        maxLength={2}
-                        className="mt-2"
-                        {...register('walletIcon')}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Escolha um emoji ou ícone para sua carteira
-                      </p>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="walletColor">Cor</Label>
-                      <div className="flex items-center gap-3 mt-2">
-                        <Input
-                          id="walletColor"
-                          type="color"
-                          className="w-16 h-10 cursor-pointer"
-                          {...register('walletColor')}
-                        />
-                        <Input
-                          type="text"
-                          placeholder="#10b981"
-                          className="flex-1"
-                          {...register('walletColor')}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Escolha uma cor para identificar sua carteira
-                      </p>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-
-              {/* Preview da Carteira */}
-              {(walletName || walletIcon || walletColor) && (
-                <div className="p-4 rounded-lg border bg-muted/50">
-                  <p className="text-sm font-medium mb-3">Preview:</p>
-                  <div
-                    className="flex items-center gap-3 p-4 rounded-lg border"
-                    style={{
-                      borderLeft: `4px solid ${walletColor || '#10b981'}`,
-                    }}
-                  >
-                    <div
-                      className="h-12 w-12 rounded-lg flex items-center justify-center text-xl"
-                      style={{ backgroundColor: `${walletColor || '#10b981'}20` }}
-                    >
-                      {walletIcon || '💳'}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold">{walletName || 'Carteira Principal'}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Saldo: {formatCurrency(parseFloat(String(walletBalance)) || 0)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Dia do Pagamento */}
+              <div>
+                <Label htmlFor="payday" className="text-base font-semibold">
+                  Dia do Pagamento <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="payday"
+                  type="number"
+                  min="1"
+                  max="31"
+                  className="mt-2 text-lg font-semibold"
+                  placeholder="5"
+                  {...register('payday', {
+                    required: 'Dia do pagamento é obrigatório',
+                    min: { value: 1, message: 'Dia deve ser entre 1 e 31' },
+                    max: { value: 31, message: 'Dia deve ser entre 1 e 31' },
+                    valueAsNumber: true,
+                  })}
+                />
+                {errors.payday && (
+                  <p className="text-sm text-destructive mt-1">{errors.payday.message}</p>
+                )}
+                {payday && payday >= 1 && payday <= 31 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Seu salário cai no dia <span className="font-semibold">{payday}</span> de cada mês
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Informe o dia do mês em que seu salário normalmente cai (1-31).
+                  No dia do pagamento, vamos te perguntar se o salário caiu e qual foi o valor.
+                </p>
+              </div>
 
               {/* Botões */}
               <div className="flex gap-3 pt-4">
                 <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSkip}
-                  className="flex-1"
-                >
-                  Pular por enquanto
-                </Button>
-                <Button
                   type="submit"
-                  disabled={createWallet.isPending || !walletName || errors.walletName !== undefined}
+                  disabled={createProfile.isPending || !salaryAmount || errors.salaryAmount !== undefined || errors.payday !== undefined}
                   className="flex-1"
                 >
-                  {createWallet.isPending ? (
+                  {createProfile.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando...
+                      Configurando...
                     </>
                   ) : (
                     <>
-                      Criar Carteira
+                      Continuar
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </>
                   )}
@@ -261,7 +200,7 @@ export default function FinancialOnboarding() {
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">
-          Você pode criar mais carteiras depois nas configurações
+          Você pode alterar essas informações depois nas configurações
         </p>
       </div>
     </div>

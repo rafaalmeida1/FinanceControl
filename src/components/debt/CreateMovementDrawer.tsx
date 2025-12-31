@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
-import { useWallets } from '@/hooks/useWallets';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Wallet,
   CreditCard,
   User,
   Loader2,
@@ -47,7 +45,6 @@ import { EmailAutocomplete } from '@/components/ui/email-autocomplete';
 import { DuplicateDebtWarning, DuplicateDebt } from '@/components/debt/DuplicateDebtWarning';
 import { debtsService } from '@/services/debts.service';
 import { formatCurrency } from '@/lib/utils';
-import { WalletSelector } from '@/components/debt/WalletSelector';
 import { PaymentMethodSelector } from '@/components/debt/PaymentMethodSelector';
 import { DebtTypeSelector, DebtType } from '@/components/debt/DebtTypeSelector';
 import { MercadoPagoTypeSelector, MercadoPagoPaymentType } from '@/components/debt/MercadoPagoTypeSelector';
@@ -58,7 +55,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { paymentsService } from '@/services/payments.service';
 
 interface DebtFormData {
-  walletId: string;
   description: string;
   totalAmount: number | string;
   installments: number;
@@ -71,12 +67,11 @@ interface DebtFormData {
 }
 
 const STEPS = [
-  { id: 0, title: 'Carteira', icon: Wallet },
-  { id: 1, title: 'Método de Pagamento', icon: CreditCard },
-  { id: 2, title: 'Tipo de Movimentação', icon: Info },
-  { id: 3, title: 'Dados do Usuário', icon: User },
-  { id: 4, title: 'Configuração', icon: CreditCard },
-  { id: 5, title: 'Confirmação', icon: Check },
+  { id: 0, title: 'Método de Pagamento', icon: CreditCard },
+  { id: 1, title: 'Tipo de Movimentação', icon: Info },
+  { id: 2, title: 'Dados do Usuário', icon: User },
+  { id: 3, title: 'Configuração', icon: CreditCard },
+  { id: 4, title: 'Confirmação', icon: Check },
 ];
 
 const PROGRESS_STORAGE_KEY = 'createMovementProgress';
@@ -88,7 +83,6 @@ interface CreateMovementDrawerProps {
 
 export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawerProps) {
   const { createDebt, isCreatingDebt } = useDebts();
-  const { wallets, isLoading: isLoadingWallets } = useWallets();
   const { user } = authStore();
   const { width } = useWindowSize();
   const isMobile = width < 768; // md breakpoint
@@ -124,7 +118,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     }
   });
 
-  const walletId = watch('walletId');
   const totalAmount = watch('totalAmount');
   const installments = watch('installments') || 1;
   const description = watch('description');
@@ -132,19 +125,18 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
   const creditorEmail = watch('creditorEmail');
   const dueDate = watch('dueDate');
 
-  // Buscar chaves PIX - sempre buscar todas, independente da carteira
+  // Buscar chaves PIX do usuário
   const { data: pixKeys, isLoading: isLoadingPixKeys } = useQuery({
     queryKey: ['pixKeys'],
     queryFn: () => pixKeysService.getAll(),
     enabled: open, // Só buscar quando o drawer estiver aberto
   });
 
-  // Filtrar chaves PIX da carteira selecionada
-  const walletPixKeys = React.useMemo(() => {
+  // Filtrar apenas chaves PIX do usuário (não de terceiros, a menos que seja necessário)
+  const userPixKeys = React.useMemo(() => {
     if (!pixKeys) return [];
-    if (!walletId) return pixKeys; // Se não tiver carteira selecionada, mostrar todas
-    return pixKeys.filter(key => key.walletId === walletId);
-  }, [pixKeys, walletId]);
+    return pixKeys.filter(key => !key.isThirdParty);
+  }, [pixKeys]);
 
   // Salvar progresso no localStorage
   const saveProgress = useCallback(() => {
@@ -168,7 +160,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
       durationMonths,
       mercadoPagoConnected,
       formData: {
-        walletId: formValues.walletId,
         description: formValues.description,
         totalAmount: formValues.totalAmount,
         installments: formValues.installments,
@@ -300,7 +291,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     subscriptionName,
     durationMonths,
     mercadoPagoConnected,
-    walletId,
     description,
     totalAmount,
     installments,
@@ -384,7 +374,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
       localStorage.setItem('createDebtState', JSON.stringify({
         currentStep,
         paymentMethod,
-        walletId: formValues.walletId,
       }));
       // Redirecionar para conexão
       window.location.href = authUrl;
@@ -397,12 +386,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     let isValid = true;
 
     if (currentStep === 0) {
-      isValid = await trigger('walletId');
-      if (!isValid) {
-        toast.error('Selecione uma carteira');
-        return;
-      }
-    } else if (currentStep === 1) {
       if (!paymentMethod) {
         toast.error('Selecione um método de pagamento');
         return;
@@ -412,7 +395,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
         toast.error('Você precisa conectar sua conta do Mercado Pago primeiro');
         return;
       }
-    } else if (currentStep === 2) {
+    } else if (currentStep === 1) {
       // Verificar novamente se Mercado Pago está conectado
       if (paymentMethod === 'mercadopago' && !mercadoPagoConnected) {
         toast.error('Você precisa conectar sua conta do Mercado Pago primeiro');
@@ -442,7 +425,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
         isValid = await trigger(['description']);
       }
       if (!isValid) return;
-    } else if (currentStep === 4) {
+    } else if (currentStep === 3) {
       isValid = await trigger(['totalAmount']);
       // Para dívidas recorrentes, não validar dueDate nem installments
       if (debtType !== 'recurring') {
@@ -473,7 +456,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     // Verificar duplicatas
     try {
       const duplicateCheck = await debtsService.checkDuplicates({
-        walletId: data.walletId,
         debtorEmail: data.debtorEmail,
         creditorEmail: isPersonalDebt === 'other-owes-me' ? user?.email : data.creditorEmail,
         totalAmount: Number(data.totalAmount),
@@ -522,7 +504,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
 
       // Preparar payload
       const payload: any = {
-        walletId: data.walletId,
         description: data.description.trim(),
         totalAmount: Number(data.totalAmount),
         dueDate: dueDateISO,
@@ -645,30 +626,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold mb-2">Selecione a Carteira</h2>
-              <p className="text-muted-foreground">
-                Escolha a carteira para associar esta movimentação
-              </p>
-            </div>
-            {isLoadingWallets ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : (
-              <WalletSelector
-                wallets={wallets || []}
-                selectedWalletId={walletId || null}
-                onSelect={(id) => setValue('walletId', id)}
-                error={errors.walletId?.message}
-              />
-            )}
-          </div>
-        );
-
-      case 1:
-        return (
-          <div className="space-y-6">
-            <div>
               <h2 className="text-2xl font-bold mb-2">Método de Pagamento</h2>
               <p className="text-muted-foreground">
                 Como você deseja receber ou fazer o pagamento?
@@ -720,7 +677,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
           </div>
         );
 
-      case 2:
+      case 1:
         // Não permitir avançar se Mercado Pago não estiver conectado
         if (paymentMethod === 'mercadopago' && !mercadoPagoConnected) {
           return (
@@ -780,7 +737,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
           </div>
         );
 
-      case 3:
+      case 2:
         return (
           <div className="space-y-6">
             <div>
@@ -904,7 +861,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
           </div>
         );
 
-      case 4:
+      case 3:
         return (
           <div className="space-y-6">
             <div>
@@ -946,8 +903,8 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
                         <SelectValue placeholder="Selecione uma chave PIX" />
                       </SelectTrigger>
                       <SelectContent>
-                        {walletPixKeys && walletPixKeys.length > 0 ? (
-                          walletPixKeys.map((key) => (
+                        {userPixKeys && userPixKeys.length > 0 ? (
+                          userPixKeys.map((key) => (
                             <SelectItem key={key.id} value={key.id}>
                               {key.label} ({key.keyValue})
                             </SelectItem>
@@ -1066,7 +1023,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
           </div>
         );
 
-      case 5:
+      case 4:
         return (
           <div className="space-y-6">
             <div>
@@ -1327,7 +1284,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
       <CreatePixKeyModal
         open={showCreatePixKeyModal}
         onOpenChange={setShowCreatePixKeyModal}
-        walletId={walletId || undefined}
         onSuccess={(pixKeyId) => {
           setSelectedPixKeyId(pixKeyId);
           setValue('pixKeyId', pixKeyId);

@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Wallet, Settings, Receipt, FileBarChart } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Receipt, FileBarChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
@@ -25,11 +25,6 @@ export const BottomNavigation = () => {
       to: '/debts',
       icon: FileText,
       label: 'Movimentações',
-    },
-    {
-      to: '/wallets',
-      icon: Wallet,
-      label: 'Carteiras',
     },
   ];
 
@@ -98,7 +93,7 @@ export const BottomNavigation = () => {
             </Button>
           </div>
 
-          {/* Carteiras */}
+          {/* Placeholder para manter layout */}
           {navItems.slice(2).map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.to || 

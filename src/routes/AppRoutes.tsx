@@ -30,7 +30,6 @@ import CompiledDebts from '@/pages/user/CompiledDebts';
 import DebtDetail from '@/pages/user/DebtDetail';
 import Activity from '@/pages/user/Activity';
 import Savings from '@/pages/user/Savings';
-import Wallets from '@/pages/user/Wallets';
 import Statement from '@/pages/user/Statement';
 import FinancialOnboarding from '@/pages/onboarding/FinancialOnboarding';
 
@@ -151,14 +150,6 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <Savings />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/wallets"
-        element={
-          <PrivateRoute>
-            <Wallets />
           </PrivateRoute>
         }
       />

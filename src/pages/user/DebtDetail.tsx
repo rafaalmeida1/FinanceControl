@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import { chargesService } from '@/services/charges.service';
 import { filesService } from '@/services/files.service';
+import { debtorAccessService } from '@/services/debtor-access.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode, XCircle, Send, Mail, Download, File } from 'lucide-react';
 import { useDebts } from '@/hooks/useDebts';
@@ -11,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +26,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Charge, Debt } from '@/types/api.types';
 import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
+import { ProofUpload } from '@/components/payment/ProofUpload';
 import { getSocket } from '@/lib/socket';
 
 export default function DebtDetail() {
@@ -32,6 +36,9 @@ export default function DebtDetail() {
   const { sendLink, isSendingLink } = useDebts();
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; charge?: Charge; allCharges?: boolean }>({ open: false });
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [proofDocumentPath, setProofDocumentPath] = useState<string | null>(null);
+  const [proofDocumentMimeType, setProofDocumentMimeType] = useState<string | null>(null);
 
   // Inicializar WebSocket para atualizações em tempo real
   useSocket();
@@ -83,6 +90,44 @@ export default function DebtDetail() {
     };
   }, [id, queryClient]);
 
+  // Mutation para pagamento usando endpoint de debtor (quando é dívida pessoal)
+  const markChargePaidViaDebtorMutation = useMutation({
+    mutationFn: async ({ 
+      token, 
+      chargeIds, 
+      notes, 
+      proofPath, 
+      proofMimeType 
+    }: { 
+      token: string; 
+      chargeIds: string[]; 
+      notes?: string; 
+      proofPath?: string; 
+      proofMimeType?: string;
+    }) => {
+      return debtorAccessService.markMultipleChargesPaid(
+        token,
+        chargeIds,
+        notes,
+        proofPath,
+        proofMimeType,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debt', id] });
+      queryClient.invalidateQueries({ queryKey: ['charges'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast.success('Pagamento confirmado com sucesso!');
+      setPaymentDialog({ open: false });
+      setPaymentNotes('');
+      setProofDocumentPath(null);
+      setProofDocumentMimeType(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao confirmar pagamento');
+    },
+  });
+
   const markChargePaidMutation = useMutation({
     mutationFn: ({ chargeId, notes }: { chargeId: string; notes?: string }) =>
       chargesService.markPaid(chargeId, notes),
@@ -92,6 +137,9 @@ export default function DebtDetail() {
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       toast.success('Parcela marcada como paga!');
       setPaymentDialog({ open: false });
+      setPaymentNotes('');
+      setProofDocumentPath(null);
+      setProofDocumentMimeType(null);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Erro ao marcar parcela como paga');
@@ -107,6 +155,9 @@ export default function DebtDetail() {
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       toast.success('Todas as parcelas foram marcadas como pagas!');
       setPaymentDialog({ open: false });
+      setPaymentNotes('');
+      setProofDocumentPath(null);
+      setProofDocumentMimeType(null);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Erro ao marcar dívida como paga');
@@ -164,17 +215,49 @@ export default function DebtDetail() {
 
   const handlePayCharge = (charge: Charge) => {
     setPaymentDialog({ open: true, charge });
+    setPaymentNotes('');
+    setProofDocumentPath(null);
+    setProofDocumentMimeType(null);
   };
 
   const handlePayAll = () => {
     setPaymentDialog({ open: true, allCharges: true });
+    setPaymentNotes('');
+    setProofDocumentPath(null);
+    setProofDocumentMimeType(null);
   };
 
-  const handleConfirmPayment = (notes?: string) => {
-    if (paymentDialog.allCharges && debt) {
-      markAllPaidMutation.mutate({ debtId: debt.id, notes });
-    } else if (paymentDialog.charge) {
-      markChargePaidMutation.mutate({ chargeId: paymentDialog.charge.id, notes });
+  const handleConfirmPayment = () => {
+    if (!debt) return;
+
+    // Se for dívida pessoal e tiver token de acesso, usar endpoint de debtor (igual à tela pública)
+    if (isPersonalDebtFromUserPerspective && debt.accessTokens && debt.accessTokens.length > 0) {
+      const debtorToken = debt.accessTokens[0].token;
+      const chargeIds = paymentDialog.allCharges
+        ? pendingCharges.map(c => c.id)
+        : paymentDialog.charge
+          ? [paymentDialog.charge.id]
+          : [];
+
+      if (chargeIds.length === 0) {
+        toast.error('Nenhuma parcela selecionada');
+        return;
+      }
+
+      markChargePaidViaDebtorMutation.mutate({
+        token: debtorToken,
+        chargeIds,
+        notes: paymentNotes || undefined,
+        proofPath: proofDocumentPath || undefined,
+        proofMimeType: proofDocumentMimeType || undefined,
+      });
+    } else {
+      // Usar endpoint normal (para dívidas de terceiros ou quando não há token)
+      if (paymentDialog.allCharges) {
+        markAllPaidMutation.mutate({ debtId: debt.id, notes: paymentNotes || undefined });
+      } else if (paymentDialog.charge) {
+        markChargePaidMutation.mutate({ chargeId: paymentDialog.charge.id, notes: paymentNotes || undefined });
+      }
     }
   };
 
@@ -655,29 +738,31 @@ export default function DebtDetail() {
                             </p>
                           )}
                           {charge.proofDocumentPath && (
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2">
                               <Badge variant="outline" className="text-xs flex items-center gap-1">
                                 <File className="h-3 w-3" />
                                 Comprovante disponível
                               </Badge>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => handleViewProof(charge.proofDocumentPath!)}
-                              >
-                                <File className="h-3 w-3 mr-1" />
-                                Ver
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => handleDownloadProof(charge.proofDocumentPath!, charge.id)}
-                              >
-                                <Download className="h-3 w-3 mr-1" />
-                                Baixar
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => handleViewProof(charge.proofDocumentPath!)}
+                                >
+                                  <File className="h-3 w-3 mr-1" />
+                                  Ver
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => handleDownloadProof(charge.proofDocumentPath!, charge.id)}
+                                >
+                                  <Download className="h-3 w-3 mr-1" />
+                                  Baixar
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -698,7 +783,7 @@ export default function DebtDetail() {
 
       {/* Payment Confirmation Dialog */}
       <Dialog open={paymentDialog.open} onOpenChange={(open) => setPaymentDialog({ open })}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {paymentDialog.allCharges ? 'Confirmar Pagamento de Todas as Parcelas' : 'Confirmar Pagamento de Parcela'}
@@ -710,9 +795,6 @@ export default function DebtDetail() {
                   <br />
                   <br />
                   <strong>Total:</strong> {formatCurrency(totalPending)}
-                  <br />
-                  <br />
-                  Após confirmar, todas as parcelas serão marcadas como pagas e a chave PIX será removida.
                 </>
               ) : paymentDialog.charge ? (
                 <>
@@ -726,33 +808,69 @@ export default function DebtDetail() {
                       <strong>Parcela:</strong> {paymentDialog.charge.installmentNumber}/{paymentDialog.charge.totalInstallments}
                     </>
                   )}
-                  <br />
-                  <br />
-                  Após confirmar, esta parcela será marcada como paga. Se todas as parcelas forem pagas, a chave PIX será removida.
                 </>
               ) : null}
             </DialogDescription>
           </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Comprovante de Pagamento - Mostrar apenas para dívidas pessoais */}
+            {isPersonalDebtFromUserPerspective && (
+              <div>
+                <ProofUpload
+                  onUploadComplete={(path, mimeType) => {
+                    setProofDocumentPath(path);
+                    setProofDocumentMimeType(mimeType);
+                  }}
+                  onRemove={() => {
+                    setProofDocumentPath(null);
+                    setProofDocumentMimeType(null);
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Observações */}
+            <div className="space-y-2">
+              <Label htmlFor="payment-notes">Observações (opcional)</Label>
+              <Textarea
+                id="payment-notes"
+                placeholder="Ex: Pagamento realizado via PIX em..."
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                rows={4}
+                className="text-sm"
+              />
+            </div>
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setPaymentDialog({ open: false })}>
               Cancelar
             </Button>
             <Button
-              onClick={() => handleConfirmPayment()}
-              disabled={markChargePaidMutation.isPending || markAllPaidMutation.isPending}
+              onClick={handleConfirmPayment}
+              disabled={
+                markChargePaidMutation.isPending || 
+                markAllPaidMutation.isPending || 
+                markChargePaidViaDebtorMutation.isPending
+              }
             >
-              {(markChargePaidMutation.isPending || markAllPaidMutation.isPending) ? (
+              {(markChargePaidMutation.isPending || markAllPaidMutation.isPending || markChargePaidViaDebtorMutation.isPending) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processando...
                 </>
               ) : (
-                'Confirmar Pagamento'
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Confirmar Pagamento
+                </>
               )}
             </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
         {/* Modal de Cancelamento de Assinatura */}
         {debt.isRecurring && debt.recurringStatus === 'ACTIVE' && (

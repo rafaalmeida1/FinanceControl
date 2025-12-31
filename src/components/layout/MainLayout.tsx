@@ -41,7 +41,6 @@ interface MainLayoutProps {
 const userNavigation = [
   { name: 'Início', href: '/dashboard', icon: Home },
   { name: 'Movimentações', href: '/debts', icon: FileText },
-  { name: 'Carteiras', href: '/wallets', icon: Wallet },
   { name: 'Extrato', href: '/statement', icon: DollarSign },
   { name: 'Cobranças', href: '/charges', icon: Receipt },
   { name: 'Configurações', href: '/settings', icon: Settings },
@@ -50,7 +49,6 @@ const userNavigation = [
 const adminNavigation = [
   { name: 'Início', href: '/dashboard', icon: Home },
   { name: 'Movimentações', href: '/debts', icon: FileText },
-  { name: 'Carteiras', href: '/wallets', icon: Wallet },
   { name: 'Extrato', href: '/statement', icon: DollarSign },
   { name: 'Cobranças', href: '/charges', icon: Receipt },
   { name: 'Atividade', href: '/activity', icon: Clock },

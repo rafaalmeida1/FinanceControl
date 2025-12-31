@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { usersService } from '@/services/users.service';
 
-export const useStats = (walletId?: string | null) => {
+export const useStats = () => {
   return useQuery({
-    queryKey: ['stats', walletId],
-    queryFn: () => usersService.getStats(walletId || undefined),
+    queryKey: ['stats'],
+    queryFn: () => usersService.getStats(),
   });
 };
 
