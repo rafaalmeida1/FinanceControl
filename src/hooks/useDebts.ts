@@ -17,7 +17,13 @@ export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: b
   const createMutation = useMutation({
     mutationFn: debtsService.create,
     onSuccess: () => {
+      // Invalidar todas as queries relevantes quando uma movimentação é criada
       queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['charges'] });
+      queryClient.invalidateQueries({ queryKey: ['compiled-debts'] });
+      queryClient.invalidateQueries({ queryKey: ['wallets'] });
       toast.success('Dívida criada com sucesso!');
     },
   });

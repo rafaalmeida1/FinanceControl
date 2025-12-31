@@ -130,13 +130,6 @@ export function InstallPrompt() {
                 Agora Não
               </Button>
             </div>
-            {!isIOS && (
-              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                <p className="text-xs text-center text-green-900 dark:text-green-100">
-                  ✨ <strong>Instalação Automática!</strong> No Android, basta tocar em "Instalar Agora" e o app será instalado automaticamente, sem precisar fazer nada manualmente!
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -151,12 +144,6 @@ export function InstallPrompt() {
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6 space-y-6">
-            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mb-4">
-              <p className="text-sm text-blue-900 dark:text-blue-100">
-                <strong>📱 Importante:</strong> No iPhone, você precisa usar a <strong>barra branca de navegação</strong> que fica na parte inferior da tela do Safari. Ela contém os botões de voltar, abas, URL e opções.
-              </p>
-            </div>
-
             <div className="space-y-4">
               <div className="flex items-start gap-4 p-4 rounded-lg bg-primary/5">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
@@ -165,14 +152,9 @@ export function InstallPrompt() {
                 <div>
                   <h3 className="font-semibold mb-1">Toque no botão Compartilhar</h3>
                   <p className="text-sm text-muted-foreground">
-                    Na <strong>barra branca de navegação na parte inferior da tela</strong>, procure pelo ícone de compartilhar
+                    Na parte inferior da tela, toque no ícone de compartilhar
                     <span className="inline-block ml-1">📤</span>
                   </p>
-                  <div className="mt-2 p-2 bg-background rounded border border-border">
-                    <p className="text-xs text-muted-foreground">
-                      💡 A barra branca fica na parte de baixo do navegador Safari, com os botões de navegação (seta para trás, abas, URL, atualizar e menu)
-                    </p>
-                  </div>
                 </div>
               </div>
 

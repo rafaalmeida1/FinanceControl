@@ -5,9 +5,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
 import { debtsService } from '@/services/debts.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check, Loader2, Trash2, Search, X } from 'lucide-react';
+import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check, Loader2, Trash2, Search, X, MoreVertical } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -400,201 +407,201 @@ export default function Debts() {
     return (
       <div className="space-y-4">
         {debtsList.map((debt) => (
-          <div key={debt.id} className="card cursor-pointer hover:border-primary transition-colors" onClick={() => navigate(`/debts/${debt.id}`)}>
-            <div className="flex items-start justify-between mb-4 gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-xl font-bold truncate">
-                    {getDebtPerspective(debt) 
-                      ? (debt.creditorName || debt.creditorEmail || 'Credor não informado')
-                      : (debt.debtorName || debt.debtorEmail)}
-                  </h3>
-                  <Badge variant={getDebtPerspective(debt) ? 'destructive' : 'default'} className="flex-shrink-0">
-                    {getDebtPerspective(debt) ? 'Eu devo' : 'Alguém me deve'}
-                  </Badge>
+          <Card key={debt.id} className="overflow-hidden">
+            {/* Header do Card - Clicável para ver detalhes */}
+            <div 
+              className="cursor-pointer hover:bg-accent/50 transition-colors p-4 md:p-6"
+              onClick={() => navigate(`/debts/${debt.id}`)}
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <h3 className="text-lg md:text-xl font-bold truncate">
+                      {getDebtPerspective(debt) 
+                        ? (debt.creditorName || debt.creditorEmail || 'Credor não informado')
+                        : (debt.debtorName || debt.debtorEmail)}
+                    </h3>
+                    <Badge variant={getDebtPerspective(debt) ? 'destructive' : 'default'} className="flex-shrink-0 text-xs">
+                      {getDebtPerspective(debt) ? 'Eu devo' : 'Alguém me deve'}
+                    </Badge>
+                    <Badge variant="outline" className={`${getStatusColor(debt.status)} flex-shrink-0 text-xs`}>
+                      {getStatusLabel(debt.status)}
+                    </Badge>
+                  </div>
+                  {debt.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{debt.description}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {getDebtPerspective(debt)
+                      ? `Credor: ${debt.creditorName || debt.creditorEmail || 'Não informado'}` 
+                      : `Devedor: ${debt.debtorName || debt.debtorEmail}`}
+                  </p>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                  {getDebtPerspective(debt)
-                    ? `Credor: ${debt.creditorName || debt.creditorEmail || 'Não informado'}` 
-                    : `Devedor: ${debt.debtorName || debt.debtorEmail}`}
-                </p>
-                {debt.description && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">{debt.description}</p>
-                )}
-              </div>
-              <span className={`badge ${getStatusColor(debt.status)} flex-shrink-0`}>
-                {getStatusLabel(debt.status)}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
-              <div className="min-w-0">
-                <p className="text-sm text-gray-600 dark:text-gray-300">Valor Total</p>
-                <p className="text-lg font-bold dark:text-white truncate">{formatCurrency(debt.totalAmount)}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-gray-600 dark:text-gray-300">Pago</p>
-                <p className="text-lg font-bold text-green-600 dark:text-green-400 truncate">
-                  {formatCurrency(debt.paidAmount)}
-                </p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-gray-600 dark:text-gray-300">Parcelas</p>
-                <p className="text-lg font-bold dark:text-white truncate">{debt.installments}x</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-gray-600 dark:text-gray-300">Vencimento</p>
-                <p className="text-lg font-bold dark:text-white truncate">
-                  {debt.dueDate ? formatDateShort(debt.dueDate) : '-'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-2 flex-wrap">
-              {/* Link para ver cobranças */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/debts/${debt.id}`);
-                }}
-                className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
-              >
-                <CreditCard size={14} className="md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Ver Cobranças</span>
-                <span className="sm:hidden">Cobranças</span>
-              </button>
-              {debt.status !== 'PAID' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm('Deseja marcar esta movimentação como paga? Todas as parcelas pendentes serão marcadas como pagas.')) {
-                      markAsPaid({ id: debt.id });
-                    }
-                  }}
-                  className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2"
-                  disabled={isMarkingAsPaid}
-                >
-                  {isMarkingAsPaid ? (
-                    <>
-                      <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
-                      <span className="hidden sm:inline">Processando...</span>
-                      <span className="sm:hidden">...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check size={14} className="md:w-4 md:h-4" />
-                      <span className="hidden sm:inline">Quitar Movimentação</span>
-                      <span className="sm:hidden">Quitar</span>
-                    </>
-                  )}
-                </button>
-              )}
-              {!debt.isPersonalDebt && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sendLink(debt.id);
-                  }}
-                  className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
-                  disabled={isSendingLink}
-                >
-                  {isSendingLink ? (
-                    <>
-                      <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
-                      <span className="hidden sm:inline">Enviando...</span>
-                      <span className="sm:hidden">...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mail size={14} className="md:w-4 md:h-4" />
-                      <span className="hidden sm:inline">Enviar Link</span>
-                      <span className="sm:hidden">Link</span>
-                    </>
-                  )}
-                </button>
-              )}
-              {/* Apenas o criador pode editar e cancelar */}
-              {(debt.isOwner || debt.userRole === 'owner') && (
-                <>
-                  <button
-                    onClick={(e) => {
+                {/* Menu de Ações */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation();
-                      handleEditClick(debt);
-                    }}
-                    className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
-                    disabled={debt.status === 'PAID' || isUpdatingDebt}
-                  >
-                    <Edit size={14} className="md:w-4 md:h-4" />
-                    <span className="hidden sm:inline">Editar</span>
-                  </button>
-                  {debt.isRecurring && debt.recurringStatus === 'ACTIVE' ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCancelRecurringDebt(debt);
-                      }}
-                      className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
-                      disabled={isCancelingDebt}
-                    >
-                      <XCircle size={14} className="md:w-4 md:h-4" />
-                      <span className="hidden sm:inline">Cancelar Assinatura</span>
-                      <span className="sm:hidden">Cancelar</span>
-                    </button>
-                  ) : (
-                    <>
-                      <button
+                      navigate(`/debts/${debt.id}`);
+                    }}>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Ver Cobranças
+                    </DropdownMenuItem>
+                    {debt.status !== 'PAID' && (
+                      <DropdownMenuItem 
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm('Deseja realmente cancelar esta movimentação?')) {
-                            cancelDebt(debt.id);
+                          if (confirm('Deseja marcar esta movimentação como paga? Todas as parcelas pendentes serão marcadas como pagas.')) {
+                            markAsPaid({ id: debt.id });
                           }
                         }}
-                        className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2"
-                        disabled={debt.status === 'PAID' || isCancelingDebt}
+                        disabled={isMarkingAsPaid}
                       >
-                        {isCancelingDebt ? (
+                        {isMarkingAsPaid ? (
                           <>
-                            <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
-                            <span className="hidden sm:inline">Cancelando...</span>
-                            <span className="sm:hidden">...</span>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processando...
                           </>
                         ) : (
                           <>
-                            <XCircle size={14} className="md:w-4 md:h-4" />
-                            <span className="hidden sm:inline">Cancelar</span>
+                            <Check className="mr-2 h-4 w-4" />
+                            Quitar Movimentação
                           </>
                         )}
-                      </button>
-                      {/* Botão Deletar - apenas para movimentações PAID ou CANCELLED */}
-                      {(debt.status === 'PAID' || debt.status === 'CANCELLED') && (
-                        <button
+                      </DropdownMenuItem>
+                    )}
+                    {!debt.isPersonalDebt && (
+                      <DropdownMenuItem 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sendLink(debt.id);
+                        }}
+                        disabled={isSendingLink}
+                      >
+                        {isSendingLink ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Enviando...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Enviar Link
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+                    {/* Apenas o criador pode editar e cancelar */}
+                    {(debt.isOwner || debt.userRole === 'owner') && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDeletingDebtId(debt.id);
+                            handleEditClick(debt);
                           }}
-                          className="btn-danger flex items-center gap-1.5 text-sm px-3 py-2 bg-red-600 hover:bg-red-700"
-                          disabled={isDeletingDebt || deletingDebtId === debt.id}
+                          disabled={debt.status === 'PAID' || isUpdatingDebt}
                         >
-                          {isDeletingDebt && deletingDebtId === debt.id ? (
-                            <>
-                              <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
-                              <span className="hidden sm:inline">Deletando...</span>
-                              <span className="sm:hidden">...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 size={14} className="md:w-4 md:h-4" />
-                              <span className="hidden sm:inline">Deletar</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
+                          <Edit className="mr-2 h-4 w-4" />
+                          Editar
+                        </DropdownMenuItem>
+                        {debt.isRecurring && debt.recurringStatus === 'ACTIVE' ? (
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCancelRecurringDebt(debt);
+                            }}
+                            disabled={isCancelingDebt}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Cancelar Assinatura
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('Deseja realmente cancelar esta movimentação?')) {
+                                  cancelDebt(debt.id);
+                                }
+                              }}
+                              disabled={debt.status === 'PAID' || isCancelingDebt}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              {isCancelingDebt ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Cancelando...
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Cancelar
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            {/* Botão Deletar - apenas para movimentações PAID ou CANCELLED */}
+                            {(debt.status === 'PAID' || debt.status === 'CANCELLED') && (
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingDebtId(debt.id);
+                                }}
+                                disabled={isDeletingDebt || deletingDebtId === debt.id}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                {isDeletingDebt && deletingDebtId === debt.id ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Deletando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Deletar
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Informações Financeiras */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-4 pt-4 border-t">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground mb-1">Valor Total</p>
+                  <p className="text-base md:text-lg font-bold truncate">{formatCurrency(debt.totalAmount)}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground mb-1">Pago</p>
+                  <p className="text-base md:text-lg font-bold text-green-600 dark:text-green-400 truncate">
+                    {formatCurrency(debt.paidAmount)}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground mb-1">Parcelas</p>
+                  <p className="text-base md:text-lg font-bold truncate">{debt.installments}x</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground mb-1">Vencimento</p>
+                  <p className="text-base md:text-lg font-bold truncate">
+                    {debt.dueDate ? formatDateShort(debt.dueDate) : '-'}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     );

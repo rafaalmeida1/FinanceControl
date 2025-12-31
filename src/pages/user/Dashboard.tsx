@@ -8,6 +8,7 @@ import { useWindowSize } from '@/hooks/useWindowSize';
 import { useSocket } from '@/hooks/useSocket';
 import { getSocket } from '@/lib/socket';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickAddMovement } from '@/components/debt/QuickAddMovement';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import {
@@ -24,6 +25,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,12 +69,19 @@ export default function Dashboard() {
   // Inicializar WebSocket para atualizações em tempo real
   useSocket();
 
+  // Pull-to-refresh para PWA
+  const { isRefreshing, pullProgress } = usePullToRefresh({
+    enabled: true,
+    threshold: 80,
+  });
+
   // Escutar eventos WebSocket específicos para invalidar queries do dashboard
   useEffect(() => {
     const handleDataUpdated = (data?: { type: string }) => {
-      // Invalidar queries relevantes quando dados forem atualizados
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      // Invalidar TODAS as queries relevantes quando dados forem atualizados
+      // Usar queryKey prefix para invalidar todas as variações
+      queryClient.invalidateQueries({ queryKey: ['stats'] }); // Invalida ['stats'] e ['stats', walletId]
+      queryClient.invalidateQueries({ queryKey: ['financial'] }); // Invalida todas as queries ['financial', ...]
       queryClient.invalidateQueries({ queryKey: ['wallets'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['charges'] });
@@ -104,6 +113,33 @@ export default function Dashboard() {
       socket.off('debt.created', handleDataUpdated);
       socket.off('payment.received', handleDataUpdated);
     };
+  }, [queryClient, selectedWalletId]);
+
+  // Invalidar queries quando voltar para a tela (focus/visibility)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Quando a página volta a ficar visível, invalidar queries
+        queryClient.invalidateQueries({ queryKey: ['stats'] });
+        queryClient.invalidateQueries({ queryKey: ['financial'] });
+        queryClient.invalidateQueries({ queryKey: ['wallets'] });
+      }
+    };
+
+    const handleFocus = () => {
+      // Quando a janela recebe foco, invalidar queries
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['wallets'] });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [queryClient]);
 
   // Preparar dados do gráfico
@@ -134,7 +170,34 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-6 pb-6 relative">
+      {/* Indicador de Pull-to-Refresh */}
+      {isRefreshing && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center py-4 bg-background/95 backdrop-blur-sm border-b">
+          <div className="flex items-center gap-2 text-primary">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm font-medium">Atualizando...</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Indicador visual durante o pull */}
+      {pullProgress > 0 && !isRefreshing && (
+        <div 
+          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center py-4 bg-background/95 backdrop-blur-sm border-b transition-opacity"
+          style={{ 
+            opacity: Math.min(pullProgress, 1),
+            transform: `translateY(${Math.max(0, (pullProgress - 1) * 100)}px)`,
+          }}
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <ArrowDownRight className={`h-5 w-5 transition-transform ${pullProgress >= 1 ? 'rotate-180' : ''}`} />
+            <span className="text-sm font-medium">
+              {pullProgress >= 1 ? 'Solte para atualizar' : 'Puxe para atualizar'}
+            </span>
+          </div>
+        </div>
+      )}
       {/* Card de Adição Rápida */}
       {!isLoadingWallets && wallets && wallets.length > 0 && (
         <QuickAddMovement />

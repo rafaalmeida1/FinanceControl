@@ -1,11 +1,18 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Wallet, Settings, Receipt } from 'lucide-react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, FileText, Wallet, Settings, Receipt, FileBarChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export const BottomNavigation = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { setOpen } = useCreateMovement();
 
   const navItems = [
@@ -24,12 +31,11 @@ export const BottomNavigation = () => {
       icon: Wallet,
       label: 'Carteiras',
     },
-    {
-      to: '/settings',
-      icon: Settings,
-      label: 'Config',
-    },
   ];
+
+  const isSettingsActive = location.pathname === '/settings';
+  const isStatementActive = location.pathname === '/statement';
+  const isMoreActive = isSettingsActive || isStatementActive;
 
   return (
     <>
@@ -92,6 +98,7 @@ export const BottomNavigation = () => {
             </Button>
           </div>
 
+          {/* Carteiras */}
           {navItems.slice(2).map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.to || 
@@ -129,6 +136,49 @@ export const BottomNavigation = () => {
               </NavLink>
             );
           })}
+
+          {/* Menu Mais (Extrato e Config) */}
+          <div className="flex flex-col items-center justify-center flex-1 h-full min-w-0 px-1 py-1.5 relative">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    'flex flex-col items-center justify-center w-full h-full transition-all duration-200',
+                    isMoreActive
+                      ? 'text-primary'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  <div className={cn(
+                    "absolute inset-x-0 top-0 h-1 rounded-b-full transition-all",
+                    isMoreActive ? "bg-primary" : "bg-transparent"
+                  )} />
+                  <Settings className={cn(
+                    "h-5 w-5 mb-0.5 transition-all relative z-10",
+                    isMoreActive
+                      ? "scale-110"
+                      : "scale-100"
+                  )} />
+                  <span className={cn(
+                    "text-[10px] sm:text-xs font-medium truncate w-full text-center leading-tight relative z-10",
+                    isMoreActive && "font-semibold"
+                  )}>
+                    Mais
+                  </span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="end" className="mb-2 w-48">
+                <DropdownMenuItem onClick={() => navigate('/statement')}>
+                  <FileBarChart className="mr-2 h-4 w-4" />
+                  Extrato
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configurações
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </nav>
     </>
