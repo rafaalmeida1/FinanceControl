@@ -123,7 +123,7 @@ export default function Statement() {
               <Label htmlFor="type">Tipo</Label>
               <Select
                 value={selectedType || 'all'}
-                onValueChange={(value) => setSelectedType(value === 'all' ? undefined : (value as TransactionType))}
+                onValueChange={(value) => setSelectedType(value === 'all' ? undefined : value)}
               >
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Todos os tipos" />
