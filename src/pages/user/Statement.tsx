@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 // Wallet transactions removed - using Transaction model now
 type WalletTransaction = any;
 const TransactionType = { INCOME: 'INCOME', EXPENSE: 'EXPENSE' };
@@ -43,20 +42,9 @@ export default function Statement() {
   // Wallet system removed
   const wallets: any[] = [];
 
-  // Buscar extrato
-  const { data: statement, isLoading: isLoadingStatement } = useQuery({
-    queryKey: ['wallet-transactions', selectedWalletId, selectedType, startDate, endDate, page],
-    queryFn: () =>
-      walletTransactionsService.getStatement({
-        walletId: selectedWalletId,
-        type: selectedType,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-        limit,
-        offset: page * limit,
-      }),
-    enabled: true,
-  });
+  // Buscar extrato (wallet system removed - returns empty for now)
+  const statement = { transactions: [], total: 0, page: 0, limit: 50 };
+  const isLoadingStatement = false;
 
   const getTransactionIcon = (type: string) => {
     if (type === TransactionType.INCOME) {
@@ -142,7 +130,7 @@ export default function Statement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os tipos</SelectItem>
-                  <SelectItem value={TransactionType.INCOME}>Entradas</SelectItem>
+                  <SelectItem value="INCOME">Entradas</SelectItem>
                   <SelectItem value={TransactionType.EXPENSE}>Saídas</SelectItem>
                 </SelectContent>
               </Select>
