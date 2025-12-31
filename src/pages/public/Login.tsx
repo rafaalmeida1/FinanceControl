@@ -114,12 +114,12 @@ export default function Login() {
                 )}
               </div>
 
-              {!useEmailAccess && (
+              {(!useEmailAccess || isRegister) && (
                 <div>
-                  <label className="label">Senha</label>
+                  <label className="label">Senha{isRegister && ' *'}</label>
                   <input
                     {...register('password', {
-                      required: 'Senha é obrigatória',
+                      required: isRegister ? 'Senha é obrigatória para criar conta' : 'Senha é obrigatória',
                       minLength: {
                         value: 6,
                         message: 'Senha deve ter pelo menos 6 caracteres',
@@ -176,23 +176,27 @@ export default function Login() {
           )}
 
           <div className="mt-6 space-y-4">
-            <div className="flex items-center">
-              <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
-              <span className="px-4 text-sm text-gray-500">OU</span>
-              <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
-            </div>
+            {!isRegister && (
+              <>
+                <div className="flex items-center">
+                  <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
+                  <span className="px-4 text-sm text-gray-500">OU</span>
+                  <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
 
-            <button
-              onClick={() => setUseEmailAccess(!useEmailAccess)}
-              className="btn-secondary w-full"
-            >
-              {useEmailAccess ? 'Usar senha' : 'Acessar por email'}
-            </button>
+                <button
+                  onClick={() => setUseEmailAccess(!useEmailAccess)}
+                  className="btn-secondary w-full"
+                >
+                  {useEmailAccess ? 'Usar senha' : 'Acessar por email'}
+                </button>
+              </>
+            )}
 
             <button
               onClick={() => {
                 setIsRegister(!isRegister);
-                setUseEmailAccess(false);
+                setUseEmailAccess(false); // Sempre desabilitar acesso por email ao alternar para registro
                 // Manter email preenchido ao alternar entre login e registro
                 const currentEmail = watch('email');
                 if (currentEmail) {
