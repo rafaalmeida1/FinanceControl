@@ -6,6 +6,7 @@ import { useFinancial } from '@/hooks/useFinancial';
 import { useWallets } from '@/hooks/useWallets';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import { getSocket } from '@/lib/socket';
+import { useCreateMovement } from '@/contexts/CreateMovementContext';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import {
   ArrowUpRight,
@@ -45,6 +46,7 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { setOpen } = useCreateMovement();
   const { wallets, isLoading: isLoadingWallets } = useWallets();
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
   const { data: stats, isLoading: isLoadingStats } = useStats(selectedWalletId);
@@ -220,7 +222,7 @@ export default function Dashboard() {
         <Button
           variant="outline"
           className="h-auto py-4 flex-col gap-2 hover:bg-primary/5 hover:border-primary/50 transition-all"
-          onClick={() => navigate('/debts/create')}
+          onClick={() => setOpen(true)}
         >
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
             <Plus className="h-5 w-5 text-primary" />

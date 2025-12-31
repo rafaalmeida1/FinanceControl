@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useWallets } from '@/hooks/useWallets';
 
 interface CreatePixKeyModalProps {
   open: boolean;
@@ -17,19 +18,21 @@ interface CreatePixKeyModalProps {
   onSuccess?: (pixKeyId: string) => void;
 }
 
-export function CreatePixKeyModal({ open, onOpenChange, walletId, onSuccess }: CreatePixKeyModalProps) {
+export function CreatePixKeyModal({ open, onOpenChange, walletId: suggestedWalletId, onSuccess }: CreatePixKeyModalProps) {
   const queryClient = useQueryClient();
+  const { wallets, isLoading: isLoadingWallets } = useWallets();
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<CreatePixKeyDto & { walletId?: string }>({
     defaultValues: {
       keyType: 'CPF',
       isDefault: false,
       isThirdParty: false,
-      walletId: walletId,
+      walletId: suggestedWalletId,
     },
   });
 
   const isThirdParty = watch('isThirdParty');
   const keyType = watch('keyType');
+  const selectedWalletId = watch('walletId');
 
   const createMutation = useMutation({
     mutationFn: (data: CreatePixKeyDto) => pixKeysService.create(data),
@@ -49,9 +52,14 @@ export function CreatePixKeyModal({ open, onOpenChange, walletId, onSuccess }: C
   });
 
   const onSubmit = (data: CreatePixKeyDto & { walletId?: string }) => {
+    if (!data.walletId) {
+      toast.error('Selecione uma carteira');
+      return;
+    }
+
     const submitData: CreatePixKeyDto = {
       ...data,
-      walletId: walletId || data.walletId,
+      walletId: data.walletId,
       isThirdParty: data.isThirdParty || false,
     };
     
@@ -79,6 +87,41 @@ export function CreatePixKeyModal({ open, onOpenChange, walletId, onSuccess }: C
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 py-4">
+            {/* Seleção de Carteira */}
+            <div>
+              <Label htmlFor="walletId">Carteira <span className="text-destructive">*</span></Label>
+              {isLoadingWallets ? (
+                <div className="h-10 w-full rounded-md border border-input bg-muted animate-pulse mt-2" />
+              ) : (
+                <Select
+                  value={selectedWalletId || ''}
+                  onValueChange={(value) => setValue('walletId', value)}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Selecione uma carteira" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wallets?.map((wallet) => (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        <div className="flex items-center">
+                          {wallet.icon && <span className="mr-2">{wallet.icon}</span>}
+                          {wallet.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {errors.walletId && (
+                <p className="text-sm text-destructive mt-1">{errors.walletId.message}</p>
+              )}
+              {suggestedWalletId && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Carteira sugerida baseada na movimentação selecionada
+                </p>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="keyType">Tipo de Chave <span className="text-destructive">*</span></Label>
               <Select

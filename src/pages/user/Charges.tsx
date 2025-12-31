@@ -2,8 +2,11 @@ import { useCharges } from '@/hooks/useCharges';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { Check, XCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useSocket } from '@/hooks/useSocket';
 
 export default function Charges() {
+  // Inicializar WebSocket para atualizações em tempo real
+  useSocket();
   const { charges, isLoading, markPaid, cancelCharge, forceCharge, isMarkingPaid, isCancelingCharge, isForcingCharge } = useCharges();
 
   if (isLoading) {

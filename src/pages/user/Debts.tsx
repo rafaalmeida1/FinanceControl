@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { CreditCard } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,6 +45,8 @@ import { Debt } from '@/types/api.types';
 import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
 import { HelpIconButton } from '@/components/help/HelpIconButton';
 import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
+import { useSocket } from '@/hooks/useSocket';
+import { useCreateMovement } from '@/contexts/CreateMovementContext';
 
 interface EditDebtFormData {
   debtorName?: string;
@@ -61,6 +64,9 @@ interface EditDebtFormData {
 
 export default function Debts() {
   const navigate = useNavigate();
+  // Inicializar WebSocket para atualizações em tempo real
+  useSocket();
+  const { setOpen } = useCreateMovement();
   const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party' | 'archived'>('all');
   const debtType = activeTab === 'all' ? undefined : activeTab === 'personal' ? 'personal' : activeTab === 'third-party' ? 'third-party' : undefined;
   const archived = activeTab === 'archived' ? true : false;
@@ -93,23 +99,23 @@ export default function Debts() {
   // Passos do walkthrough de ajuda
   const helpSteps: HelpStep[] = [
     {
-      title: 'Lista de Dívidas',
-      content: 'Aqui você vê todas as suas dívidas organizadas por abas:\n\n• Todas: todas as dívidas\n• Pessoais: dívidas que você deve\n• Terceiros: dívidas que outros devem para você\n• Arquivadas: dívidas finalizadas',
+      title: 'Lista de Movimentações',
+      content: 'Aqui você vê todas as suas movimentações organizadas por abas:\n\n• Todas: todas as movimentações\n• Pessoais: movimentações que você deve\n• Terceiros: movimentações que outros devem para você\n• Arquivadas: movimentações finalizadas',
     },
     {
       title: 'Ações Disponíveis',
-      content: 'Para cada dívida você pode:\n\n• Editar: modificar informações da dívida\n• Enviar Link: reenviar o link de acesso para o devedor\n• Quitar: marcar a dívida como paga\n• Cancelar: cancelar a dívida\n\nClique em uma dívida para ver mais detalhes.',
+      content: 'Para cada movimentação você pode:\n\n• Editar: modificar informações da movimentação\n• Enviar Link: reenviar o link de acesso para o devedor\n• Quitar: marcar a movimentação como paga\n• Cancelar: cancelar a movimentação\n\nClique em uma movimentação para ver mais detalhes.',
     },
   ];
 
   const handleEditClick = (debt: Debt) => {
     if (debt.status === 'PAID') {
-      toast.error('Não é possível editar dívida já paga');
+      toast.error('Não é possível editar movimentação já paga');
       return;
     }
     // Verificar permissões: apenas criador pode editar (backend também valida)
     if (!debt.isOwner && debt.userRole !== 'owner') {
-      toast.error('Apenas o criador da dívida pode editá-la');
+      toast.error('Apenas o criador da movimentação pode editá-la');
       return;
     }
     setEditingDebt(debt);
@@ -274,14 +280,14 @@ export default function Debts() {
         <div className="card text-center py-12">
           <p className="text-gray-500 mb-4">
             {activeTab === 'personal' 
-              ? 'Nenhuma dívida pessoal cadastrada' 
+              ? 'Nenhuma movimentação pessoal cadastrada' 
               : activeTab === 'third-party'
-              ? 'Nenhuma dívida de terceiro cadastrada'
-              : 'Nenhuma dívida cadastrada'}
+              ? 'Nenhuma movimentação de terceiro cadastrada'
+              : 'Nenhuma movimentação cadastrada'}
           </p>
           <Link to="/debts/new" className="btn-primary inline-flex items-center gap-2">
             <Plus size={20} />
-            Criar primeira dívida
+            Criar primeira movimentação
           </Link>
         </div>
       );
@@ -341,11 +347,23 @@ export default function Debts() {
             </div>
 
             <div className="flex gap-2 flex-wrap">
+              {/* Link para ver cobranças */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/debts/${debt.id}`);
+                }}
+                className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2"
+              >
+                <CreditCard size={14} className="md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Ver Cobranças</span>
+                <span className="sm:hidden">Cobranças</span>
+              </button>
               {debt.status !== 'PAID' && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm('Deseja marcar esta dívida como paga? Todas as parcelas pendentes serão marcadas como pagas.')) {
+                    if (confirm('Deseja marcar esta movimentação como paga? Todas as parcelas pendentes serão marcadas como pagas.')) {
                       markAsPaid({ id: debt.id });
                     }
                   }}
@@ -361,7 +379,7 @@ export default function Debts() {
                   ) : (
                     <>
                       <Check size={14} className="md:w-4 md:h-4" />
-                      <span className="hidden sm:inline">Quitar Dívida</span>
+                      <span className="hidden sm:inline">Quitar Movimentação</span>
                       <span className="sm:hidden">Quitar</span>
                     </>
                   )}
@@ -423,7 +441,7 @@ export default function Debts() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm('Deseja realmente cancelar esta dívida?')) {
+                          if (confirm('Deseja realmente cancelar esta movimentação?')) {
                             cancelDebt(debt.id);
                           }
                         }}
@@ -443,7 +461,7 @@ export default function Debts() {
                           </>
                         )}
                       </button>
-                      {/* Botão Deletar - apenas para dívidas PAID ou CANCELLED */}
+                      {/* Botão Deletar - apenas para movimentações PAID ou CANCELLED */}
                       {(debt.status === 'PAID' || debt.status === 'CANCELLED') && (
                         <button
                           onClick={(e) => {
@@ -484,26 +502,26 @@ export default function Debts() {
       <HelpDialog
         open={helpOpen}
         onOpenChange={setHelpOpen}
-        title="Como gerenciar dívidas"
-        description="Aprenda a usar a lista de dívidas"
+        title="Como gerenciar movimentações"
+        description="Aprenda a usar a lista de movimentações"
         steps={helpSteps}
       />
 
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Dívidas</h1>
-          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">Gerencie suas dívidas e cobranças</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Movimentações</h1>
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">Gerencie suas movimentações e cobranças</p>
         </div>
         <div className="flex items-center gap-2">
           <HelpIconButton onClick={() => setHelpOpen(true)} size="sm" />
-          <Link 
-            to="/debts/new" 
-            className="btn-primary flex items-center gap-2 flex-shrink-0 text-sm md:text-base px-3 md:px-4"
+          <Button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-2 flex-shrink-0 text-sm md:text-base px-3 md:px-4"
           >
             <Plus size={18} className="md:w-5 md:h-5" />
-            <span className="hidden sm:inline">Nova Dívida</span>
+            <span className="hidden sm:inline">Nova Movimentação</span>
             <span className="sm:hidden">Nova</span>
-          </Link>
+          </Button>
         </div>
       </div>
 

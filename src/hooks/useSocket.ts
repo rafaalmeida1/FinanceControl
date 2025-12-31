@@ -54,6 +54,10 @@ export function useSocket() {
           queryClient.invalidateQueries({ queryKey: ['charges'] });
           queryClient.invalidateQueries({ queryKey: ['stats'] });
           break;
+        case 'pixKeys':
+          queryClient.invalidateQueries({ queryKey: ['pixKeys'] });
+          queryClient.invalidateQueries({ queryKey: ['pix-keys'] });
+          break;
         case 'stats':
           queryClient.invalidateQueries({ queryKey: ['stats'] });
           break;
@@ -64,6 +68,8 @@ export function useSocket() {
           queryClient.invalidateQueries({ queryKey: ['charges'] });
           queryClient.invalidateQueries({ queryKey: ['stats'] });
           queryClient.invalidateQueries({ queryKey: ['compiled-debts'] });
+          queryClient.invalidateQueries({ queryKey: ['pixKeys'] });
+          queryClient.invalidateQueries({ queryKey: ['pix-keys'] });
           break;
       }
     };

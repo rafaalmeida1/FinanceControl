@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import { chargesService } from '@/services/charges.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode, XCircle, Send, Mail } from 'lucide-react';
+import { useDebts } from '@/hooks/useDebts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ export default function DebtDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { sendLink, isSendingLink } = useDebts();
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; charge?: Charge; allCharges?: boolean }>({ open: false });
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
@@ -426,7 +428,34 @@ export default function DebtDetail() {
         {/* Charges List */}
         <Card>
           <CardHeader>
-            <CardTitle>Parcelas / Cobranças</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Parcelas / Cobranças</CardTitle>
+              {debt && !debt.isPersonalDebt && pendingCharges.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm('Deseja enviar email com link de pagamento para todas as cobranças pendentes?')) {
+                      sendLink(debt.id);
+                    }
+                  }}
+                  disabled={isSendingLink}
+                  className="flex items-center gap-2"
+                >
+                  {isSendingLink ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Enviar Email
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {debt.charges && debt.charges.length > 0 ? (
@@ -453,28 +482,45 @@ export default function DebtDetail() {
                         </p>
                       )}
                     </div>
-                    {!debt.useGateway && (
-                      <Button
-                        onClick={() => handlePayCharge(charge)}
-                        disabled={markChargePaidMutation.isPending}
-                        className="w-full sm:w-auto flex-shrink-0"
-                        variant={index === 0 ? "default" : "outline"}
-                      >
-                        {markChargePaidMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Processando...
-                          </>
-                        ) : (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Pagar Parcela
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
-                      <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-shrink-0">
+                      {!debt.useGateway && (
+                        <Button
+                          onClick={() => handlePayCharge(charge)}
+                          disabled={markChargePaidMutation.isPending}
+                          className="w-full sm:w-auto"
+                          variant={index === 0 ? "default" : "outline"}
+                        >
+                          {markChargePaidMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Processando...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="mr-2 h-4 w-4" />
+                              Pagar Parcela
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {!debt.isPersonalDebt && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(`Deseja enviar email com link de pagamento para esta cobrança?`)) {
+                              sendLink(debt.id);
+                            }
+                          }}
+                          disabled={isSendingLink}
+                          className="w-full sm:w-auto"
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          Enviar Email
+                        </Button>
+                      )}
+                      {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
                         {charge.mercadoPagoPaymentLink && (
                           <Button
                             variant={index === 0 ? "default" : "outline"}
@@ -497,8 +543,9 @@ export default function DebtDetail() {
                             Copiar QR
                           </Button>
                         )}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
 

@@ -82,128 +82,123 @@ export function InstallmentCalculator({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Modo de entrada */}
-        <div className="space-y-2">
-          <Label>Como deseja informar o valor?</Label>
-          <div className="flex gap-4">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                checked={inputMode === 'total'}
-                onChange={() => onInputModeChange('total')}
-                className="w-4 h-4"
-              />
-              <span>Valor Total</span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                checked={inputMode === 'installment'}
-                onChange={() => onInputModeChange('installment')}
-                className="w-4 h-4"
-              />
-              <span>Valor da Parcela</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Valor Total */}
-        {inputMode === 'total' && (
-          <div>
-            <Label htmlFor="totalAmount">Valor Total <span className="text-destructive">*</span></Label>
-            <div className="relative mt-2">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-              <Input
-                id="totalAmount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                className="pl-8"
-                placeholder="1000.00"
-                value={totalAmount}
-                onChange={(e) => onTotalAmountChange(e.target.value)}
-              />
-            </div>
-            {totalAmountNum > 0 && installmentsNum > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Valor por parcela: {formatCurrency(installmentAmountNum)}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Valor da Parcela */}
-        {inputMode === 'installment' && (
-          <div>
-            <Label htmlFor="installmentAmount">Valor da Parcela <span className="text-destructive">*</span></Label>
-            <div className="relative mt-2">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
-              <Input
-                id="installmentAmount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                className="pl-8"
-                placeholder="100.00"
-                value={installmentAmount}
-                onChange={(e) => onInstallmentAmountChange(e.target.value)}
-              />
-            </div>
-            {installmentAmountNum > 0 && installmentsNum > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Valor total: {formatCurrency(totalAmountNum)}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Número de Parcelas */}
+        {/* Valor Total - Mostrar sempre */}
         <div>
-          <Label htmlFor="installments">Número de Parcelas <span className="text-destructive">*</span></Label>
-          <Input
-            id="installments"
-            type="number"
-            min="1"
-            max={debtType === 'single' ? 1 : undefined}
-            className="mt-2"
-            placeholder="1"
-            value={installments}
-            onChange={(e) => {
-              const value = parseInt(e.target.value) || 1;
-              if (debtType === 'single') {
-                onInstallmentsChange(1);
-              } else {
-                onInstallmentsChange(value);
-              }
-            }}
-            disabled={debtType === 'single'}
-          />
-          {debtType === 'single' && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Pagamento único: apenas 1 parcela permitida
-            </p>
-          )}
-          {debtType === 'recurring' && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Dívida recorrente: será cobrada mensalmente
-            </p>
-          )}
-        </div>
-
-        {/* Dívida em Andamento */}
-        <div className="space-y-4 border-t pt-4">
-          <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-            <div className="flex-1 min-w-0 pr-4">
-              <Label>Dívida já está em andamento?</Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                Marque se algumas parcelas já foram pagas
-              </p>
-            </div>
-            <Switch
-              checked={isInProgress}
-              onCheckedChange={onInProgressChange}
+          <Label htmlFor="totalAmount">Valor Total <span className="text-destructive">*</span></Label>
+          <div className="relative mt-2">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+            <Input
+              id="totalAmount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              className="pl-8"
+              placeholder="1000.00"
+              value={totalAmount}
+              onChange={(e) => onTotalAmountChange(e.target.value)}
             />
           </div>
+          {totalAmountNum > 0 && installmentsNum > 1 && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Valor por parcela: {formatCurrency(installmentAmountNum)}
+            </p>
+          )}
+        </div>
+
+        {/* Modo de entrada e campos de parcela - Ocultar se for único */}
+        {debtType !== 'single' && (
+          <>
+            {/* Modo de entrada */}
+            <div className="space-y-2">
+              <Label>Como deseja informar o valor?</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={inputMode === 'total'}
+                    onChange={() => onInputModeChange('total')}
+                    className="w-4 h-4"
+                  />
+                  <span>Valor Total</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={inputMode === 'installment'}
+                    onChange={() => onInputModeChange('installment')}
+                    className="w-4 h-4"
+                  />
+                  <span>Valor por Parcela</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Valor da Parcela - Mostrar apenas se modo for installment */}
+            {inputMode === 'installment' && (
+              <div>
+                <Label htmlFor="installmentAmount">Valor da Parcela <span className="text-destructive">*</span></Label>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="installmentAmount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className="pl-8"
+                    placeholder="100.00"
+                    value={installmentAmount}
+                    onChange={(e) => onInstallmentAmountChange(e.target.value)}
+                  />
+                </div>
+                {installmentAmountNum > 0 && installmentsNum > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Valor total: {formatCurrency(totalAmountNum)}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Número de Parcelas - Ocultar se for único */}
+        {debtType !== 'single' && (
+          <div>
+            <Label htmlFor="installments">Número de Parcelas <span className="text-destructive">*</span></Label>
+            <Input
+              id="installments"
+              type="number"
+              min="1"
+              className="mt-2"
+              placeholder="1"
+              value={installments}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 1;
+                onInstallmentsChange(value);
+              }}
+            />
+            {debtType === 'recurring' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Movimentação recorrente: será cobrada mensalmente
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Dívida em Andamento - Ocultar se for único */}
+        {debtType !== 'single' && (
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+              <div className="flex-1 min-w-0 pr-4">
+                <Label>Movimentação já está em andamento?</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Marque se algumas parcelas já foram pagas
+                </p>
+              </div>
+              <Switch
+                checked={isInProgress}
+                onCheckedChange={onInProgressChange}
+              />
+            </div>
 
           {isInProgress && (
             <div className="space-y-4 p-4 bg-muted/30 border rounded-lg">
@@ -232,7 +227,7 @@ export function InstallmentCalculator({
                 <AlertDescription className="space-y-2">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Total da dívida:</span>
+                      <span className="text-muted-foreground">Total da movimentação:</span>
                       <p className="font-semibold">{formatCurrency(totalAmountNum)}</p>
                     </div>
                     <div>
@@ -252,7 +247,8 @@ export function InstallmentCalculator({
               </Alert>
             </div>
           )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

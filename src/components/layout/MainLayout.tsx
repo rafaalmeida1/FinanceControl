@@ -10,7 +10,6 @@ import {
   Settings, 
   Moon, 
   Sun, 
-  Menu, 
   Search,
   LogOut,
   PlayCircle,
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { authStore } from '@/stores/authStore';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -42,7 +40,7 @@ interface MainLayoutProps {
 
 const userNavigation = [
   { name: 'Início', href: '/dashboard', icon: Home },
-  { name: 'Dívidas', href: '/debts', icon: FileText },
+  { name: 'Movimentações', href: '/debts', icon: FileText },
   { name: 'Carteiras', href: '/wallets', icon: Wallet },
   { name: 'Cobranças', href: '/charges', icon: Receipt },
   { name: 'Configurações', href: '/settings', icon: Settings },
@@ -50,7 +48,7 @@ const userNavigation = [
 
 const adminNavigation = [
   { name: 'Início', href: '/dashboard', icon: Home },
-  { name: 'Dívidas', href: '/debts', icon: FileText },
+  { name: 'Movimentações', href: '/debts', icon: FileText },
   { name: 'Carteiras', href: '/wallets', icon: Wallet },
   { name: 'Cobranças', href: '/charges', icon: Receipt },
   { name: 'Atividade', href: '/activity', icon: Clock },
@@ -124,24 +122,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
       {/* Header - Sempre visível */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center">
-          {/* Mobile: Hambúrguer */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden mr-2">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0">
-              <div className="p-6">
-                <div className="flex items-center gap-2 font-bold text-lg mb-6">
-                  <DollarSign className="h-6 w-6" />
-                  Finance Control
-                </div>
-                <SidebarContent />
-              </div>
-            </SheetContent>
-          </Sheet>
+          {/* Mobile: Hambúrguer - Removido, usando BottomNavigation */}
 
           {/* Logo */}
           <div className="flex items-center gap-2 font-bold">
@@ -201,7 +182,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/debts')}>
                   <FileText className="mr-2 h-4 w-4" />
-                  Minhas Dívidas
+                  Minhas Movimentações
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive">

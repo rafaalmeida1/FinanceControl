@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
 import { useWallets } from '@/hooks/useWallets';
@@ -13,6 +12,7 @@ import {
   User,
   Loader2,
   Info,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authStore } from '@/stores/authStore';
@@ -29,6 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { cn } from '@/lib/utils';
 import { EmailAutocomplete } from '@/components/ui/email-autocomplete';
 import { DuplicateDebtWarning, DuplicateDebt } from '@/components/debt/DuplicateDebtWarning';
@@ -58,14 +67,20 @@ interface DebtFormData {
 const STEPS = [
   { id: 0, title: 'Carteira', icon: Wallet },
   { id: 1, title: 'Método de Pagamento', icon: CreditCard },
-  { id: 2, title: 'Tipo de Dívida', icon: Info },
+  { id: 2, title: 'Tipo de Movimentação', icon: Info },
   { id: 3, title: 'Dados do Usuário', icon: User },
   { id: 4, title: 'Configuração', icon: CreditCard },
   { id: 5, title: 'Confirmação', icon: Check },
 ];
 
-export default function CreateDebt() {
-  const navigate = useNavigate();
+const PROGRESS_STORAGE_KEY = 'createMovementProgress';
+
+interface CreateMovementDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawerProps) {
   const { createDebt, isCreatingDebt } = useDebts();
   const { wallets, isLoading: isLoadingWallets } = useWallets();
   const { user } = authStore();
@@ -93,7 +108,7 @@ export default function CreateDebt() {
   const [subscriptionName, setSubscriptionName] = useState<string>('');
   const [durationMonths, setDurationMonths] = useState<number | null>(null);
 
-  const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<DebtFormData>({
+  const { register, handleSubmit, watch, setValue, trigger, reset, formState: { errors } } = useForm<DebtFormData>({
     defaultValues: {
       installments: 1,
     }
@@ -119,6 +134,98 @@ export default function CreateDebt() {
     if (!pixKeys || !walletId) return pixKeys || [];
     return pixKeys.filter(key => key.walletId === walletId);
   }, [pixKeys, walletId]);
+
+  // Salvar progresso no localStorage
+  const saveProgress = useCallback(() => {
+    const formValues = watch();
+    const progress = {
+      currentStep,
+      paymentMethod,
+      debtType,
+      mercadoPagoPaymentType,
+      isPersonalDebt,
+      selectedPixKeyId,
+      inputMode,
+      installmentAmount,
+      isInProgress,
+      paidInstallments,
+      recurringInterval,
+      recurringDay,
+      subscriptionName,
+      durationMonths,
+      formData: {
+        walletId: formValues.walletId,
+        description: formValues.description,
+        totalAmount: formValues.totalAmount,
+        installments: formValues.installments,
+        dueDate: formValues.dueDate,
+        debtorEmail: formValues.debtorEmail,
+        debtorName: formValues.debtorName,
+        creditorEmail: formValues.creditorEmail,
+        creditorName: formValues.creditorName,
+        pixKeyId: formValues.pixKeyId,
+      },
+    };
+    localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+  }, [currentStep, paymentMethod, debtType, mercadoPagoPaymentType, isPersonalDebt, selectedPixKeyId, inputMode, installmentAmount, isInProgress, paidInstallments, recurringInterval, recurringDay, subscriptionName, durationMonths, watch]);
+
+  // Restaurar progresso do localStorage
+  const restoreProgress = () => {
+    try {
+      const saved = localStorage.getItem(PROGRESS_STORAGE_KEY);
+      if (saved) {
+        const progress = JSON.parse(saved);
+        setCurrentStep(progress.currentStep || 0);
+        setPaymentMethod(progress.paymentMethod || null);
+        setDebtType(progress.debtType || null);
+        setMercadoPagoPaymentType(progress.mercadoPagoPaymentType || null);
+        setIsPersonalDebt(progress.isPersonalDebt || 'other-owes-me');
+        setSelectedPixKeyId(progress.selectedPixKeyId || null);
+        setInputMode(progress.inputMode || 'total');
+        setInstallmentAmount(progress.installmentAmount || '');
+        setIsInProgress(progress.isInProgress || false);
+        setPaidInstallments(progress.paidInstallments || 0);
+        setRecurringInterval(progress.recurringInterval || 'MONTHLY');
+        setRecurringDay(progress.recurringDay || new Date().getDate());
+        setSubscriptionName(progress.subscriptionName || '');
+        setDurationMonths(progress.durationMonths || null);
+        
+        if (progress.formData) {
+          Object.keys(progress.formData).forEach((key) => {
+            if (progress.formData[key] !== undefined) {
+              setValue(key as any, progress.formData[key]);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao restaurar progresso:', error);
+    }
+  };
+
+  // Limpar progresso
+  const clearProgress = () => {
+    localStorage.removeItem(PROGRESS_STORAGE_KEY);
+  };
+
+  // Salvar progresso sempre que houver mudanças
+  useEffect(() => {
+    if (open) {
+      saveProgress();
+    }
+  }, [open, saveProgress]);
+
+  // Restaurar progresso ao abrir
+  useEffect(() => {
+    if (open) {
+      restoreProgress();
+    } else {
+      // Limpar ao fechar se completou
+      if (currentStep === STEPS.length - 1) {
+        clearProgress();
+      }
+    }
+  }, [open]);
 
   // Ajustar tipo de dívida baseado no método de pagamento
   useEffect(() => {
@@ -150,14 +257,12 @@ export default function CreateDebt() {
     let isValid = true;
 
     if (currentStep === 0) {
-      // Step 0: Seleção de Carteira
       isValid = await trigger('walletId');
       if (!isValid) {
         toast.error('Selecione uma carteira');
         return;
       }
     } else if (currentStep === 1) {
-      // Step 1: Método de Pagamento
       if (!paymentMethod) {
         toast.error('Selecione um método de pagamento');
         return;
@@ -167,13 +272,11 @@ export default function CreateDebt() {
         return;
       }
     } else if (currentStep === 2) {
-      // Step 2: Tipo de Dívida
       if (!debtType) {
-        toast.error('Selecione o tipo de dívida');
+        toast.error('Selecione o tipo de movimentação');
         return;
       }
     } else if (currentStep === 3) {
-      // Step 3: Dados do Usuário
       isValid = await trigger(['description', 'debtorEmail']);
       if (isPersonalDebt === 'i-owe-other' && !creditorEmail) {
         isValid = false;
@@ -181,7 +284,6 @@ export default function CreateDebt() {
       }
       if (!isValid) return;
     } else if (currentStep === 4) {
-      // Step 4: Configuração
       isValid = await trigger(['totalAmount', 'dueDate']);
       if (debtType === 'installment') {
         isValid = isValid && await trigger('installments');
@@ -256,7 +358,6 @@ export default function CreateDebt() {
         payload.creditorEmail = data.creditorEmail;
         payload.creditorName = data.creditorName || undefined;
       } else {
-        // i-owe-myself
         payload.creditorEmail = user?.email;
         payload.creditorName = user?.name || undefined;
       }
@@ -283,7 +384,6 @@ export default function CreateDebt() {
           };
         }
       } else {
-        // PIX Manual
         payload.useGateway = false;
         payload.pixKeyId = selectedPixKeyId === 'new' ? undefined : selectedPixKeyId;
 
@@ -307,15 +407,17 @@ export default function CreateDebt() {
 
       await createDebt(payload, {
         onSuccess: () => {
-          toast.success('Dívida criada com sucesso!');
-          navigate('/debts');
+          toast.success('Movimentação criada com sucesso!');
+          clearProgress();
+          reset();
+          onOpenChange(false);
         },
         onError: (error: any) => {
-          toast.error(error?.response?.data?.message || 'Erro ao criar dívida');
+          toast.error(error?.response?.data?.message || 'Erro ao criar movimentação');
         },
       });
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Erro ao criar dívida');
+      toast.error(error?.response?.data?.message || 'Erro ao criar movimentação');
     }
   };
 
@@ -327,6 +429,11 @@ export default function CreateDebt() {
     setPendingSubmitData(null);
   };
 
+  const handleClose = () => {
+    onOpenChange(false);
+  };
+
+  // Renderizar step (mesma lógica do CreateDebt.tsx)
   const renderStep = () => {
     switch (currentStep) {
       case 0:
@@ -335,7 +442,7 @@ export default function CreateDebt() {
             <div>
               <h2 className="text-2xl font-bold mb-2">Selecione a Carteira</h2>
               <p className="text-muted-foreground">
-                Escolha a carteira para associar esta dívida
+                Escolha a carteira para associar esta movimentação
               </p>
             </div>
             {isLoadingWallets ? (
@@ -409,7 +516,7 @@ export default function CreateDebt() {
             <div>
               <h2 className="text-2xl font-bold mb-2">Dados do Usuário</h2>
               <p className="text-muted-foreground">
-                Informe os dados da pessoa envolvida na dívida
+                Informe os dados da pessoa envolvida na movimentação
               </p>
             </div>
 
@@ -451,7 +558,7 @@ export default function CreateDebt() {
                     <RadioGroupItem value="i-owe-myself" id="i-owe-myself" />
                     <Label htmlFor="i-owe-myself" className="flex-1 cursor-pointer">
                       <div>
-                        <p className="font-medium">Dívida pessoal (para mim mesmo)</p>
+                        <p className="font-medium">Movimentação pessoal (para mim mesmo)</p>
                         <p className="text-sm text-muted-foreground">
                           Controle interno de contas e despesas
                         </p>
@@ -679,18 +786,18 @@ export default function CreateDebt() {
             <div>
               <h2 className="text-2xl font-bold mb-2">Confirmação</h2>
               <p className="text-muted-foreground">
-                Revise os dados antes de criar a dívida
+                Revise os dados antes de criar a movimentação
               </p>
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>Resumo da Dívida</CardTitle>
+                <CardTitle>Resumo da Movimentação</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Descrição</p>
+                    <p className="text-sm text-muted-foreground">Identificação</p>
                     <p className="font-medium">{description}</p>
                   </div>
                   <div>
@@ -731,106 +838,119 @@ export default function CreateDebt() {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto py-6 px-4">
-      <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate('/debts')} className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar
-        </Button>
-        <h1 className="text-3xl font-bold">Criar Nova Dívida</h1>
-        <p className="text-muted-foreground mt-2">
-          Preencha as informações para criar uma nova dívida
-        </p>
-      </div>
+    <>
+      <Drawer open={open} onOpenChange={handleClose}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <DrawerTitle className="text-xl font-bold">
+                  Nova Movimentação
+                </DrawerTitle>
+                <DrawerDescription className="mt-1">
+                  Passo {currentStep + 1} de {STEPS.length}: {STEPS[currentStep].title}
+                </DrawerDescription>
+              </div>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
 
-      {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          {STEPS.map((step, index) => {
-            const Icon = step.icon;
-            const isActive = index === currentStep;
-            const isCompleted = index < currentStep;
-            
-            return (
-              <React.Fragment key={step.id}>
-                <div className="flex flex-col items-center flex-1">
-                  <div
-                    className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all',
-                      isActive && 'border-primary bg-primary text-primary-foreground',
-                      isCompleted && 'border-primary bg-primary text-primary-foreground',
-                      !isActive && !isCompleted && 'border-muted bg-muted text-muted-foreground'
-                    )}
-                  >
-                    {isCompleted ? (
-                      <Check className="h-5 w-5" />
-                    ) : (
-                      <Icon className="h-5 w-5" />
-                    )}
-                  </div>
-                  <p className={cn(
-                    'text-xs mt-2 text-center hidden sm:block',
-                    isActive && 'font-semibold text-primary',
-                    !isActive && 'text-muted-foreground'
-                  )}>
-                    {step.title}
-                  </p>
-                </div>
-                {index < STEPS.length - 1 && (
-                  <div className={cn(
-                    'h-0.5 flex-1 mx-2',
-                    index < currentStep ? 'bg-primary' : 'bg-muted'
-                  )} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
+            {/* Progress Steps */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                {STEPS.map((step, index) => {
+                  const Icon = step.icon;
+                  const isActive = index === currentStep;
+                  const isCompleted = index < currentStep;
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Card>
-          <CardContent className="pt-6">
-            {renderStep()}
-          </CardContent>
-        </Card>
+                  return (
+                    <React.Fragment key={step.id}>
+                      <div className="flex flex-col items-center flex-1">
+                        <div
+                          className={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all',
+                            isActive && 'border-primary bg-primary text-primary-foreground',
+                            isCompleted && 'border-primary bg-primary text-primary-foreground',
+                            !isActive && !isCompleted && 'border-muted bg-muted text-muted-foreground'
+                          )}
+                        >
+                          {isCompleted ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Icon className="h-4 w-4" />
+                          )}
+                        </div>
+                        <p className={cn(
+                          'text-xs mt-1 text-center hidden sm:block',
+                          isActive && 'font-semibold text-primary',
+                          !isActive && 'text-muted-foreground'
+                        )}>
+                          {step.title}
+                        </p>
+                      </div>
+                      {index < STEPS.length - 1 && (
+                        <div className={cn(
+                          'h-0.5 flex-1 mx-2',
+                          index < currentStep ? 'bg-primary' : 'bg-muted'
+                        )} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          </DrawerHeader>
 
-        <div className="flex justify-between mt-6">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={prevStep}
-            disabled={currentStep === 0}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
-          {currentStep < STEPS.length - 1 ? (
-            <Button type="button" onClick={nextStep} size="lg">
-              Continuar
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              size="lg"
-              disabled={isCreatingDebt}
-            >
-              {isCreatingDebt ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando...
-                </>
+          <div className="overflow-y-auto flex-1 px-4 py-6">
+            <form onSubmit={handleSubmit(onSubmit)} id="create-movement-form">
+              {renderStep()}
+            </form>
+          </div>
+
+          <DrawerFooter className="border-t">
+            <div className="flex justify-between gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+                disabled={currentStep === 0}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Button>
+              {currentStep < STEPS.length - 1 ? (
+                <Button type="button" onClick={nextStep} size="lg" className="flex-1">
+                  Continuar
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               ) : (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Criar Dívida
-                </>
+                <Button
+                  type="submit"
+                  form="create-movement-form"
+                  size="lg"
+                  disabled={isCreatingDebt}
+                  className="flex-1"
+                >
+                  {isCreatingDebt ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Criando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Criar Movimentação
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
-          )}
-        </div>
-      </form>
+            </div>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       <DuplicateDebtWarning
         open={showDuplicateWarning}
@@ -848,6 +968,7 @@ export default function CreateDebt() {
           setValue('pixKeyId', pixKeyId);
         }}
       />
-    </div>
+    </>
   );
 }
+
