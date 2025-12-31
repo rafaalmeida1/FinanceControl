@@ -315,7 +315,6 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     const savedState = localStorage.getItem('createDebtState');
     if (savedState) {
       try {
-        const state = JSON.parse(savedState);
         // Verificar se voltou da conexão
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('connected') === 'true' || urlParams.get('tab') === 'pagamentos') {

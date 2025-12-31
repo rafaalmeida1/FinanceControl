@@ -10,7 +10,7 @@ interface QuickAddMovementProps {
   onClose?: () => void;
 }
 
-export function QuickAddMovement({ onClose }: QuickAddMovementProps) {
+export function QuickAddMovement(_props: QuickAddMovementProps) {
   const { setOpen } = useCreateMovement();
 
   return (
