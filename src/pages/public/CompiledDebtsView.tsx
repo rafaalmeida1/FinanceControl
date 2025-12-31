@@ -2,21 +2,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { debtorAccessService } from '@/services/debtor-access.service';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
-import { Calendar, Check, Copy, Eye, AlertTriangle } from 'lucide-react';
+import { Calendar, Check, Copy, Eye, AlertTriangle, Loader2, QrCode, DollarSign, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import toast from 'react-hot-toast';
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 
 export default function CompiledDebtsView() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [selectedCharges, setSelectedCharges] = useState<Set<string>>(new Set());
-  
-  // Detectar mobile (usar state para reagir a mudanças de tamanho) - DEVE SER ANTES DE QUALQUER EARLY RETURN
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const { data, isLoading, error } = useQuery({
@@ -25,7 +22,6 @@ export default function CompiledDebtsView() {
     enabled: !!token,
   });
 
-  // Detectar mudanças de tamanho da tela
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -44,8 +40,7 @@ export default function CompiledDebtsView() {
 
     const chargesToPay = data.allCharges.filter((c: any) => selectedCharges.has(c.id));
     const chargeIds = chargesToPay.map((c: any) => c.id).join(',');
-    
-    // Redirecionar para tela de confirmação de pagamento
+
     navigate(`/payment-confirmation?token=${token}&chargeIds=${chargeIds}&returnToken=${token}`);
   };
 
@@ -78,10 +73,10 @@ export default function CompiledDebtsView() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center py-12 px-4">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-lg text-foreground">Carregando...</p>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-lg font-medium text-foreground">Carregando movimentações...</p>
         </div>
       </div>
     );
@@ -89,13 +84,16 @@ export default function CompiledDebtsView() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center py-12 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <p className="text-destructive">Erro ao carregar dívidas compiladas</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Link inválido ou expirado
-            </p>
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <div>
+              <p className="text-destructive font-semibold mb-2">Erro ao carregar movimentações</p>
+              <p className="text-sm text-muted-foreground">Link inválido ou expirado</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -104,75 +102,99 @@ export default function CompiledDebtsView() {
 
   const { debts, currentCharges, futureCharges, allCharges, pixKey } = data;
   const totalAmount = allCharges?.reduce((sum: number, c: any) => sum + Number(c.amount), 0) || 0;
-  const currentChargesTotal =
-    currentCharges?.reduce((sum: number, c: any) => sum + Number(c.amount), 0) || 0;
+  const currentChargesTotal = currentCharges?.reduce((sum: number, c: any) => sum + Number(c.amount), 0) || 0;
   const selectedTotal = allCharges
     ?.filter((c: any) => selectedCharges.has(c.id))
     .reduce((sum: number, c: any) => sum + Number(c.amount), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-background py-4 md:py-12 px-4 pb-24 md:pb-12">
-      <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="max-w-4xl mx-auto px-4 py-6 md:py-12 pb-24 md:pb-12">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-4 pt-2">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-1 md:mb-2">
-            Dívidas Compiladas
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground">
-            Suas cobranças agrupadas por PIX
-          </p>
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Movimentações Compiladas</h1>
+          <p className="text-muted-foreground">Suas cobranças agrupadas por chave PIX</p>
         </div>
 
-        {/* Parcela Atual (Mês Atual) */}
-        {currentCharges && currentCharges.length > 0 && (
-          <Card className="border-2 border-primary-500 bg-primary-900/10">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        {/* Resumo */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                </div>
                 <div>
-                  <CardTitle className="text-lg md:text-xl text-primary-500">
-                    Parcela Atual (Mês Atual)
-                  </CardTitle>
-                  <CardDescription className="text-xs md:text-sm">
+                  <p className="text-sm text-muted-foreground">Total Compilado</p>
+                  <p className="text-xl font-bold">{formatCurrency(totalAmount)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Parcelas</p>
+                  <p className="text-xl font-bold">{allCharges?.length || 0} parcela(s)</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Parcelas do Mês Atual - Destaque */}
+        {currentCharges && currentCharges.length > 0 && (
+          <Card className="mb-6 border-2 border-primary bg-primary/5 shadow-lg">
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <CardTitle className="text-xl md:text-2xl mb-2">Parcelas do Mês Atual</CardTitle>
+                  <CardDescription>
                     {currentCharges.length === 1
-                      ? 'Cobrança do mês atual'
+                      ? '1 cobrança do mês atual'
                       : `${currentCharges.length} cobranças do mês atual`}
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="text-base md:text-lg font-bold w-fit">
+                <Badge variant="secondary" className="text-lg font-bold px-4 py-2">
                   {formatCurrency(currentChargesTotal)}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2 md:space-y-3">
+            <CardContent>
+              <div className="space-y-3">
                 {currentCharges.map((charge: any) => (
                   <div
                     key={charge.id}
-                    className="flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-muted rounded-lg"
+                    className="flex items-start gap-3 p-4 bg-background rounded-lg border hover:bg-muted/50 transition-colors"
                   >
                     <Checkbox
                       checked={selectedCharges.has(charge.id)}
                       onCheckedChange={() => handleToggleCharge(charge.id)}
-                      className="flex-shrink-0"
+                      className="mt-1"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm md:text-base truncate">
-                        {charge.debt?.description || 'Sem descrição'}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDateShort(charge.dueDate)}
-                        </span>
-                        {charge.installmentNumber && charge.totalInstallments && (
-                          <span>
-                            Parcela {charge.installmentNumber}/{charge.totalInstallments}
-                          </span>
-                        )}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-semibold mb-1">{charge.debt?.description || 'Sem descrição'}</p>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatDateShort(charge.dueDate)}
+                            </span>
+                            {charge.installmentNumber && charge.totalInstallments && (
+                              <Badge variant="outline" className="text-xs">
+                                Parcela {charge.installmentNumber}/{charge.totalInstallments}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-lg font-bold">{formatCurrency(charge.amount)}</p>
                       </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-base md:text-lg">{formatCurrency(charge.amount)}</p>
                     </div>
                   </div>
                 ))}
@@ -183,71 +205,68 @@ export default function CompiledDebtsView() {
 
         {/* Chave PIX */}
         {pixKey && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg md:text-xl">Chave PIX para Pagamento</CardTitle>
+          <Card className="mb-6 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="h-5 w-5" />
+                Chave PIX para Pagamento
+              </CardTitle>
+              <CardDescription>Use esta chave para realizar o pagamento no seu banco</CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 md:p-4 bg-muted rounded-lg">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs md:text-sm text-muted-foreground mb-1">
-                    Tipo: {pixKey.keyType}
-                  </p>
-                  <p className="font-mono font-bold text-base md:text-lg break-all">
-                    {pixKey.keyValue}
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopyPixKey(pixKey.keyValue)}
-                  className="w-full sm:w-auto flex-shrink-0"
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copiar
-                </Button>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 p-4 rounded-lg border-2 border-dashed">
+                <p className="text-xs text-muted-foreground mb-1">Tipo: {pixKey.keyType}</p>
+                <p className="font-mono font-bold text-lg break-all">{pixKey.keyValue}</p>
               </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => handleCopyPixKey(pixKey.keyValue)}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar Chave PIX
+              </Button>
             </CardContent>
           </Card>
         )}
 
         {/* Outras Parcelas Futuras */}
         {futureCharges && futureCharges.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg md:text-xl">Outras Parcelas</CardTitle>
-              <CardDescription className="text-xs md:text-sm">Parcelas futuras agrupadas</CardDescription>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Outras Parcelas</CardTitle>
+              <CardDescription>Parcelas futuras agrupadas</CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2 md:space-y-3">
+            <CardContent>
+              <div className="space-y-3">
                 {futureCharges.map((charge: any) => (
                   <div
                     key={charge.id}
-                    className="flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-muted rounded-lg"
+                    className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg border hover:bg-muted transition-colors"
                   >
                     <Checkbox
                       checked={selectedCharges.has(charge.id)}
                       onCheckedChange={() => handleToggleCharge(charge.id)}
-                      className="flex-shrink-0"
+                      className="mt-1"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm md:text-base truncate">
-                        {charge.debt?.description || 'Sem descrição'}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDateShort(charge.dueDate)}
-                        </span>
-                        {charge.installmentNumber && charge.totalInstallments && (
-                          <span>
-                            Parcela {charge.installmentNumber}/{charge.totalInstallments}
-                          </span>
-                        )}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-medium mb-1">{charge.debt?.description || 'Sem descrição'}</p>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatDateShort(charge.dueDate)}
+                            </span>
+                            {charge.installmentNumber && charge.totalInstallments && (
+                              <Badge variant="outline" className="text-xs">
+                                Parcela {charge.installmentNumber}/{charge.totalInstallments}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-base font-bold">{formatCurrency(charge.amount)}</p>
                       </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-sm md:text-base">{formatCurrency(charge.amount)}</p>
                     </div>
                   </div>
                 ))}
@@ -256,38 +275,29 @@ export default function CompiledDebtsView() {
           </Card>
         )}
 
-        {/* Detalhamento por Dívida com Links */}
+        {/* Detalhamento por Dívida */}
         {debts && debts.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg md:text-xl">Detalhamento por Dívida</CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                Visualize detalhes ou conteste cada dívida individualmente
-              </CardDescription>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Detalhamento por Movimentação</CardTitle>
+              <CardDescription>Visualize detalhes ou conteste cada movimentação individualmente</CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-3 md:space-y-4">
+            <CardContent>
+              <div className="space-y-3">
                 {debts.map((debt: any) => {
                   const debtCharges = allCharges?.filter((c: any) => c.debt?.id === debt.id) || [];
-                  const debtTotal = debtCharges.reduce(
-                    (sum: number, c: any) => sum + Number(c.amount),
-                    0,
-                  );
+                  const debtTotal = debtCharges.reduce((sum: number, c: any) => sum + Number(c.amount), 0);
 
                   return (
-                    <div key={debt.id} className="p-3 md:p-4 bg-muted rounded-lg border">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4 mb-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm md:text-base mb-1">
-                            {debt.description || 'Sem descrição'}
-                          </p>
-                          <p className="text-xs md:text-sm text-muted-foreground">
+                    <div key={debt.id} className="p-4 bg-muted/50 rounded-lg border">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+                        <div className="flex-1">
+                          <p className="font-semibold mb-1">{debt.description || 'Sem descrição'}</p>
+                          <p className="text-sm text-muted-foreground">
                             {debtCharges.length} parcela(s) pendente(s)
                           </p>
                         </div>
-                        <Badge className="text-sm md:text-base px-2 md:px-3 py-1">
-                          {formatCurrency(debtTotal)}
-                        </Badge>
+                        <Badge className="text-base px-3 py-1">{formatCurrency(debtTotal)}</Badge>
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Button
@@ -317,38 +327,34 @@ export default function CompiledDebtsView() {
           </Card>
         )}
 
-        {/* Total Compilado - Desktop */}
-        {allCharges && allCharges.length > 0 && (
-          <Card className="hidden md:block">
+        {/* Botão de Pagar Selecionadas - Desktop */}
+        {selectedCharges.size > 0 && !isMobile && (
+          <Card className="border-primary/50 bg-primary/5">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Compilado</p>
-                  <p className="text-3xl font-bold">{formatCurrency(totalAmount)}</p>
+                  <p className="text-sm text-muted-foreground">Total Selecionado</p>
+                  <p className="text-3xl font-bold">{formatCurrency(selectedTotal)}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {allCharges.length} parcela(s) de {debts?.length || 0} dívida(s)
+                    {selectedCharges.size} parcela(s) selecionada(s)
                   </p>
                 </div>
-                {selectedCharges.size > 0 && (
-                  <Button onClick={handlePaySelected} size="lg">
-                    <Check className="mr-2 h-4 w-4" />
-                    Pagar {selectedCharges.size} Selecionada(s)
-                  </Button>
-                )}
+                <Button onClick={handlePaySelected} size="lg">
+                  <Check className="mr-2 h-5 w-5" />
+                  Pagar Selecionadas
+                </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Widget de Pagamento Flutuante (Mobile) */}
+        {/* Widget Flutuante Mobile */}
         {isMobile && selectedCharges.size > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden p-4 bg-background border-t shadow-lg">
+          <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden p-4 bg-background/95 backdrop-blur border-t shadow-lg">
             <div className="max-w-md mx-auto">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedCharges.size} parcela(s) selecionada(s)
-                  </p>
+                  <p className="text-xs text-muted-foreground">{selectedCharges.size} parcela(s) selecionada(s)</p>
                   <p className="text-xl font-bold">{formatCurrency(selectedTotal)}</p>
                 </div>
                 <Button onClick={handlePaySelected} size="lg" className="h-12 px-6">
@@ -359,7 +365,6 @@ export default function CompiledDebtsView() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

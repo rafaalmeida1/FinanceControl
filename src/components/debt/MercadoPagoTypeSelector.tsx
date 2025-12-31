@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CreditCard, QrCode, Repeat, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type MercadoPagoPaymentType = 'INSTALLMENT' | 'SINGLE_PIX' | 'RECURRING_PIX' | 'RECURRING_CARD';
+export type MercadoPagoPaymentType = 'INSTALLMENT' | 'SINGLE_PIX' | 'RECURRING_CARD';
 
 interface MercadoPagoTypeSelectorProps {
   selectedType: MercadoPagoPaymentType | null;
@@ -34,14 +34,6 @@ const paymentTypes: PaymentTypeOption[] = [
     icon: <QrCode className="h-6 w-6" />,
     color: 'bg-green-500',
     isRecurring: false,
-  },
-  {
-    type: 'RECURRING_PIX',
-    title: 'Assinatura PIX',
-    description: 'Cobrança recorrente via PIX (ex: mensalidade, assinatura). Será configurada como dívida recorrente automaticamente.',
-    icon: <Repeat className="h-6 w-6" />,
-    color: 'bg-purple-500',
-    isRecurring: true,
   },
   {
     type: 'RECURRING_CARD',

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStats } from '@/hooks/useStats';
-import { useFinancialProfile } from '@/hooks/useFinancialProfile';
 import { useFinancial } from '@/hooks/useFinancial';
 import { useWallets } from '@/hooks/useWallets';
 import { useWindowSize } from '@/hooks/useWindowSize';
@@ -15,7 +14,6 @@ import {
   Wallet,
   Calendar,
   DollarSign,
-  Sparkles,
   ArrowRight,
   Eye,
   EyeOff,
@@ -50,7 +48,6 @@ export default function Dashboard() {
   const { wallets, isLoading: isLoadingWallets } = useWallets();
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
   const { data: stats, isLoading: isLoadingStats } = useStats(selectedWalletId);
-  const { profile, isLoading: isLoadingProfile } = useFinancialProfile();
   const { monthlySummary, history, totalBalance, isLoading: isLoadingFinancial } = useFinancial(
     undefined,
     undefined,
@@ -61,7 +58,7 @@ export default function Dashboard() {
   const chartHeight = width < 768 ? 200 : 280;
   const queryClient = useQueryClient();
 
-  const isLoading = isLoadingStats || isLoadingProfile || isLoadingFinancial || isLoadingWallets;
+  const isLoading = isLoadingStats || isLoadingFinancial || isLoadingWallets;
 
   // Escutar eventos WebSocket para atualizar dados em tempo real
   useEffect(() => {
@@ -118,20 +115,20 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 pb-6">
       {/* Banner de Onboarding */}
-      {!isLoadingProfile && (!profile || !profile.onboardingCompleted) && (
+      {!isLoadingWallets && (!wallets || wallets.length === 0) && (
         <Alert className="border-primary bg-gradient-to-r from-primary/10 to-primary/5">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <AlertTitle className="text-primary">Complete seu perfil financeiro</AlertTitle>
+          <Wallet className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-primary">Crie sua primeira carteira</AlertTitle>
           <AlertDescription className="flex items-center justify-between flex-wrap gap-2">
             <span className="text-sm">
-              Configure seu salário e dia de pagamento para uma experiência personalizada.
+              Crie uma carteira para começar a controlar suas movimentações financeiras.
             </span>
             <Button
               size="sm"
-              onClick={() => navigate('/onboarding')}
+              onClick={() => navigate('/wallets')}
               className="shrink-0"
             >
-              Completar Agora
+              Criar Carteira
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </AlertDescription>
@@ -228,7 +225,7 @@ export default function Dashboard() {
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
             <Plus className="h-5 w-5 text-primary" />
           </div>
-          <span className="text-sm font-medium">Nova Dívida</span>
+          <span className="text-sm font-medium">Nova Movimentação</span>
         </Button>
         <Button
           variant="outline"
@@ -268,9 +265,14 @@ export default function Dashboard() {
         <Card className="border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/20 dark:border-green-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-100">
-                Para Receber
-              </CardTitle>
+              <div>
+                <CardTitle className="text-sm font-medium text-green-700 dark:text-green-100">
+                  Para Receber
+                </CardTitle>
+                <CardDescription className="text-xs text-green-600/80 dark:text-green-300/80 mt-0.5">
+                  Cobranças do mês atual
+                </CardDescription>
+              </div>
               <div className="h-8 w-8 rounded-full bg-green-500/20 dark:bg-green-500/20 flex items-center justify-center">
                 <ArrowUpRight className="h-4 w-4 text-green-600 dark:text-green-400" />
               </div>
@@ -281,7 +283,7 @@ export default function Dashboard() {
               {formatCurrency(monthlySummary?.pendingIncome || 0)}
             </div>
             <p className="text-xs text-green-600 dark:text-green-300 truncate">
-              Receitas do mês: {formatCurrency(monthlySummary?.totalIncome || 0)}
+              Receitas pagas: {formatCurrency(monthlySummary?.totalIncome || 0)}
             </p>
           </CardContent>
         </Card>
@@ -290,9 +292,14 @@ export default function Dashboard() {
         <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/20 dark:border-red-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-100">
-                Para Pagar
-              </CardTitle>
+              <div>
+                <CardTitle className="text-sm font-medium text-red-700 dark:text-red-100">
+                  Para Pagar
+                </CardTitle>
+                <CardDescription className="text-xs text-red-600/80 dark:text-red-300/80 mt-0.5">
+                  Cobranças do mês atual
+                </CardDescription>
+              </div>
               <div className="h-8 w-8 rounded-full bg-red-500/20 dark:bg-red-500/20 flex items-center justify-center">
                 <ArrowDownRight className="h-4 w-4 text-red-600 dark:text-red-400" />
               </div>
@@ -303,7 +310,7 @@ export default function Dashboard() {
               {formatCurrency(monthlySummary?.pendingExpenses || 0)}
             </div>
             <p className="text-xs text-red-600 dark:text-red-300 truncate">
-              Despesas do mês: {formatCurrency(monthlySummary?.totalExpenses || 0)}
+              Despesas pagas: {formatCurrency(monthlySummary?.totalExpenses || 0)}
             </p>
           </CardContent>
         </Card>
@@ -312,9 +319,14 @@ export default function Dashboard() {
         <Card className="border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/20 dark:border-blue-800/50 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-100">
-                Sobra no Mês
-              </CardTitle>
+              <div>
+                <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-100">
+                  Sobra no Mês
+                </CardTitle>
+                <CardDescription className="text-xs text-blue-600/80 dark:text-blue-300/80 mt-0.5">
+                  Projeção do mês atual
+                </CardDescription>
+              </div>
               <div className="h-8 w-8 rounded-full bg-blue-500/20 dark:bg-blue-500/20 flex items-center justify-center">
                 <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>

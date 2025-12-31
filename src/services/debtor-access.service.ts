@@ -17,13 +17,34 @@ export const debtorAccessService = {
     return response.data;
   },
 
-  markChargePaid: async (token: string, chargeId: string, notes?: string) => {
-    const response = await api.post(`/debtor/${token}/charges/${chargeId}/mark-paid`, { notes });
+  markChargePaid: async (
+    token: string,
+    chargeId: string,
+    notes?: string,
+    proofDocumentPath?: string,
+    proofDocumentMimeType?: string,
+  ) => {
+    const response = await api.post(`/debtor/${token}/charges/${chargeId}/mark-paid`, {
+      notes,
+      proofDocumentPath,
+      proofDocumentMimeType,
+    });
     return response.data;
   },
 
-  markMultipleChargesPaid: async (token: string, chargeIds: string[], notes?: string) => {
-    const response = await api.post(`/debtor/${token}/charges/mark-paid`, { chargeIds, notes });
+  markMultipleChargesPaid: async (
+    token: string,
+    chargeIds: string[],
+    notes?: string,
+    proofDocumentPath?: string,
+    proofDocumentMimeType?: string,
+  ) => {
+    const response = await api.post(`/debtor/${token}/charges/mark-paid`, {
+      chargeIds,
+      notes,
+      proofDocumentPath,
+      proofDocumentMimeType,
+    });
     return response.data;
   },
 
@@ -36,10 +57,14 @@ export const debtorAccessService = {
     token: string,
     chargeIds: string[],
     notes?: string,
+    proofDocumentPath?: string,
+    proofDocumentMimeType?: string,
   ) => {
     const response = await api.post(`/debtor/compiled/${token}/charges/mark-paid`, {
       chargeIds,
       notes,
+      proofDocumentPath,
+      proofDocumentMimeType,
     });
     return response.data;
   },

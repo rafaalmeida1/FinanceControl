@@ -9,8 +9,8 @@ export const Sidebar = () => {
 
   const userLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/debts', icon: FileText, label: 'Dívidas' },
-    { to: '/debts/compiled', icon: Layers, label: 'Dívidas Compiladas' },
+    { to: '/debts', icon: FileText, label: 'Movimentações' },
+    { to: '/debts/compiled', icon: Layers, label: 'Movimentações Compiladas' },
     { to: '/charges', icon: CreditCard, label: 'Cobranças' },
     { to: '/savings', icon: Sparkles, label: 'Economias' },
     { to: '/settings', icon: Settings, label: 'Configurações' },
@@ -18,8 +18,8 @@ export const Sidebar = () => {
 
   const adminLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/debts', icon: FileText, label: 'Dívidas' },
-    { to: '/debts/compiled', icon: Layers, label: 'Dívidas Compiladas' },
+    { to: '/debts', icon: FileText, label: 'Movimentações' },
+    { to: '/debts/compiled', icon: Layers, label: 'Movimentações Compiladas' },
     { to: '/charges', icon: CreditCard, label: 'Cobranças' },
     { to: '/savings', icon: Sparkles, label: 'Economias' },
     { to: '/admin', icon: Shield, label: 'Admin' },

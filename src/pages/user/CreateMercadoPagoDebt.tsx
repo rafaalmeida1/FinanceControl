@@ -33,7 +33,7 @@ interface MercadoPagoDebtFormData {
   description: string;
   
   // Passo 2: Tipo de Pagamento
-  paymentType: 'INSTALLMENT' | 'SINGLE_PIX' | 'RECURRING_PIX' | 'RECURRING_CARD';
+  paymentType: 'INSTALLMENT' | 'SINGLE_PIX' | 'RECURRING_CARD';
   
   // Valores
   totalAmount: number | string;
@@ -83,7 +83,7 @@ export default function CreateMercadoPagoDebt() {
     },
     {
       title: 'Tipo de Pagamento',
-      content: 'Escolha o tipo de pagamento:\n\n• Parcelado: pagamento em múltiplas parcelas\n• PIX Único: pagamento único via PIX\n• Assinatura PIX: cobrança mensal via PIX\n• Assinatura Cartão: cobrança mensal no cartão',
+      content: 'Escolha o tipo de pagamento:\n\n• Parcelado: pagamento em múltiplas parcelas\n• PIX Único: pagamento único via PIX\n• Assinatura Cartão: cobrança mensal no cartão (recorrente)',
     },
     {
       title: 'Revisão',
@@ -183,7 +183,7 @@ export default function CreateMercadoPagoDebt() {
         interval: data.installmentInterval || 'MONTHLY',
         intervalCount: 1,
       };
-    } else if (data.paymentType === 'RECURRING_PIX' || data.paymentType === 'RECURRING_CARD') {
+    } else if (data.paymentType === 'RECURRING_CARD') {
       payload.recurringConfig = {
         subscriptionName: data.subscriptionName || `${data.description} - ${finalDebtorName || finalDebtorEmail}`,
         durationMonths: data.durationMonths || null,
@@ -561,31 +561,6 @@ export default function CreateMercadoPagoDebt() {
                     <Card
                       className={cn(
                         'cursor-pointer transition-all hover:border-primary',
-                        paymentType === 'RECURRING_PIX' && 'border-primary ring-2 ring-primary/20'
-                      )}
-                      onClick={() => setValue('paymentType', 'RECURRING_PIX')}
-                    >
-                      <CardContent className="pt-6">
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="radio"
-                            checked={paymentType === 'RECURRING_PIX'}
-                            onChange={() => setValue('paymentType', 'RECURRING_PIX')}
-                            className="mt-1"
-                          />
-                          <div className="flex-1">
-                            <div className="font-semibold">Assinatura PIX</div>
-                            <p className="text-sm text-muted-foreground">
-                              Cobrança mensal recorrente via PIX
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card
-                      className={cn(
-                        'cursor-pointer transition-all hover:border-primary',
                         paymentType === 'RECURRING_CARD' && 'border-primary ring-2 ring-primary/20'
                       )}
                       onClick={() => setValue('paymentType', 'RECURRING_CARD')}
@@ -686,7 +661,7 @@ export default function CreateMercadoPagoDebt() {
                   </div>
                 )}
 
-                {(paymentType === 'RECURRING_PIX' || paymentType === 'RECURRING_CARD') && (
+                {paymentType === 'RECURRING_CARD' && (
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="subscriptionName">Nome da Assinatura *</Label>
@@ -767,7 +742,6 @@ export default function CreateMercadoPagoDebt() {
                       <p className="font-medium">
                         {paymentType === 'INSTALLMENT' && 'Pagamento Parcelado'}
                         {paymentType === 'SINGLE_PIX' && 'PIX Único'}
-                        {paymentType === 'RECURRING_PIX' && 'Assinatura PIX'}
                         {paymentType === 'RECURRING_CARD' && 'Assinatura Cartão'}
                       </p>
                     </div>
@@ -908,7 +882,7 @@ export default function CreateMercadoPagoDebt() {
               interval: formData.installmentInterval || 'MONTHLY',
               intervalCount: 1,
             };
-          } else if (formData.paymentType === 'RECURRING_PIX' || formData.paymentType === 'RECURRING_CARD') {
+          } else if (formData.paymentType === 'RECURRING_CARD') {
             payload.recurringConfig = {
               subscriptionName: formData.subscriptionName || `${formData.description} - ${finalDebtorName || finalDebtorEmail}`,
               durationMonths: formData.durationMonths || null,

@@ -35,10 +35,10 @@ export function EmailAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const isSelectingRef = useRef(false);
 
-  // Buscar emails relacionados
+  // Buscar emails relacionados (tenta suggested-contacts primeiro, depois related-emails)
   const { data: relatedEmails = [] } = useQuery({
-    queryKey: ['related-emails'],
-    queryFn: () => debtsService.getRelatedEmails(),
+    queryKey: ['suggested-contacts'],
+    queryFn: () => debtsService.getSuggestedContacts().catch(() => debtsService.getRelatedEmails()),
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 

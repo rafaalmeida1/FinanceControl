@@ -65,6 +65,11 @@ export const debtsService = {
     return response.data;
   },
 
+  getSuggestedContacts: async (): Promise<Array<{ email: string; name?: string; count: number }>> => {
+    const response = await api.get('/debts/suggested-contacts');
+    return response.data;
+  },
+
   sendCompiledEmail: async (debtorEmail: string, pixKeyId?: string): Promise<any> => {
     const params: any = { debtorEmail };
     if (pixKeyId) {

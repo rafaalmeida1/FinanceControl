@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -8,11 +8,11 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  User,
+  Wallet,
   CreditCard,
-  Info,
+  User,
   Loader2,
-  Sparkles,
+  Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authStore } from '@/stores/authStore';
@@ -22,7 +22,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -35,67 +34,52 @@ import { EmailAutocomplete } from '@/components/ui/email-autocomplete';
 import { DuplicateDebtWarning, DuplicateDebt } from '@/components/debt/DuplicateDebtWarning';
 import { debtsService } from '@/services/debts.service';
 import { formatCurrency } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { CreatePixKeyModal } from '@/components/debt/CreatePixKeyModal';
-import { InstallmentCalculator } from '@/components/debt/InstallmentCalculator';
+import { WalletSelector } from '@/components/debt/WalletSelector';
+import { PaymentMethodSelector } from '@/components/debt/PaymentMethodSelector';
+import { DebtTypeSelector, DebtType } from '@/components/debt/DebtTypeSelector';
 import { MercadoPagoTypeSelector, MercadoPagoPaymentType } from '@/components/debt/MercadoPagoTypeSelector';
+import { InstallmentCalculator } from '@/components/debt/InstallmentCalculator';
+import { CreatePixKeyModal } from '@/components/debt/CreatePixKeyModal';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface DebtFormData {
-  // Informações Básicas
-  debtorEmail: string;
-  debtorName: string;
-  creditorEmail: string;
-  creditorName: string;
+  walletId: string;
   description: string;
-  walletId?: string;
-  
-  // Valores
   totalAmount: number | string;
   installments: number;
   dueDate: string;
-  
-  // Opções de Pagamento
-  useGateway: boolean;
-  preferredGateway: 'MERCADOPAGO';
-  interestRate?: number;
-  penaltyRate?: number;
-  
-  // PIX Key
+  debtorEmail: string;
+  debtorName: string;
+  creditorEmail?: string;
+  creditorName?: string;
   pixKeyId?: string;
 }
+
+const STEPS = [
+  { id: 0, title: 'Carteira', icon: Wallet },
+  { id: 1, title: 'Método de Pagamento', icon: CreditCard },
+  { id: 2, title: 'Tipo de Dívida', icon: Info },
+  { id: 3, title: 'Dados do Usuário', icon: User },
+  { id: 4, title: 'Configuração', icon: CreditCard },
+  { id: 5, title: 'Confirmação', icon: Check },
+];
 
 export default function CreateDebt() {
   const navigate = useNavigate();
   const { createDebt, isCreatingDebt } = useDebts();
-  const { wallets, defaultWallet } = useWallets();
+  const { wallets, isLoading: isLoadingWallets } = useWallets();
   const { user } = authStore();
 
-  const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<DebtFormData>({
-    defaultValues: {
-      installments: 1,
-      useGateway: false,
-      preferredGateway: 'MERCADOPAGO',
-      interestRate: 2.0,
-      penaltyRate: 5.0,
-    }
-  });
-  
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'mercadopago' | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const [isPersonalDebt, setIsPersonalDebt] = useState(false);
-  const [isPersonalDebtForMyself, setIsPersonalDebtForMyself] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<'mercadopago' | 'pix' | null>(null);
+  const [debtType, setDebtType] = useState<DebtType | null>(null);
+  const [mercadoPagoPaymentType, setMercadoPagoPaymentType] = useState<MercadoPagoPaymentType | null>(null);
+  const [isPersonalDebt, setIsPersonalDebt] = useState<'other-owes-me' | 'i-owe-other' | 'i-owe-myself'>('other-owes-me');
   const [selectedPixKeyId, setSelectedPixKeyId] = useState<string | 'new' | null>(null);
   const [showCreatePixKeyModal, setShowCreatePixKeyModal] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateDebt[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
-  const [pendingSubmitData, setPendingSubmitData] = useState<DebtFormData | null>(null);
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringInterval, setRecurringInterval] = useState<'MONTHLY' | 'WEEKLY' | 'BIWEEKLY'>('MONTHLY');
-  const [recurringDay, setRecurringDay] = useState<number>(1);
-  const [debtStatus, setDebtStatus] = useState<'PENDING' | 'PARTIAL'>('PENDING');
-  
-  // Mercado Pago specific
-  const [mercadoPagoPaymentType, setMercadoPagoPaymentType] = useState<MercadoPagoPaymentType | null>(null);
+  const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
   
   // Installment calculator states
   const [inputMode, setInputMode] = useState<'total' | 'installment'>('total');
@@ -103,52 +87,31 @@ export default function CreateDebt() {
   const [isInProgress, setIsInProgress] = useState(false);
   const [paidInstallments, setPaidInstallments] = useState<number>(0);
   
-  // Sincronizar debtStatus com isInProgress
-  React.useEffect(() => {
-    if (isInProgress) {
-      setDebtStatus('PARTIAL');
-    } else {
-      setDebtStatus('PENDING');
-    }
-  }, [isInProgress]);
-  
-  // Tipo de dívida PIX: 'single' | 'installment' | 'recurring'
-  const [pixDebtType, setPixDebtType] = useState<'single' | 'installment' | 'recurring' | null>(null);
-  
-  // Calculate total steps based on payment method
-  const getTotalSteps = () => {
-    if (!paymentMethod) return 1; // Step 0 only
-    if (paymentMethod === 'pix') return 7; // 0: Método, 1: Info, 2: Carteira/PIX, 3: Tipo Dívida, 4: Valores, 5: Recorrência, 6: Revisão
-    return 6; // 0: Método, 1: Tipo MP, 2: Info, 3: Carteira, 4: Valores, 5: Revisão
-  };
-  
-  const totalSteps = getTotalSteps();
-  
-  // Ajustar recorrência e parcelas baseado no tipo de dívida PIX
-  React.useEffect(() => {
-    if (paymentMethod === 'pix' && pixDebtType) {
-      if (pixDebtType === 'single') {
-        setValue('installments', 1);
-        setIsRecurring(false);
-      } else if (pixDebtType === 'installment') {
-        setIsRecurring(false);
-      } else if (pixDebtType === 'recurring') {
-        setIsRecurring(true);
-        setValue('installments', 1); // Recorrente sempre tem 1 parcela por vez
-      }
-    }
-  }, [pixDebtType, paymentMethod, setValue]);
+  // Recurring states
+  const [recurringInterval, setRecurringInterval] = useState<'MONTHLY' | 'WEEKLY' | 'BIWEEKLY'>('MONTHLY');
+  const [recurringDay, setRecurringDay] = useState<number>(new Date().getDate());
+  const [subscriptionName, setSubscriptionName] = useState<string>('');
+  const [durationMonths, setDurationMonths] = useState<number | null>(null);
 
-  // Watch values
-  const useGateway = watch('useGateway');
-  const installments = watch('installments') || 1;
-  const totalAmount = watch('totalAmount');
+  const { register, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm<DebtFormData>({
+    defaultValues: {
+      installments: 1,
+    }
+  });
+
   const walletId = watch('walletId');
+  const totalAmount = watch('totalAmount');
+  const installments = watch('installments') || 1;
+  const description = watch('description');
+  const debtorEmail = watch('debtorEmail');
+  const creditorEmail = watch('creditorEmail');
+  const dueDate = watch('dueDate');
 
   // Buscar chaves PIX
   const { data: pixKeys } = useQuery({
-    queryKey: ['pixKeys'],
+    queryKey: ['pixKeys', walletId],
     queryFn: () => pixKeysService.getAll(),
+    enabled: !!walletId,
   });
 
   // Filtrar chaves PIX da carteira selecionada
@@ -157,174 +120,192 @@ export default function CreateDebt() {
     return pixKeys.filter(key => key.walletId === walletId);
   }, [pixKeys, walletId]);
 
-  // Se Mercado Pago tipo recorrente, ativar recorrência automaticamente
-  React.useEffect(() => {
-    if (mercadoPagoPaymentType === 'RECURRING_PIX' || mercadoPagoPaymentType === 'RECURRING_CARD') {
-      setIsRecurring(true);
+  // Ajustar tipo de dívida baseado no método de pagamento
+  useEffect(() => {
+    if (paymentMethod === 'mercadopago') {
+      if (mercadoPagoPaymentType === 'RECURRING_CARD') {
+        setDebtType('recurring');
+      } else if (mercadoPagoPaymentType === 'INSTALLMENT') {
+        setDebtType('installment');
+      } else if (mercadoPagoPaymentType === 'SINGLE_PIX') {
+        setDebtType('single');
+      }
     }
-  }, [mercadoPagoPaymentType]);
+  }, [paymentMethod, mercadoPagoPaymentType]);
 
-  // Definir carteira padrão se não selecionada
-  React.useEffect(() => {
-    if (!walletId && defaultWallet) {
-      setValue('walletId', defaultWallet.id);
-    }
-  }, [defaultWallet, walletId, setValue]);
-
-  // Preencher email do devedor quando "Eu devo" e "Para mim mesmo"
-  React.useEffect(() => {
-    if (isPersonalDebt && isPersonalDebtForMyself && user?.email) {
+  // Preencher dados quando "Eu devo para mim mesmo"
+  useEffect(() => {
+    if (isPersonalDebt === 'i-owe-myself' && user?.email) {
       setValue('debtorEmail', user.email);
       setValue('debtorName', user.name || '');
       setValue('creditorEmail', user.email);
       setValue('creditorName', user.name || '');
-    } else if (isPersonalDebt && !isPersonalDebtForMyself && user?.email) {
+    } else if (isPersonalDebt === 'i-owe-other' && user?.email) {
       setValue('debtorEmail', user.email);
       setValue('debtorName', user.name || '');
     }
-  }, [isPersonalDebt, isPersonalDebtForMyself, user, setValue]);
+  }, [isPersonalDebt, user, setValue]);
 
   const nextStep = async () => {
-    let isValid = false;
+    let isValid = true;
 
     if (currentStep === 0) {
-      // Step 0: Seleção de método de pagamento
-      if (paymentMethod) {
-        setValue('useGateway', paymentMethod === 'mercadopago');
-        setCurrentStep(1);
+      // Step 0: Seleção de Carteira
+      isValid = await trigger('walletId');
+      if (!isValid) {
+        toast.error('Selecione uma carteira');
         return;
       }
-      return;
-    } else if (paymentMethod === 'mercadopago') {
-      // Fluxo Mercado Pago
-      if (currentStep === 1) {
-        // Step 1: Tipo de pagamento Mercado Pago
-        if (mercadoPagoPaymentType) {
-          setCurrentStep(2);
-          return;
-        }
+    } else if (currentStep === 1) {
+      // Step 1: Método de Pagamento
+      if (!paymentMethod) {
+        toast.error('Selecione um método de pagamento');
         return;
-      } else if (currentStep === 2) {
-        // Step 2: Informações básicas
-        isValid = await trigger(['debtorEmail', 'description']);
-        if (isPersonalDebt && !isPersonalDebtForMyself) {
-          isValid = isValid && await trigger('creditorEmail');
-        }
-      } else if (currentStep === 3) {
-        // Step 3: Carteira
-        isValid = await trigger('walletId');
-      } else if (currentStep === 4) {
-        // Step 4: Valores e configuração
-        isValid = await trigger(['totalAmount', 'installments', 'dueDate']);
       }
-    } else if (paymentMethod === 'pix') {
-      // Fluxo PIX Manual
-      if (currentStep === 1) {
-        // Step 1: Informações básicas
-        isValid = await trigger(['debtorEmail', 'description']);
-        if (isPersonalDebt && !isPersonalDebtForMyself) {
-          isValid = isValid && await trigger('creditorEmail');
-        }
-      } else if (currentStep === 2) {
-        // Step 2: Carteira e Chave PIX
-        isValid = await trigger('walletId');
-        if (!selectedPixKeyId || selectedPixKeyId === 'new') {
-          isValid = false;
-        }
-      } else if (currentStep === 3) {
-        // Step 3: Tipo de Dívida (única, parcelada, recorrente)
-        isValid = !!pixDebtType;
-      } else if (currentStep === 4) {
-        // Step 4: Valores e Parcelas
-        isValid = await trigger(['totalAmount', 'installments', 'dueDate']);
-      } else if (currentStep === 5) {
-        // Step 5: Recorrência (sempre válido, opcional)
-        // Se não for recorrente, pular este step
-        if (pixDebtType !== 'recurring') {
-          setCurrentStep(6);
-          return;
-        }
-        isValid = true;
+      if (paymentMethod === 'mercadopago' && !mercadoPagoPaymentType) {
+        toast.error('Selecione o tipo de pagamento do Mercado Pago');
+        return;
       }
+    } else if (currentStep === 2) {
+      // Step 2: Tipo de Dívida
+      if (!debtType) {
+        toast.error('Selecione o tipo de dívida');
+        return;
+      }
+    } else if (currentStep === 3) {
+      // Step 3: Dados do Usuário
+      isValid = await trigger(['description', 'debtorEmail']);
+      if (isPersonalDebt === 'i-owe-other' && !creditorEmail) {
+        isValid = false;
+        toast.error('Email do credor é obrigatório');
+      }
+      if (!isValid) return;
+    } else if (currentStep === 4) {
+      // Step 4: Configuração
+      isValid = await trigger(['totalAmount', 'dueDate']);
+      if (debtType === 'installment') {
+        isValid = isValid && await trigger('installments');
+      }
+      if (paymentMethod === 'pix' && !selectedPixKeyId) {
+        isValid = false;
+        toast.error('Selecione ou crie uma chave PIX');
+      }
+      if (!isValid) return;
     }
 
-    if (isValid && currentStep < totalSteps - 1) {
+    if (isValid && currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const prevStep = () => {
-    if (currentStep > 0) setCurrentStep(currentStep - 1);
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
   const onSubmit = async (data: DebtFormData) => {
-    // Verificar duplicatas antes de criar
+    // Verificar duplicatas
     try {
       const duplicateCheck = await debtsService.checkDuplicates({
         debtorEmail: data.debtorEmail,
-        creditorEmail: isPersonalDebt ? data.creditorEmail : user?.email,
-        totalAmount: parseFloat(String(data.totalAmount)),
-        description: data.description,
-  });
+        creditorEmail: isPersonalDebt === 'other-owes-me' ? user?.email : data.creditorEmail,
+        totalAmount: Number(data.totalAmount),
+        description: data.description.trim(),
+      });
 
       if (duplicateCheck && duplicateCheck.length > 0) {
         setDuplicates(duplicateCheck);
-        setPendingSubmitData(data);
+        setPendingSubmitData({ ...data, paymentMethod, debtType, mercadoPagoPaymentType });
         setShowDuplicateWarning(true);
-      return;
-    }
+        return;
+      }
     } catch (error) {
       console.error('Erro ao verificar duplicatas:', error);
     }
 
-    await handleCreateDebt(data);
+    await createDebtData(data);
   };
 
-  const handleCreateDebt = async (data: DebtFormData) => {
+  const createDebtData = async (data: DebtFormData) => {
     try {
-      const debtData: any = {
+      // Converter data
+      let dueDateISO: string | undefined = undefined;
+      if (data.dueDate) {
+        const [year, month, day] = String(data.dueDate).split('-');
+        const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59));
+        dueDateISO = date.toISOString();
+      }
+
+      // Preparar payload
+      const payload: any = {
+        walletId: data.walletId,
+        description: data.description.trim(),
+        totalAmount: Number(data.totalAmount),
+        dueDate: dueDateISO,
         debtorEmail: data.debtorEmail,
-        debtorName: data.debtorName,
-        creditorEmail: isPersonalDebt ? data.creditorEmail : user?.email || '',
-        creditorName: isPersonalDebt ? data.creditorName : user?.name || '',
-        description: data.description,
-        totalAmount: parseFloat(String(data.totalAmount)),
-        installments: parseInt(String(data.installments)),
-        dueDate: data.dueDate,
-        walletId: data.walletId || defaultWallet?.id,
-        isPersonalDebt,
-        useGateway: data.useGateway,
-        preferredGateway: data.useGateway ? 'MERCADOPAGO' : undefined,
-        interestRate: data.interestRate,
-        penaltyRate: data.penaltyRate,
-        isRecurring,
-        recurringInterval: isRecurring ? recurringInterval : undefined,
-        recurringDay: isRecurring ? recurringDay : undefined,
-        isInProgress: debtStatus === 'PARTIAL' || isInProgress,
-        paidInstallments: isInProgress && paidInstallments > 0 ? paidInstallments : undefined,
-        totalInstallments: installments, // Total de parcelas
-        installmentAmount: inputMode === 'installment' && installmentAmount ? parseFloat(String(installmentAmount)) : undefined,
+        debtorName: data.debtorName || undefined,
+        isPersonalDebt: isPersonalDebt !== 'other-owes-me',
       };
 
-      if (!data.useGateway && selectedPixKeyId && selectedPixKeyId !== 'new') {
-        debtData.pixKeyId = selectedPixKeyId;
+      // Configurar credor
+      if (isPersonalDebt === 'other-owes-me') {
+        payload.creditorEmail = user?.email;
+        payload.creditorName = user?.name || undefined;
+      } else if (isPersonalDebt === 'i-owe-other') {
+        payload.creditorEmail = data.creditorEmail;
+        payload.creditorName = data.creditorName || undefined;
+      } else {
+        // i-owe-myself
+        payload.creditorEmail = user?.email;
+        payload.creditorName = user?.name || undefined;
       }
 
-      // Adicionar configuração de recorrência se for Mercado Pago
-      if (data.useGateway && isRecurring) {
-        debtData.recurringConfig = {
-          subscriptionName: data.description || 'Assinatura Recorrente',
-          durationMonths: null, // Indefinida por padrão
-        };
-        debtData.mercadoPagoPaymentType = mercadoPagoPaymentType || undefined;
-      }
-      
-      // Adicionar tipo de pagamento Mercado Pago
-      if (data.useGateway && mercadoPagoPaymentType) {
-        debtData.mercadoPagoPaymentType = mercadoPagoPaymentType;
+      // Configurar pagamento
+      if (paymentMethod === 'mercadopago') {
+        payload.useGateway = true;
+        payload.preferredGateway = 'MERCADOPAGO';
+        payload.mercadoPagoPaymentType = mercadoPagoPaymentType;
+
+        if (mercadoPagoPaymentType === 'INSTALLMENT') {
+          payload.installments = installments;
+          payload.installmentConfig = {
+            interval: 'MONTHLY',
+            intervalCount: 1,
+          };
+        } else if (mercadoPagoPaymentType === 'RECURRING_CARD') {
+          payload.isRecurring = true;
+          payload.recurringInterval = recurringInterval;
+          payload.recurringDay = recurringDay;
+          payload.recurringConfig = {
+            subscriptionName: subscriptionName || data.description,
+            durationMonths: durationMonths,
+          };
+        }
+      } else {
+        // PIX Manual
+        payload.useGateway = false;
+        payload.pixKeyId = selectedPixKeyId === 'new' ? undefined : selectedPixKeyId;
+
+        if (debtType === 'recurring') {
+          payload.isRecurring = true;
+          payload.recurringInterval = recurringInterval;
+          payload.recurringDay = recurringDay;
+          payload.installments = 1;
+        } else if (debtType === 'installment') {
+          payload.installments = installments;
+          if (isInProgress) {
+            payload.isInProgress = true;
+            payload.installmentAmount = Number(installmentAmount);
+            payload.totalInstallments = installments;
+            payload.paidInstallments = paidInstallments;
+          }
+        } else {
+          payload.installments = 1;
+        }
       }
 
-      await createDebt(debtData, {
+      await createDebt(payload, {
         onSuccess: () => {
           toast.success('Dívida criada com sucesso!');
           navigate('/debts');
@@ -334,1132 +315,530 @@ export default function CreateDebt() {
         },
       });
     } catch (error: any) {
-          toast.error(error.response?.data?.message || 'Erro ao criar dívida');
+      toast.error(error?.response?.data?.message || 'Erro ao criar dívida');
     }
   };
 
   const handleDuplicateWarningResponse = (action: 'create' | 'edit' | 'cancel') => {
     setShowDuplicateWarning(false);
     if (action === 'create' && pendingSubmitData) {
-      handleCreateDebt(pendingSubmitData);
-    } else if (action === 'edit' && duplicates.length > 0) {
-      navigate(`/debts/${duplicates[0].id}/edit`);
+      createDebtData(pendingSubmitData);
+    }
+    setPendingSubmitData(null);
+  };
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Selecione a Carteira</h2>
+              <p className="text-muted-foreground">
+                Escolha a carteira para associar esta dívida
+              </p>
+            </div>
+            {isLoadingWallets ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <WalletSelector
+                wallets={wallets || []}
+                selectedWalletId={walletId || null}
+                onSelect={(id) => setValue('walletId', id)}
+                error={errors.walletId?.message}
+              />
+            )}
+          </div>
+        );
+
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Método de Pagamento</h2>
+              <p className="text-muted-foreground">
+                Como você deseja receber ou fazer o pagamento?
+              </p>
+            </div>
+            <PaymentMethodSelector
+              selectedMethod={paymentMethod}
+              onSelect={setPaymentMethod}
+            />
+            {paymentMethod === 'mercadopago' && (
+              <div className="mt-6">
+                <MercadoPagoTypeSelector
+                  selectedType={mercadoPagoPaymentType}
+                  onSelectType={setMercadoPagoPaymentType}
+                />
+              </div>
+            )}
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Tipo de Dívida</h2>
+              <p className="text-muted-foreground">
+                Qual é a natureza desta dívida?
+              </p>
+            </div>
+            <DebtTypeSelector
+              selectedType={debtType}
+              onSelect={setDebtType}
+              paymentMethod={paymentMethod}
+            />
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Dados do Usuário</h2>
+              <p className="text-muted-foreground">
+                Informe os dados da pessoa envolvida na dívida
+              </p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Quem está envolvido?</CardTitle>
+                <CardDescription>
+                  Selecione quem deve e quem vai receber
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup
+                  value={isPersonalDebt}
+                  onValueChange={(value) => setIsPersonalDebt(value as any)}
+                >
+                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                    <RadioGroupItem value="other-owes-me" id="other-owes-me" />
+                    <Label htmlFor="other-owes-me" className="flex-1 cursor-pointer">
+                      <div>
+                        <p className="font-medium">Outra pessoa me deve</p>
+                        <p className="text-sm text-muted-foreground">
+                          Você vai receber o pagamento
+                        </p>
+                      </div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                    <RadioGroupItem value="i-owe-other" id="i-owe-other" />
+                    <Label htmlFor="i-owe-other" className="flex-1 cursor-pointer">
+                      <div>
+                        <p className="font-medium">Eu devo para outra pessoa</p>
+                        <p className="text-sm text-muted-foreground">
+                          Você vai fazer o pagamento
+                        </p>
+                      </div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                    <RadioGroupItem value="i-owe-myself" id="i-owe-myself" />
+                    <Label htmlFor="i-owe-myself" className="flex-1 cursor-pointer">
+                      <div>
+                        <p className="font-medium">Dívida pessoal (para mim mesmo)</p>
+                        <p className="text-sm text-muted-foreground">
+                          Controle interno de contas e despesas
+                        </p>
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="description" className="text-base font-semibold">
+                  Descrição da Dívida <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="description"
+                  {...register('description', { required: 'Descrição é obrigatória' })}
+                  placeholder="Ex: Conta de luz, Mensalidade de academia, Empréstimo..."
+                  className="mt-2 min-h-[100px]"
+                />
+                {errors.description && (
+                  <p className="text-sm text-destructive mt-1">{errors.description.message}</p>
+                )}
+              </div>
+
+              {isPersonalDebt !== 'i-owe-myself' && (
+                <>
+                  <EmailAutocomplete
+                    id="debtorEmail"
+                    label={isPersonalDebt === 'other-owes-me' ? 'Email do Devedor' : 'Seu Email'}
+                    value={debtorEmail || ''}
+                    onChange={(value) => setValue('debtorEmail', value)}
+                    error={errors.debtorEmail?.message}
+                    required
+                  />
+
+                  <div>
+                    <Label htmlFor="debtorName">Nome {isPersonalDebt === 'other-owes-me' ? 'do Devedor' : ''}</Label>
+                    <Input
+                      id="debtorName"
+                      {...register('debtorName')}
+                      placeholder="Nome completo (opcional)"
+                      className="mt-2"
+                    />
+                  </div>
+                </>
+              )}
+
+              {isPersonalDebt === 'i-owe-other' && (
+                <>
+                  <EmailAutocomplete
+                    id="creditorEmail"
+                    label="Email do Credor"
+                    value={creditorEmail || ''}
+                    onChange={(value) => setValue('creditorEmail', value)}
+                    error={errors.creditorEmail?.message}
+                    required
+                  />
+
+                  <div>
+                    <Label htmlFor="creditorName">Nome do Credor</Label>
+                    <Input
+                      id="creditorName"
+                      {...register('creditorName')}
+                      placeholder="Nome completo (opcional)"
+                      className="mt-2"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Configuração de Pagamento</h2>
+              <p className="text-muted-foreground">
+                Configure os valores e detalhes do pagamento
+              </p>
+            </div>
+
+            {paymentMethod === 'pix' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Chave PIX</CardTitle>
+                  <CardDescription>
+                    {isPersonalDebt === 'other-owes-me'
+                      ? 'Selecione a chave PIX para receber o pagamento'
+                      : 'Selecione a chave PIX da pessoa que vai receber'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Select
+                    value={selectedPixKeyId || ''}
+                    onValueChange={(value) => {
+                      if (value === 'new') {
+                        setShowCreatePixKeyModal(true);
+                      } else {
+                        setSelectedPixKeyId(value);
+                        setValue('pixKeyId', value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma chave PIX" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {walletPixKeys?.map((key) => (
+                        <SelectItem key={key.id} value={key.id}>
+                          {key.label} ({key.keyValue})
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="new">+ Criar nova chave PIX</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+            )}
+
+            <InstallmentCalculator
+              inputMode={inputMode}
+              onInputModeChange={setInputMode}
+              totalAmount={totalAmount || ''}
+              installmentAmount={installmentAmount}
+              installments={installments}
+              onTotalAmountChange={(value) => setValue('totalAmount', value)}
+              onInstallmentAmountChange={setInstallmentAmount}
+              onInstallmentsChange={(value) => setValue('installments', value)}
+              isInProgress={isInProgress}
+              onInProgressChange={setIsInProgress}
+              paidInstallments={paidInstallments}
+              onPaidInstallmentsChange={setPaidInstallments}
+              debtType={debtType || undefined}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="dueDate">
+                  Data de Vencimento <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  {...register('dueDate', { required: 'Data de vencimento é obrigatória' })}
+                  className="mt-2"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                {errors.dueDate && (
+                  <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>
+                )}
+              </div>
+            </div>
+
+            {debtType === 'recurring' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuração de Recorrência</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Intervalo</Label>
+                    <Select
+                      value={recurringInterval}
+                      onValueChange={(value) => setRecurringInterval(value as any)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MONTHLY">Mensal</SelectItem>
+                        <SelectItem value="WEEKLY">Semanal</SelectItem>
+                        <SelectItem value="BIWEEKLY">Quinzenal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {recurringInterval === 'MONTHLY' && (
+                    <div>
+                      <Label>Dia do Mês</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={recurringDay}
+                        onChange={(e) => setRecurringDay(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                  )}
+
+                  {paymentMethod === 'mercadopago' && (
+                    <>
+                      <div>
+                        <Label>Nome da Assinatura</Label>
+                        <Input
+                          value={subscriptionName}
+                          onChange={(e) => setSubscriptionName(e.target.value)}
+                          placeholder={description || 'Nome da assinatura'}
+                        />
+                      </div>
+                      <div>
+                        <Label>Duração (meses) - Deixe vazio para indefinida</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={durationMonths || ''}
+                          onChange={(e) => setDurationMonths(e.target.value ? parseInt(e.target.value) : null)}
+                          placeholder="Indefinida"
+                        />
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Confirmação</h2>
+              <p className="text-muted-foreground">
+                Revise os dados antes de criar a dívida
+              </p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Resumo da Dívida</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Descrição</p>
+                    <p className="font-medium">{description}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Valor Total</p>
+                    <p className="font-medium">{formatCurrency(Number(totalAmount) || 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Método de Pagamento</p>
+                    <p className="font-medium">
+                      {paymentMethod === 'mercadopago' ? 'Mercado Pago' : 'PIX Manual'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Tipo</p>
+                    <p className="font-medium">
+                      {debtType === 'recurring' ? 'Recorrente' : debtType === 'installment' ? 'Parcelada' : 'Única'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Vencimento</p>
+                    <p className="font-medium">{dueDate ? new Date(dueDate).toLocaleDateString('pt-BR') : '-'}</p>
+                  </div>
+                  {debtType === 'installment' && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Parcelas</p>
+                      <p className="font-medium">{installments}x</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
-  // Calcular valor por parcela
-  const installmentValue = totalAmount && installments
-    ? parseFloat(String(totalAmount)) / installments
-    : 0;
-
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-6">
-      <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/debts')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Nova Dívida</h1>
-            <p className="text-sm text-muted-foreground">Crie uma nova dívida de forma simples</p>
-          </div>
-        </div>
+    <div className="container max-w-4xl mx-auto py-6 px-4">
+      <div className="mb-6">
+        <Button variant="ghost" onClick={() => navigate('/debts')} className="mb-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+        <h1 className="text-3xl font-bold">Criar Nova Dívida</h1>
+        <p className="text-muted-foreground mt-2">
+          Preencha as informações para criar uma nova dívida
+        </p>
+      </div>
 
-        {/* Progress Steps */}
-        {paymentMethod && (
-          <div className="flex items-center justify-between mb-6 overflow-x-auto">
-            {paymentMethod === 'pix' ? (
-              // Steps PIX Manual: 0: Método, 1: Info, 2: Carteira/PIX, 3: Tipo Dívida, 4: Valores, 5: Recorrência, 6: Revisão
-              [0, 1, 2, 3, 4, 5, 6].map((step) => {
-                const stepLabels = ['Método', 'Info', 'Carteira/PIX', 'Tipo Dívida', 'Valores', 'Recorrência', 'Revisão'];
-                return (
-                  <React.Fragment key={step}>
-                    <div className="flex items-center flex-shrink-0">
-                      <div
-                        className={cn(
-                          'h-10 w-10 rounded-full flex items-center justify-center font-semibold transition-colors',
-                          currentStep >= step
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground'
-                        )}
-                      >
-                        {currentStep > step ? <Check className="h-5 w-5" /> : step + 1}
-                      </div>
-                      <span className={cn(
-                        'ml-2 text-sm font-medium hidden sm:block',
-                        currentStep >= step ? 'text-foreground' : 'text-muted-foreground'
-                      )}>
-                        {stepLabels[step]}
-                      </span>
-                    </div>
-                    {step < 5 && (
-                      <div className={cn(
-                        'flex-1 h-1 mx-2 transition-colors min-w-[20px]',
-                        currentStep > step ? 'bg-primary' : 'bg-muted'
-                      )} />
+      {/* Progress Steps */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          {STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = index === currentStep;
+            const isCompleted = index < currentStep;
+            
+            return (
+              <React.Fragment key={step.id}>
+                <div className="flex flex-col items-center flex-1">
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all',
+                      isActive && 'border-primary bg-primary text-primary-foreground',
+                      isCompleted && 'border-primary bg-primary text-primary-foreground',
+                      !isActive && !isCompleted && 'border-muted bg-muted text-muted-foreground'
                     )}
-                  </React.Fragment>
-                );
-              })
-            ) : (
-              // Steps Mercado Pago: 0: Método, 1: Tipo MP, 2: Info, 3: Carteira, 4: Valores, 5: Revisão
-              [0, 1, 2, 3, 4, 5].map((step) => {
-                const stepLabels = ['Método', 'Tipo MP', 'Info', 'Carteira', 'Valores', 'Revisão'];
-                return (
-                  <React.Fragment key={step}>
-                    <div className="flex items-center flex-shrink-0">
-                      <div
-                        className={cn(
-                          'h-10 w-10 rounded-full flex items-center justify-center font-semibold transition-colors',
-                          currentStep >= step
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground'
-                        )}
-                      >
-                        {currentStep > step ? <Check className="h-5 w-5" /> : step + 1}
-                      </div>
-                      <span className={cn(
-                        'ml-2 text-sm font-medium hidden sm:block',
-                        currentStep >= step ? 'text-foreground' : 'text-muted-foreground'
-                      )}>
-                        {stepLabels[step]}
-                      </span>
-                    </div>
-                    {step < 5 && (
-                      <div className={cn(
-                        'flex-1 h-1 mx-2 transition-colors min-w-[20px]',
-                        currentStep > step ? 'bg-primary' : 'bg-muted'
-                      )} />
+                  >
+                    {isCompleted ? (
+                      <Check className="h-5 w-5" />
+                    ) : (
+                      <Icon className="h-5 w-5" />
                     )}
-                  </React.Fragment>
-                );
-              })
-            )}
-          </div>
-        )}
+                  </div>
+                  <p className={cn(
+                    'text-xs mt-2 text-center hidden sm:block',
+                    isActive && 'font-semibold text-primary',
+                    !isActive && 'text-muted-foreground'
+                  )}>
+                    {step.title}
+                  </p>
+                </div>
+                {index < STEPS.length - 1 && (
+                  <div className={cn(
+                    'h-0.5 flex-1 mx-2',
+                    index < currentStep ? 'bg-primary' : 'bg-muted'
+                  )} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-          {/* STEP 0: Seleção de Método de Pagamento */}
-          {currentStep === 0 && (
-            <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Método de Pagamento
-                  </CardTitle>
-                  <CardDescription>
-                    Escolha como deseja receber/pagar esta dívida
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button
-                      type="button"
-                      variant={paymentMethod === 'pix' ? 'default' : 'outline'}
-                      className="h-auto py-8 flex-col gap-3"
-                      onClick={() => {
-                        setPaymentMethod('pix');
-                        setValue('useGateway', false);
-                      }}
-                    >
-                      <CreditCard className="h-8 w-8" />
-                      <span className="text-base font-semibold">PIX Manual</span>
-                      <span className="text-xs text-muted-foreground text-center">
-                        Você receberá a chave PIX e fará o controle manual dos pagamentos
-                      </span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={paymentMethod === 'mercadopago' ? 'default' : 'outline'}
-                      className="h-auto py-8 flex-col gap-3"
-                      onClick={() => {
-                        setPaymentMethod('mercadopago');
-                        setValue('useGateway', true);
-                      }}
-                    >
-                      <Sparkles className="h-8 w-8" />
-                      <span className="text-base font-semibold">Mercado Pago</span>
-                      <span className="text-xs text-muted-foreground text-center">
-                        Sistema cria links de pagamento e QR Codes automaticamente
-                      </span>
-                    </Button>
-                  </div>
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      <strong>Importante:</strong> Ambos os métodos suportam dívidas recorrentes. Você poderá configurar a recorrência na etapa de valores.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-              <div className="flex justify-end">
-                <Button 
-                  type="button" 
-                  onClick={nextStep} 
-                  size="lg"
-                  disabled={!paymentMethod}
-                >
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+        <Card>
+          <CardContent className="pt-6">
+            {renderStep()}
+          </CardContent>
+        </Card>
 
-          {/* STEP 1: Tipo de Pagamento Mercado Pago (apenas para Mercado Pago) */}
-          {currentStep === 1 && paymentMethod === 'mercadopago' && (
-            <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5" />
-                    Tipo de Pagamento Mercado Pago
-                  </CardTitle>
-                  <CardDescription>
-                    Escolha como deseja receber o pagamento através do Mercado Pago
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <MercadoPagoTypeSelector
-                    selectedType={mercadoPagoPaymentType}
-                    onSelectType={setMercadoPagoPaymentType}
-                  />
-                </CardContent>
-              </Card>
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar
-                </Button>
-                <Button 
-                  type="button" 
-                  onClick={nextStep} 
-                  size="lg"
-                  disabled={!mercadoPagoPaymentType}
-                >
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 1 (PIX) / STEP 2 (Mercado Pago): Informações Básicas */}
-            {((currentStep === 1 && paymentMethod === 'pix') || (currentStep === 2 && paymentMethod === 'mercadopago')) && (
-              <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Informações Básicas
-                  </CardTitle>
-                  <CardDescription>
-                    Quem deve e para quem deve
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Tipo de Dívida */}
-                  <div className="space-y-3">
-                    <Label>Tipo de Dívida</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button
-                        type="button"
-                        variant={!isPersonalDebt ? 'default' : 'outline'}
-                        className="h-auto py-4 flex-col gap-2"
-                        onClick={() => setIsPersonalDebt(false)}
-                      >
-                        <User className="h-5 w-5" />
-                        <span className="text-sm">Alguém me deve</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={isPersonalDebt ? 'default' : 'outline'}
-                        className="h-auto py-4 flex-col gap-2"
-                        onClick={() => setIsPersonalDebt(true)}
-                      >
-                        <CreditCard className="h-5 w-5" />
-                        <span className="text-sm">Eu devo</span>
-                      </Button>
-                        </div>
-                      </div>
-                      
-                  {/* Email do Devedor */}
-                  {!isPersonalDebt && (
-                    <div>
-                      <EmailAutocomplete
-                        id="debtorEmail"
-                        label="Email do Devedor"
-                        value={watch('debtorEmail') || ''}
-                        onChange={(value) => {
-                          setValue('debtorEmail', value, { shouldValidate: true });
-                        }}
-                        onBlur={() => trigger('debtorEmail')}
-                        error={errors.debtorEmail?.message}
-                        placeholder="devedor@email.com"
-                        required
-                      />
-                    </div>
-                  )}
-                  {isPersonalDebt && (
-                    <div>
-                      <Label htmlFor="debtorEmail">Email do Devedor</Label>
-                      <Input
-                        id="debtorEmail"
-                        value={user?.email || ''}
-                        disabled
-                        className="bg-muted"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Você é o devedor nesta dívida
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Nome do Devedor */}
-                      <div>
-                    <Label htmlFor="debtorName">Nome do Devedor</Label>
-                        <Input 
-                          id="debtorName"
-                          {...register('debtorName')} 
-                      placeholder="Nome completo"
-                        />
-                      </div>
-
-                  {/* Credor (se dívida pessoal) */}
-                  {isPersonalDebt && (
-                    <>
-                      <div>
-                        <Label htmlFor="personalDebtType">Para quem você deve?</Label>
-                        <div className="grid grid-cols-2 gap-3 mt-2">
-                          <Button
-                            type="button"
-                            variant={isPersonalDebtForMyself ? 'default' : 'outline'}
-                            className="h-auto py-3"
-                            onClick={() => setIsPersonalDebtForMyself(true)}
-                          >
-                            Para mim mesmo
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={!isPersonalDebtForMyself ? 'default' : 'outline'}
-                            className="h-auto py-3"
-                            onClick={() => setIsPersonalDebtForMyself(false)}
-                          >
-                            Para outra pessoa
-                          </Button>
-                        </div>
-                      </div>
-
-                      {isPersonalDebtForMyself && (
-                        <div>
-                          <Label htmlFor="creditorEmail">Email do Credor</Label>
-                          <Input
-                            id="creditorEmail"
-                            value={user?.email || ''}
-                            disabled
-                            className="bg-muted"
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Você está pagando para você mesmo
-                          </p>
-                        </div>
-                      )}
-                      {!isPersonalDebtForMyself && (
-                        <>
-                          <div>
-                            <EmailAutocomplete
-                              id="creditorEmail"
-                              label="Email do Credor"
-                              value={watch('creditorEmail') || ''}
-                              onChange={(value) => {
-                                setValue('creditorEmail', value, { shouldValidate: true });
-                              }}
-                              onBlur={() => trigger('creditorEmail')}
-                              error={errors.creditorEmail?.message}
-                              placeholder="credor@email.com"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="creditorName">Nome do Credor</Label>
-                            <Input 
-                              id="creditorName"
-                              {...register('creditorName')} 
-                              placeholder="Nome completo"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </>
-                  )}
-
-                  {/* Descrição */}
-                  <div>
-                    <Label htmlFor="description">
-                      Descrição da Dívida <span className="text-destructive">*</span>
-                    </Label>
-                    <Textarea 
-                      id="description"
-                      {...register('description', {
-                        required: 'Descrição é obrigatória',
-                        minLength: { value: 5, message: 'Descrição deve ter pelo menos 5 caracteres' },
-                      })} 
-                      placeholder="Ex: Pagamento de serviços de consultoria"
-                      rows={3}
-                      className="resize-none"
-                    />
-                    {errors.description && (
-                      <p className="text-sm text-destructive mt-1">{errors.description.message}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Esta descrição será enviada no email de notificação
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex justify-end">
-                <Button type="button" onClick={nextStep} size="lg">
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                </div>
-              </div>
-            )}
-
-          {/* STEP 2 (PIX): Carteira e Chave PIX */}
-          {currentStep === 2 && paymentMethod === 'pix' && (
-            <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Carteira e Chave PIX
-                  </CardTitle>
-                  <CardDescription>
-                    Selecione a carteira e a chave PIX para recebimento
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Carteira */}
-                  {wallets && wallets.length > 0 && (
-                    <div>
-                      <Label htmlFor="walletId">Carteira <span className="text-destructive">*</span></Label>
-                      <Select
-                        value={walletId || defaultWallet?.id || ''}
-                        onValueChange={(value) => setValue('walletId', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma carteira" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {wallets.map((wallet) => (
-                            <SelectItem key={wallet.id} value={wallet.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{wallet.icon || '💳'}</span>
-                                <span>{wallet.name}</span>
-                                {wallet.isDefault && (
-                                  <Badge variant="secondary" className="text-xs">Padrão</Badge>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.walletId && (
-                        <p className="text-sm text-destructive mt-1">{errors.walletId.message}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Chave PIX */}
-                  {walletId && (
-                    <div className="space-y-2">
-                      <Label htmlFor="pixKeyId">
-                        Chave PIX para Recebimento <span className="text-destructive">*</span>
-                      </Label>
-                      {walletPixKeys && walletPixKeys.length === 0 && (
-                        <Alert>
-                          <Info className="h-4 w-4" />
-                          <AlertDescription>
-                            Esta carteira não possui chaves PIX. 
-                            <Button
-                              type="button"
-                              variant="link"
-                              className="p-0 h-auto ml-1"
-                              onClick={() => setShowCreatePixKeyModal(true)}
-                            >
-                              Criar uma chave PIX agora
-                            </Button>
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      <Select
-                        value={selectedPixKeyId || ''}
-                        onValueChange={(value) => {
-                          if (value === 'new') {
-                            setShowCreatePixKeyModal(true);
-                          } else {
-                            setSelectedPixKeyId(value);
-                            setValue('pixKeyId', value);
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma chave PIX" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {walletPixKeys && walletPixKeys.length > 0 && (
-                            <>
-                              {walletPixKeys.map((key) => (
-                                <SelectItem key={key.id} value={key.id}>
-                                  {key.label || key.keyValue}
-                                </SelectItem>
-                              ))}
-                              <SelectItem value="new" className="text-primary font-medium">
-                                + Criar nova chave PIX
-                              </SelectItem>
-                            </>
-                          )}
-                          {(!walletPixKeys || walletPixKeys.length === 0) && (
-                            <SelectItem value="new" className="text-primary font-medium">
-                              + Criar nova chave PIX
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      {errors.pixKeyId && (
-                        <p className="text-sm text-destructive mt-1">{errors.pixKeyId.message}</p>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar
-                </Button>
-                <Button type="button" onClick={nextStep} size="lg" disabled={!walletId || !selectedPixKeyId || selectedPixKeyId === 'new'}>
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3 (PIX): Tipo de Dívida - Única, Parcelada ou Recorrente */}
-          {currentStep === 3 && paymentMethod === 'pix' && (
-            <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Info className="h-5 w-5" />
-                    Tipo de Dívida
-                  </CardTitle>
-                  <CardDescription>
-                    Selecione o tipo de dívida para entender melhor o impacto financeiro
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <Button
-                      type="button"
-                      variant={pixDebtType === 'single' ? 'default' : 'outline'}
-                      className="h-auto py-6 flex-col gap-3 text-left items-start"
-                      onClick={() => setPixDebtType('single')}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Check className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-base mb-1">Pagamento Único</div>
-                          <div className="text-sm text-muted-foreground">
-                            Uma única cobrança, sem parcelas e sem recorrência. Ex: Pagamento de serviço pontual.
-                          </div>
-                        </div>
-                      </div>
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant={pixDebtType === 'installment' ? 'default' : 'outline'}
-                      className="h-auto py-6 flex-col gap-3 text-left items-start"
-                      onClick={() => setPixDebtType('installment')}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <CreditCard className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-base mb-1">Pagamento Parcelado</div>
-                          <div className="text-sm text-muted-foreground">
-                            Dividido em múltiplas parcelas, sem recorrência. Ex: Compra parcelada, empréstimo.
-                          </div>
-                        </div>
-                      </div>
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant={pixDebtType === 'recurring' ? 'default' : 'outline'}
-                      className="h-auto py-6 flex-col gap-3 text-left items-start"
-                      onClick={() => setPixDebtType('recurring')}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Sparkles className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-base mb-1">Dívida Recorrente Mensal</div>
-                          <div className="text-sm text-muted-foreground">
-                            Cobrança que se repete mensalmente. Ex: Mensalidade de academia, assinatura, aluguel.
-                          </div>
-                        </div>
-                      </div>
-                    </Button>
-                  </div>
-
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-sm">
-                      <strong>Importante:</strong> Esta escolha define como a dívida será gerenciada. 
-                      Você poderá configurar os valores e detalhes nas próximas etapas.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar
-                </Button>
-                <Button 
-                  type="button" 
-                  onClick={nextStep} 
-                  size="lg"
-                  disabled={!pixDebtType}
-                >
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3 (Mercado Pago): Carteira */}
-          {currentStep === 3 && paymentMethod === 'mercadopago' && (
-            <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Carteira
-                  </CardTitle>
-                  <CardDescription>
-                    Selecione a carteira para associar esta dívida
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {wallets && wallets.length > 0 && (
-                    <div>
-                      <Label htmlFor="walletId">Carteira <span className="text-destructive">*</span></Label>
-                      <Select
-                        value={walletId || defaultWallet?.id || ''}
-                        onValueChange={(value) => setValue('walletId', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma carteira" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {wallets.map((wallet) => (
-                            <SelectItem key={wallet.id} value={wallet.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{wallet.icon || '💳'}</span>
-                                <span>{wallet.name}</span>
-                                {wallet.isDefault && (
-                                  <Badge variant="secondary" className="text-xs">Padrão</Badge>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.walletId && (
-                        <p className="text-sm text-destructive mt-1">{errors.walletId.message}</p>
-                      )}
-                      <Alert className="mt-4">
-                        <Info className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          O Mercado Pago gerará automaticamente os links de pagamento e QR Codes. Não é necessário configurar uma chave PIX.
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar
-                </Button>
-                <Button type="button" onClick={nextStep} size="lg" disabled={!walletId}>
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4 (PIX) / STEP 4 (Mercado Pago): Valores e Parcelas */}
-            {((currentStep === 4 && paymentMethod === 'pix') || (currentStep === 4 && paymentMethod === 'mercadopago')) && (
-              <div className="space-y-6 animate-fade-in">
-                <InstallmentCalculator
-                  inputMode={inputMode}
-                  onInputModeChange={setInputMode}
-                  totalAmount={totalAmount || ''}
-                  installmentAmount={installmentAmount}
-                  installments={installments}
-                  onTotalAmountChange={(value) => setValue('totalAmount', value)}
-                  onInstallmentAmountChange={setInstallmentAmount}
-                  onInstallmentsChange={(value) => setValue('installments', value)}
-                  isInProgress={isInProgress}
-                  onInProgressChange={setIsInProgress}
-                  paidInstallments={paidInstallments}
-                  onPaidInstallmentsChange={setPaidInstallments}
-                  debtType={paymentMethod === 'pix' ? pixDebtType : null}
-                />
-                
-                {/* Data de Vencimento */}
-                <Card>
-                  <CardContent className="pt-6">
-                    <div>
-                      <Label htmlFor="dueDate">
-                        Data do Primeiro Vencimento <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="dueDate"
-                        type="date"
-                        className="mt-2"
-                        {...register('dueDate', {
-                          required: 'Data de vencimento é obrigatória',
-                        })}
-                      />
-                      {errors.dueDate && (
-                        <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="flex justify-between">
-                  <Button type="button" variant="outline" onClick={prevStep}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Voltar
-                  </Button>
-                  <Button type="button" onClick={nextStep} size="lg">
-                    Continuar
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-          {/* STEP 5 (PIX): Recorrência - Só mostra se tipo for recorrente */}
-          {currentStep === 5 && paymentMethod === 'pix' && pixDebtType === 'recurring' && (
-            <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Info className="h-5 w-5" />
-                    Configuração de Recorrência
-                  </CardTitle>
-                  <CardDescription>
-                    Configure os detalhes da recorrência mensal
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-sm">
-                      <strong>Dívida Recorrente Mensal:</strong> Esta dívida será cobrada automaticamente todo mês no dia configurado abaixo.
-                    </AlertDescription>
-                  </Alert>
-
-                  {isRecurring && (
-                    <div className="space-y-4 mt-4 p-4 bg-muted/30 border rounded-lg">
-                      <div>
-                        <Label htmlFor="recurringInterval" className="text-base font-semibold">
-                          Intervalo de Recorrência <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={recurringInterval}
-                          onValueChange={(value: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY') => setRecurringInterval(value)}
-                        >
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="MONTHLY">Mensal</SelectItem>
-                            <SelectItem value="WEEKLY">Semanal</SelectItem>
-                            <SelectItem value="BIWEEKLY">Quinzenal</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Com que frequência esta dívida se repete?
-                        </p>
-                      </div>
-                      <div>
-                        <Label htmlFor="recurringDay" className="text-base font-semibold">
-                          Dia da Recorrência <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="recurringDay"
-                          type="number"
-                          min="1"
-                          max="31"
-                          value={recurringDay}
-                          onChange={(e) => setRecurringDay(parseInt(e.target.value) || 1)}
-                          className="mt-2"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {recurringInterval === 'MONTHLY' 
-                            ? 'Dia do mês em que a cobrança será gerada (1-31)'
-                            : recurringInterval === 'WEEKLY'
-                            ? 'Dia da semana (1=Segunda, 7=Domingo)'
-                            : 'Dia do mês para cobranças quinzenais (1-31)'}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar
-                </Button>
-                <Button type="button" onClick={nextStep} size="lg">
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4 (Mercado Pago): Valores e Configuração - Campos específicos para Mercado Pago */}
-          {currentStep === 4 && paymentMethod === 'mercadopago' && (
-            <div className="space-y-6 animate-fade-in">
-              <InstallmentCalculator
-                inputMode={inputMode}
-                onInputModeChange={setInputMode}
-                totalAmount={totalAmount || ''}
-                installmentAmount={installmentAmount}
-                installments={installments}
-                onTotalAmountChange={(value) => setValue('totalAmount', value)}
-                onInstallmentAmountChange={setInstallmentAmount}
-                onInstallmentsChange={(value) => setValue('installments', value)}
-                isInProgress={isInProgress}
-                onInProgressChange={setIsInProgress}
-                paidInstallments={paidInstallments}
-                onPaidInstallmentsChange={setPaidInstallments}
-              />
-              
-              {/* Configurações específicas do Mercado Pago */}
-              {(mercadoPagoPaymentType === 'RECURRING_PIX' || mercadoPagoPaymentType === 'RECURRING_CARD') && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Info className="h-5 w-5" />
-                      Configuração de Assinatura
-                    </CardTitle>
-                    <CardDescription>
-                      Configure os detalhes da assinatura recorrente
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Alert>
-                      <Info className="h-4 w-4" />
-                      <AlertDescription className="text-sm">
-                        Esta é uma assinatura recorrente. A cobrança será gerada automaticamente conforme o intervalo configurado.
-                      </AlertDescription>
-                    </Alert>
-                    
-                    <div>
-                      <Label htmlFor="recurringInterval">Intervalo de Recorrência <span className="text-destructive">*</span></Label>
-                      <Select
-                        value={recurringInterval}
-                        onValueChange={(value: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY') => setRecurringInterval(value)}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MONTHLY">Mensal</SelectItem>
-                          <SelectItem value="WEEKLY">Semanal</SelectItem>
-                          <SelectItem value="BIWEEKLY">Quinzenal</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="recurringDay">Dia da Recorrência <span className="text-destructive">*</span></Label>
-                      <Input
-                        id="recurringDay"
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={recurringDay}
-                        onChange={(e) => setRecurringDay(parseInt(e.target.value) || 1)}
-                        className="mt-2"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {recurringInterval === 'MONTHLY' 
-                          ? 'Dia do mês em que a cobrança será gerada (1-31)'
-                          : recurringInterval === 'WEEKLY'
-                          ? 'Dia da semana (1=Segunda, 7=Domingo)'
-                          : 'Dia do mês para cobranças quinzenais (1-31)'}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {mercadoPagoPaymentType === 'INSTALLMENT' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Info className="h-5 w-5" />
-                      Configuração de Parcelas
-                    </CardTitle>
-                    <CardDescription>
-                      Configure o intervalo entre parcelas
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor="installmentInterval">Intervalo entre Parcelas</Label>
-                      <Select
-                        value={recurringInterval}
-                        onValueChange={(value: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY') => setRecurringInterval(value)}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MONTHLY">Mensal</SelectItem>
-                          <SelectItem value="WEEKLY">Semanal</SelectItem>
-                          <SelectItem value="BIWEEKLY">Quinzenal</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Intervalo entre cada parcela do pagamento
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* Data de Vencimento */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div>
-                    <Label htmlFor="dueDate">
-                      Data do Primeiro Vencimento <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="dueDate"
-                      type="date"
-                      className="mt-2"
-                      {...register('dueDate', {
-                        required: 'Data de vencimento é obrigatória',
-                      })}
-                    />
-                    {errors.dueDate && (
-                      <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar
-                </Button>
-                <Button type="button" onClick={nextStep} size="lg">
-                  Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 6 (PIX) / STEP 5 (Mercado Pago): Revisão */}
-          {((currentStep === 6 && paymentMethod === 'pix') || (currentStep === 5 && paymentMethod === 'mercadopago')) && (
-            <div className="space-y-6 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Check className="h-5 w-5" />
-                    Revisão
-                  </CardTitle>
-                  <CardDescription>
-                    Revise as informações antes de criar
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                          <div className="space-y-3">
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm text-muted-foreground">Tipo:</span>
-                      <Badge>{isPersonalDebt ? 'Eu devo' : 'Alguém me deve'}</Badge>
-                            </div>
-                    <div className="flex justify-between items-start gap-4">
-                      <span className="text-sm text-muted-foreground flex-shrink-0">Devedor:</span>
-                      <div className="text-right min-w-0 flex-1">
-                        <p className="font-medium truncate">{watch('debtorName') || watch('debtorEmail')}</p>
-                        <p className="text-xs text-muted-foreground truncate">{watch('debtorEmail')}</p>
-                      </div>
-                    </div>
-                    {isPersonalDebt && !isPersonalDebtForMyself && (
-                      <div className="flex justify-between items-start gap-4">
-                        <span className="text-sm text-muted-foreground flex-shrink-0">Credor:</span>
-                        <div className="text-right min-w-0 flex-1">
-                          <p className="font-medium truncate">{watch('creditorName') || watch('creditorEmail')}</p>
-                          <p className="text-xs text-muted-foreground truncate">{watch('creditorEmail')}</p>
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-start gap-4">
-                      <span className="text-sm text-muted-foreground flex-shrink-0">Descrição:</span>
-                      <p className="font-medium text-right truncate min-w-0 flex-1">{watch('description')}</p>
-                    </div>
-                    <div className="flex justify-between items-center gap-4">
-                      <span className="text-sm text-muted-foreground flex-shrink-0">Valor Total:</span>
-                      <p className="font-bold text-lg truncate min-w-0 flex-1 text-right">{formatCurrency(parseFloat(String(totalAmount || 0)))}</p>
-                    </div>
-                    <div className="flex justify-between items-center gap-4">
-                      <span className="text-sm text-muted-foreground flex-shrink-0">Parcelas:</span>
-                      <p className="font-medium truncate min-w-0 flex-1 text-right">
-                        {installments}x de {formatCurrency(inputMode === 'installment' ? parseFloat(String(installmentAmount || 0)) : installmentValue)}
-                      </p>
-                    </div>
-                    {isInProgress && paidInstallments > 0 && (
-                      <>
-                        <div className="flex justify-between items-center gap-4">
-                          <span className="text-sm text-muted-foreground flex-shrink-0">Parcelas pagas:</span>
-                          <p className="font-medium truncate min-w-0 flex-1 text-right">{paidInstallments}</p>
-                        </div>
-                        <div className="flex justify-between items-center gap-4">
-                          <span className="text-sm text-muted-foreground flex-shrink-0">Parcelas restantes:</span>
-                          <p className="font-medium truncate min-w-0 flex-1 text-right">{installments - paidInstallments}</p>
-                        </div>
-                      </>
-                    )}
-                    {paymentMethod === 'mercadopago' && mercadoPagoPaymentType && (
-                      <div className="flex justify-between items-center gap-4">
-                        <span className="text-sm text-muted-foreground flex-shrink-0">Tipo de Pagamento:</span>
-                        <Badge className="flex-shrink-0">
-                          {mercadoPagoPaymentType === 'INSTALLMENT' ? 'Parcelas' :
-                           mercadoPagoPaymentType === 'SINGLE_PIX' ? 'PIX Único' :
-                           mercadoPagoPaymentType === 'RECURRING_PIX' ? 'Assinatura PIX' :
-                           'Assinatura Cartão'}
-                        </Badge>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center gap-4">
-                      <span className="text-sm text-muted-foreground flex-shrink-0">Vencimento:</span>
-                      <p className="font-medium truncate min-w-0 flex-1 text-right">{new Date(watch('dueDate')).toLocaleDateString('pt-BR')}</p>
-                    </div>
-                    <div className="flex justify-between items-center gap-4">
-                      <span className="text-sm text-muted-foreground flex-shrink-0">Pagamento:</span>
-                      <Badge className="flex-shrink-0">{useGateway ? 'Mercado Pago' : 'PIX Manual'}</Badge>
-                    </div>
-                    <div className="flex justify-between items-center gap-4">
-                      <span className="text-sm text-muted-foreground flex-shrink-0">Status:</span>
-                      <Badge variant={debtStatus === 'PARTIAL' ? 'default' : 'secondary'} className="flex-shrink-0">
-                        {debtStatus === 'PARTIAL' ? 'Em Andamento' : 'Pendente'}
-                      </Badge>
-                    </div>
-                    {isRecurring && (
-                      <>
-                        <div className="flex justify-between items-center gap-4">
-                          <span className="text-sm text-muted-foreground flex-shrink-0">Recorrente:</span>
-                          <Badge variant="outline" className="flex-shrink-0">Sim</Badge>
-                        </div>
-                        <div className="flex justify-between items-center gap-4">
-                          <span className="text-sm text-muted-foreground flex-shrink-0">Intervalo:</span>
-                          <p className="font-medium truncate min-w-0 flex-1 text-right">
-                            {recurringInterval === 'MONTHLY' ? 'Mensal' : recurringInterval === 'WEEKLY' ? 'Semanal' : 'Quinzenal'}
-                          </p>
-                        </div>
-                        <div className="flex justify-between items-center gap-4">
-                          <span className="text-sm text-muted-foreground flex-shrink-0">Dia da Recorrência:</span>
-                          <p className="font-medium truncate min-w-0 flex-1 text-right">{recurringDay}</p>
-                        </div>
-                      </>
-                    )}
-                    {wallets && walletId && (
-                      <div className="flex justify-between items-center gap-4">
-                        <span className="text-sm text-muted-foreground flex-shrink-0">Carteira:</span>
-                        <p className="font-medium truncate min-w-0 flex-1 text-right">
-                          {wallets.find((w) => w.id === walletId)?.name || 'Padrão'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-              </Button>
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={isCreatingDebt}
-                >
-                  {isCreatingDebt ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando...
-                    </>
-                  ) : (
-                    <>
+        <div className="flex justify-between mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={prevStep}
+            disabled={currentStep === 0}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+          {currentStep < STEPS.length - 1 ? (
+            <Button type="button" onClick={nextStep} size="lg">
+              Continuar
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="lg"
+              disabled={isCreatingDebt}
+            >
+              {isCreatingDebt ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
                   <Check className="mr-2 h-4 w-4" />
                   Criar Dívida
-                    </>
-                  )}
-                </Button>
-            </div>
-            </div>
+                </>
+              )}
+            </Button>
           )}
+        </div>
       </form>
 
-        {/* Modal de Duplicatas */}
-        <DuplicateDebtWarning
-          open={showDuplicateWarning}
-          duplicates={duplicates}
-          onResponse={handleDuplicateWarningResponse}
-          onOpenChange={setShowDuplicateWarning}
-        />
+      <DuplicateDebtWarning
+        open={showDuplicateWarning}
+        duplicates={duplicates}
+        onResponse={handleDuplicateWarningResponse}
+        onOpenChange={setShowDuplicateWarning}
+      />
 
-        {/* Modal de Criação de Chave PIX */}
-        <CreatePixKeyModal
-          open={showCreatePixKeyModal}
-          onOpenChange={setShowCreatePixKeyModal}
-          walletId={walletId || undefined}
-          onSuccess={(pixKeyId) => {
-            setSelectedPixKeyId(pixKeyId);
-            setValue('pixKeyId', pixKeyId);
-          }}
-        />
-      </div>
+      <CreatePixKeyModal
+        open={showCreatePixKeyModal}
+        onOpenChange={setShowCreatePixKeyModal}
+        walletId={walletId || undefined}
+        onSuccess={(pixKeyId) => {
+          setSelectedPixKeyId(pixKeyId);
+          setValue('pixKeyId', pixKeyId);
+        }}
+      />
     </div>
   );
 }

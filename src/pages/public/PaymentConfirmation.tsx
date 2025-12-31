@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
+import { ProofUpload } from '@/components/payment/ProofUpload';
 
 export default function PaymentConfirmation() {
   const [searchParams] = useSearchParams();
@@ -17,6 +18,8 @@ export default function PaymentConfirmation() {
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [proofDocumentPath, setProofDocumentPath] = useState<string | null>(null);
+  const [proofDocumentMimeType, setProofDocumentMimeType] = useState<string | null>(null);
 
   const debtorToken = searchParams.get('token');
   const chargeIdsParam = searchParams.get('chargeIds');
@@ -60,10 +63,18 @@ export default function PaymentConfirmation() {
           tokenToUse,
           chargeIds,
           notes || undefined,
+          proofDocumentPath || undefined,
+          proofDocumentMimeType || undefined,
         );
       } else {
         // Usar endpoint individual
-        return debtorAccessService.markMultipleChargesPaid(tokenToUse, chargeIds, notes || undefined);
+        return debtorAccessService.markMultipleChargesPaid(
+          tokenToUse,
+          chargeIds,
+          notes || undefined,
+          proofDocumentPath || undefined,
+          proofDocumentMimeType || undefined,
+        );
       }
     },
     onSuccess: () => {
@@ -238,12 +249,34 @@ export default function PaymentConfirmation() {
           </Card>
         )}
 
+        {/* Comprovante de Pagamento */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">Comprovante de Pagamento</CardTitle>
+            <CardDescription className="text-sm">
+              Envie uma foto ou PDF do comprovante para facilitar a confirmação
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProofUpload
+              onUploadComplete={(path, mimeType) => {
+                setProofDocumentPath(path);
+                setProofDocumentMimeType(mimeType);
+              }}
+              onRemove={() => {
+                setProofDocumentPath(null);
+                setProofDocumentMimeType(null);
+              }}
+            />
+          </CardContent>
+        </Card>
+
         {/* Observações */}
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Observações (opcional)</CardTitle>
             <CardDescription className="text-sm">
-              Adicione informações sobre o pagamento, como data, horário ou comprovante
+              Adicione informações sobre o pagamento, como data e horário
             </CardDescription>
           </CardHeader>
           <CardContent>

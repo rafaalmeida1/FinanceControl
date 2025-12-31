@@ -24,9 +24,6 @@ import { usersService } from '@/services/users.service';
 import { authService } from '@/services/auth.service';
 import { paymentsService } from '@/services/payments.service';
 import { PixKeysTab } from '@/components/settings/PixKeysTab';
-import { useFinancialProfile } from '@/hooks/useFinancialProfile';
-import { TrendingUp, Calendar } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
 
 const profileSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
@@ -48,12 +45,6 @@ const passwordSchema = z
 type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
-const financialProfileSchema = z.object({
-  monthlyIncome: z.number().min(0, 'Salário deve ser maior ou igual a zero').optional(),
-  payday: z.number().min(1).max(31, 'Dia deve ser entre 1 e 31').optional(),
-});
-
-type FinancialProfileFormData = z.infer<typeof financialProfileSchema>;
 
 export default function Settings() {
   const { user, setUser } = authStore();
@@ -193,7 +184,6 @@ export default function Settings() {
         <div className="md:hidden overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
           <TabsList className="inline-flex w-max min-w-full">
             <TabsTrigger value="perfil" className="whitespace-nowrap flex-shrink-0">Perfil</TabsTrigger>
-            <TabsTrigger value="financeiro" className="whitespace-nowrap flex-shrink-0">Financeiro</TabsTrigger>
             <TabsTrigger value="seguranca" className="whitespace-nowrap flex-shrink-0">Segurança</TabsTrigger>
             <TabsTrigger value="pagamentos" className="whitespace-nowrap flex-shrink-0">Pagamentos</TabsTrigger>
             <TabsTrigger value="pix" className="whitespace-nowrap flex-shrink-0">Chaves PIX</TabsTrigger>
@@ -202,9 +192,8 @@ export default function Settings() {
         
         {/* Desktop: Grid Tabs */}
         <div className="hidden md:block">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="perfil">Perfil</TabsTrigger>
-            <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
             <TabsTrigger value="seguranca">Segurança</TabsTrigger>
             <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
             <TabsTrigger value="pix">Chaves PIX</TabsTrigger>
@@ -253,11 +242,6 @@ export default function Settings() {
               </CardFooter>
             </form>
           </Card>
-        </TabsContent>
-
-        {/* Aba: Perfil Financeiro */}
-        <TabsContent value="financeiro">
-          <FinancialProfileTab />
         </TabsContent>
 
         {/* Aba: Segurança */}
@@ -384,152 +368,6 @@ export default function Settings() {
 
       </Tabs>
     </div>
-  );
-}
-
-function FinancialProfileTab() {
-  const { profile, isLoading, updateProfile } = useFinancialProfile();
-  const [loading, setLoading] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<FinancialProfileFormData>({
-    resolver: zodResolver(financialProfileSchema),
-    defaultValues: {
-      monthlyIncome: profile?.monthlyIncome ? parseFloat(String(profile.monthlyIncome)) : undefined,
-      payday: profile?.payday || undefined,
-    },
-  });
-
-  useEffect(() => {
-    if (profile) {
-      reset({
-        monthlyIncome: profile.monthlyIncome ? parseFloat(String(profile.monthlyIncome)) : undefined,
-        payday: profile.payday || undefined,
-      });
-    }
-  }, [profile, reset]);
-
-  const onSubmit = async (data: FinancialProfileFormData) => {
-    setLoading(true);
-    try {
-      await updateProfile.mutateAsync({
-        monthlyIncome: data.monthlyIncome,
-        payday: data.payday,
-      });
-      toast.success('Perfil financeiro atualizado com sucesso!');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao atualizar perfil financeiro');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-8">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Perfil Financeiro</CardTitle>
-        <CardDescription>
-          Configure suas informações financeiras para uma experiência personalizada
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Essas informações são usadas para calcular projeções e melhorar sua experiência.
-              Você pode atualizá-las a qualquer momento.
-            </AlertDescription>
-          </Alert>
-
-          <div>
-            <Label htmlFor="monthlyIncome" className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4" />
-              Salário Líquido Mensal
-            </Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                R$
-              </span>
-              <Input
-                id="monthlyIncome"
-                type="number"
-                step="0.01"
-                min="0"
-                className="pl-8"
-                placeholder="5000.00"
-                {...register('monthlyIncome', {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
-            {errors.monthlyIncome && (
-              <p className="text-sm text-destructive mt-1">
-                {errors.monthlyIncome.message}
-              </p>
-            )}
-            {profile?.monthlyIncome && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Valor atual: {formatCurrency(parseFloat(String(profile.monthlyIncome)))}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="payday" className="flex items-center gap-2 mb-2">
-              <Calendar className="h-4 w-4" />
-              Dia do Pagamento
-            </Label>
-            <Input
-              id="payday"
-              type="number"
-              min="1"
-              max="31"
-              placeholder="5"
-              {...register('payday', {
-                valueAsNumber: true,
-              })}
-            />
-            {errors.payday && (
-              <p className="text-sm text-destructive mt-1">{errors.payday.message}</p>
-            )}
-            {profile?.payday && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Você recebe todo dia {profile.payday} de cada mês
-              </p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button type="submit" disabled={loading || updateProfile.isPending}>
-            {loading || updateProfile.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              'Salvar Alterações'
-            )}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
   );
 }
 

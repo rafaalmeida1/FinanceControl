@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { ArrowRight, ArrowLeft, TrendingUp, Calendar, Info, Sparkles, Wallet as WalletIcon } from 'lucide-react';
-import { useFinancialProfile } from '@/hooks/useFinancialProfile';
+import { ArrowRight, Info, Sparkles, Wallet as WalletIcon } from 'lucide-react';
 import { useWallets } from '@/hooks/useWallets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,19 +10,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 interface OnboardingFormData {
-  monthlyIncome: number;
-  payday: number;
   walletName: string;
   walletBalance: number;
+  walletColor?: string;
+  walletIcon?: string;
 }
 
 export default function FinancialOnboarding() {
   const navigate = useNavigate();
-  const { createProfile, updateProfile } = useFinancialProfile();
   const { createWallet } = useWallets();
-  const [currentStep, setCurrentStep] = useState(1);
 
   const {
     register,
@@ -33,59 +30,39 @@ export default function FinancialOnboarding() {
     formState: { errors },
   } = useForm<OnboardingFormData>({
     defaultValues: {
-      monthlyIncome: undefined,
-      payday: undefined,
       walletName: 'Carteira Principal',
       walletBalance: 0,
+      walletColor: '#10b981',
+      walletIcon: '💳',
     },
   });
 
-  const monthlyIncome = watch('monthlyIncome');
-  const payday = watch('payday');
   const walletName = watch('walletName');
   const walletBalance = watch('walletBalance');
+  const walletColor = watch('walletColor');
+  const walletIcon = watch('walletIcon');
 
   const onSubmit = async (data: OnboardingFormData) => {
     try {
-      // Criar perfil financeiro
-      await createProfile.mutateAsync({
-        monthlyIncome: parseFloat(String(data.monthlyIncome)),
-        payday: parseInt(String(data.payday)),
-      });
-
       // Criar carteira padrão com saldo inicial
-      if (data.walletName && data.walletName.trim() !== '') {
-        await createWallet.mutateAsync({
-          name: data.walletName.trim(),
-          color: '#10b981',
-          icon: '💳',
-          isDefault: true,
-          balance: data.walletBalance ? parseFloat(String(data.walletBalance)) : 0,
-        });
-      }
-
-      // Marcar onboarding como completo
-      await updateProfile.mutateAsync({
-        onboardingCompleted: true,
+      await createWallet.mutateAsync({
+        name: data.walletName.trim(),
+        color: data.walletColor || '#10b981',
+        icon: data.walletIcon || '💳',
+        isDefault: true,
+        balance: data.walletBalance ? parseFloat(String(data.walletBalance)) : 0,
       });
 
-      toast.success('Perfil configurado com sucesso!');
+      toast.success('Carteira criada com sucesso!');
       navigate('/dashboard');
     } catch (error: any) {
-      console.error('Erro ao salvar perfil:', error);
-      toast.error(error?.response?.data?.message || 'Erro ao configurar perfil');
+      console.error('Erro ao criar carteira:', error);
+      toast.error(error?.response?.data?.message || 'Erro ao criar carteira');
     }
   };
 
-  const handleSkip = async () => {
-      // Skipped - não precisa mais
-    // Criar perfil vazio mas marcar como não completo
-    try {
-      await createProfile.mutateAsync({});
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Erro ao pular onboarding:', error);
-    }
+  const handleSkip = () => {
+    navigate('/dashboard');
   };
 
   return (
@@ -102,285 +79,191 @@ export default function FinancialOnboarding() {
             Bem-vindo ao Finance Control!
           </h1>
           <p className="text-muted-foreground text-lg">
-            Vamos configurar seu perfil financeiro para uma experiência personalizada
+            Vamos criar sua primeira carteira para começar a controlar suas finanças
           </p>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div
-            className={`h-2 flex-1 rounded-full transition-colors ${
-              currentStep >= 1 ? 'bg-primary' : 'bg-muted'
-            }`}
-          />
-          <div
-            className={`h-2 flex-1 rounded-full transition-colors ${
-              currentStep >= 2 ? 'bg-primary' : 'bg-muted'
-            }`}
-          />
-          <div
-            className={`h-2 flex-1 rounded-full transition-colors ${
-              currentStep >= 3 ? 'bg-primary' : 'bg-muted'
-            }`}
-          />
         </div>
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>
-              {currentStep === 1
-                ? 'Informações Financeiras'
-                : currentStep === 2
-                ? 'Dia do Pagamento'
-                : 'Criar Carteira'}
+            <CardTitle className="flex items-center gap-2">
+              <WalletIcon className="h-5 w-5" />
+              Criar Carteira
             </CardTitle>
             <CardDescription>
-              {currentStep === 1
-                ? 'Essas informações nos ajudam a personalizar sua experiência'
-                : currentStep === 2
-                ? 'Quando você recebe seu salário mensalmente?'
-                : 'Crie sua primeira carteira para começar a controlar suas finanças'}
+              Crie sua primeira carteira para organizar suas movimentações financeiras
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)}>
-              {currentStep === 1 && (
-                <div className="space-y-6 animate-fade-in">
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription>
-                      Essas informações são usadas apenas para calcular projeções e melhorar sua
-                      experiência. Você pode alterá-las a qualquer momento nas configurações.
-                    </AlertDescription>
-                  </Alert>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  A carteira é onde você organiza suas movimentações. Você pode criar quantas
+                  carteiras quiser depois.
+                </AlertDescription>
+              </Alert>
 
-                  <div>
-                    <Label htmlFor="monthlyIncome" className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="h-4 w-4" />
-                      Salário Líquido Mensal
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        R$
-                      </span>
+              {/* Nome da Carteira */}
+              <div>
+                <Label htmlFor="walletName" className="text-base font-semibold">
+                  Nome da Carteira <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="walletName"
+                  placeholder="Ex: Carteira Principal, Conta Corrente..."
+                  className="mt-2"
+                  {...register('walletName', {
+                    required: 'Nome da carteira é obrigatório',
+                    minLength: { value: 2, message: 'Nome deve ter pelo menos 2 caracteres' },
+                  })}
+                />
+                {errors.walletName && (
+                  <p className="text-sm text-destructive mt-1">{errors.walletName.message}</p>
+                )}
+              </div>
+
+              {/* Saldo Inicial - Destaque */}
+              <div className="p-4 rounded-lg border-2 border-primary/20 bg-primary/5">
+                <Label htmlFor="walletBalance" className="text-base font-semibold">
+                  Saldo Inicial <span className="text-muted-foreground font-normal">(Opcional)</span>
+                </Label>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                    R$
+                  </span>
+                  <Input
+                    id="walletBalance"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="pl-10 text-lg font-semibold"
+                    placeholder="0.00"
+                    {...register('walletBalance', {
+                      min: { value: 0, message: 'Saldo não pode ser negativo' },
+                      valueAsNumber: true,
+                    })}
+                  />
+                </div>
+                {errors.walletBalance && (
+                  <p className="text-sm text-destructive mt-1">{errors.walletBalance.message}</p>
+                )}
+                {walletBalance && walletBalance > 0 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Saldo inicial: <span className="font-semibold">{formatCurrency(parseFloat(String(walletBalance)))}</span>
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Se você já tem dinheiro disponível, informe o valor inicial. Caso contrário, deixe em zero.
+                </p>
+              </div>
+
+              {/* Personalização - Acordeon */}
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="personalization">
+                  <AccordionTrigger className="text-sm font-medium">
+                    Personalizar Carteira (Opcional)
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4 pt-4">
+                    <div>
+                      <Label htmlFor="walletIcon">Ícone</Label>
                       <Input
-                        id="monthlyIncome"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="pl-8"
-                        placeholder="5000.00"
-                        {...register('monthlyIncome', {
-                          required: 'Salário é obrigatório',
-                          min: { value: 0.01, message: 'Valor deve ser maior que zero' },
-                        })}
+                        id="walletIcon"
+                        placeholder="💳"
+                        maxLength={2}
+                        className="mt-2"
+                        {...register('walletIcon')}
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Escolha um emoji ou ícone para sua carteira
+                      </p>
                     </div>
-                    {errors.monthlyIncome && (
-                      <p className="text-sm text-destructive mt-1">
-                        {errors.monthlyIncome.message}
+
+                    <div>
+                      <Label htmlFor="walletColor">Cor</Label>
+                      <div className="flex items-center gap-3 mt-2">
+                        <Input
+                          id="walletColor"
+                          type="color"
+                          className="w-16 h-10 cursor-pointer"
+                          {...register('walletColor')}
+                        />
+                        <Input
+                          type="text"
+                          placeholder="#10b981"
+                          className="flex-1"
+                          {...register('walletColor')}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Escolha uma cor para identificar sua carteira
                       </p>
-                    )}
-                    {monthlyIncome && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Você informou: {formatCurrency(parseFloat(String(monthlyIncome)))}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleSkip}
-                      className="flex-1"
-                    >
-                      Pular por enquanto
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => setCurrentStep(2)}
-                      disabled={!monthlyIncome || errors.monthlyIncome !== undefined}
-                      className="flex-1"
-                    >
-                      Continuar
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 2 && (
-                <div className="space-y-6 animate-fade-in">
-                  <Alert>
-                    <Calendar className="h-4 w-4" />
-                    <AlertDescription>
-                      Informe o dia do mês em que você recebe seu salário. Isso nos ajuda a
-                      calcular quando você terá dinheiro disponível.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div>
-                    <Label htmlFor="payday" className="flex items-center gap-2 mb-2">
-                      <Calendar className="h-4 w-4" />
-                      Dia do Pagamento
-                    </Label>
-                    <Input
-                      id="payday"
-                      type="number"
-                      min="1"
-                      max="31"
-                      placeholder="5"
-                      {...register('payday', {
-                        required: 'Dia do pagamento é obrigatório',
-                        min: { value: 1, message: 'Dia deve ser entre 1 e 31' },
-                        max: { value: 31, message: 'Dia deve ser entre 1 e 31' },
-                      })}
-                    />
-                    {errors.payday && (
-                      <p className="text-sm text-destructive mt-1">{errors.payday.message}</p>
-                    )}
-                    {payday && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Você recebe todo dia {payday} de cada mês
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setCurrentStep(1)}
-                      className="flex-1"
-                    >
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Voltar
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => setCurrentStep(3)}
-                      disabled={!payday || errors.payday !== undefined}
-                      className="flex-1"
-                    >
-                      Continuar
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 3 && (
-                <div className="space-y-6 animate-fade-in">
-                  <Alert>
-                    <WalletIcon className="h-4 w-4" />
-                    <AlertDescription>
-                      Crie sua primeira carteira para organizar suas finanças. Você pode adicionar
-                      um saldo inicial se já tiver dinheiro disponível.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div>
-                    <Label htmlFor="walletName" className="flex items-center gap-2 mb-2">
-                      <WalletIcon className="h-4 w-4" />
-                      Nome da Carteira <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="walletName"
-                      placeholder="Ex: Carteira Principal"
-                      {...register('walletName', {
-                        required: 'Nome da carteira é obrigatório',
-                        minLength: { value: 2, message: 'Nome deve ter pelo menos 2 caracteres' },
-                      })}
-                    />
-                    {errors.walletName && (
-                      <p className="text-sm text-destructive mt-1">{errors.walletName.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="walletBalance" className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="h-4 w-4" />
-                      Saldo Inicial (Opcional)
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        R$
-                      </span>
-                      <Input
-                        id="walletBalance"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="pl-8"
-                        placeholder="0.00"
-                        {...register('walletBalance', {
-                          min: { value: 0, message: 'Saldo não pode ser negativo' },
-                          valueAsNumber: true,
-                        })}
-                      />
                     </div>
-                    {errors.walletBalance && (
-                      <p className="text-sm text-destructive mt-1">
-                        {errors.walletBalance.message}
-                      </p>
-                    )}
-                    {walletBalance && walletBalance > 0 && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Saldo inicial: {formatCurrency(parseFloat(String(walletBalance)))}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Se você já tem dinheiro disponível, informe o valor inicial da carteira.
-                      Caso contrário, deixe em zero.
-                    </p>
-                  </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
-                  <div className="flex gap-3 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setCurrentStep(2)}
-                      className="flex-1"
+              {/* Preview da Carteira */}
+              {(walletName || walletIcon || walletColor) && (
+                <div className="p-4 rounded-lg border bg-muted/50">
+                  <p className="text-sm font-medium mb-3">Preview:</p>
+                  <div
+                    className="flex items-center gap-3 p-4 rounded-lg border"
+                    style={{
+                      borderLeft: `4px solid ${walletColor || '#10b981'}`,
+                    }}
+                  >
+                    <div
+                      className="h-12 w-12 rounded-lg flex items-center justify-center text-xl"
+                      style={{ backgroundColor: `${walletColor || '#10b981'}20` }}
                     >
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Voltar
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={
-                        createProfile.isPending ||
-                        createWallet.isPending ||
-                        !walletName ||
-                        errors.walletName !== undefined ||
-                        errors.walletBalance !== undefined
-                      }
-                      className="flex-1"
-                    >
-                      {createProfile.isPending || createWallet.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Finalizando...
-                        </>
-                      ) : (
-                        <>
-                          Finalizar
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
+                      {walletIcon || '💳'}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold">{walletName || 'Carteira Principal'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Saldo: {formatCurrency(parseFloat(String(walletBalance)) || 0)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Botões */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSkip}
+                  className="flex-1"
+                >
+                  Pular por enquanto
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createWallet.isPending || !walletName || errors.walletName !== undefined}
+                  className="flex-1"
+                >
+                  {createWallet.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Criando...
+                    </>
+                  ) : (
+                    <>
+                      Criar Carteira
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">
-          Você pode pular esta etapa e completar depois nas configurações
+          Você pode criar mais carteiras depois nas configurações
         </p>
       </div>
     </div>
   );
 }
-

@@ -2,15 +2,28 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { debtorAccessService } from '@/services/debtor-access.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Calendar, DollarSign, FileText, Check, Copy, ExternalLink, QrCode, XCircle } from 'lucide-react';
+import {
+  Calendar,
+  DollarSign,
+  FileText,
+  Check,
+  Copy,
+  ExternalLink,
+  QrCode,
+  XCircle,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
+import { cn } from '@/lib/utils';
 
 export default function DebtorView() {
   const { token } = useParams<{ token: string }>();
@@ -30,8 +43,6 @@ export default function DebtorView() {
   };
 
   const handleCopyQrCode = (qrCode: string) => {
-    // Se for base64, extrair apenas o código PIX (se houver)
-    // Por enquanto, copiar o QR code completo
     navigator.clipboard.writeText(qrCode);
     toast.success('QR Code copiado!');
   };
@@ -41,7 +52,6 @@ export default function DebtorView() {
   };
 
   const handlePayCharge = (chargeId: string) => {
-    // Redirecionar para tela de confirmação de pagamento
     navigate(`/payment-confirmation?token=${token}&chargeIds=${chargeId}`);
   };
 
@@ -63,23 +73,22 @@ export default function DebtorView() {
 
     if (!data?.debt) return;
 
-    // Ordenar cobranças pendentes por data de vencimento (mais próxima primeiro)
     const pendingCharges = (data.debt.charges?.filter((c) => c.status === 'PENDING' || c.status === 'OVERDUE') || []).sort(
       (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
     );
-    
+
     const chargesToPay = pendingCharges.filter((c) => selectedCharges.has(c.id));
     const chargeIds = chargesToPay.map((c) => c.id).join(',');
-    
-    // Redirecionar para tela de confirmação de pagamento
+
     navigate(`/payment-confirmation?token=${token}&chargeIds=${chargeIds}`);
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg text-foreground">Carregando...</p>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-lg font-medium text-foreground">Carregando informações...</p>
         </div>
       </div>
     );
@@ -87,203 +96,230 @@ export default function DebtorView() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="bg-card text-card-foreground rounded-lg border p-6 max-w-md">
-          <h1 className="text-2xl font-bold text-destructive mb-4">Link Inválido</h1>
-          <p className="text-muted-foreground">Este link expirou ou é inválido.</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-destructive mb-2">Link Inválido</h1>
+              <p className="text-muted-foreground">Este link expirou ou é inválido.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   const { debt } = data;
-  // Ordenar cobranças pendentes por data de vencimento (mais próxima primeiro)
   const pendingCharges = (debt.charges?.filter((c) => c.status === 'PENDING' || c.status === 'OVERDUE') || []).sort(
     (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
   );
   const paidCharges = debt.charges?.filter((c) => c.status === 'PAID') || [];
-  const currentCharge = pendingCharges[0]; // Parcela atual (primeira da lista ordenada)
-  const otherPendingCharges = pendingCharges.slice(1); // Outras parcelas
+  const currentCharge = pendingCharges[0];
+  const otherPendingCharges = pendingCharges.slice(1);
   const totalSelected = pendingCharges
     .filter((c) => selectedCharges.has(c.id))
     .reduce((sum, c) => sum + Number(c.amount), 0);
+  const remainingAmount = debt.totalAmount - debt.paidAmount;
 
   return (
-    <div className="min-h-screen bg-background py-8 md:py-12 px-4 pb-20">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-card text-card-foreground rounded-lg border p-6 mb-6">
-          <h1 className="text-3xl font-bold mb-2">Detalhes da Dívida</h1>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="max-w-4xl mx-auto px-4 py-6 md:py-12 pb-24 md:pb-12">
+        {/* Header */}
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Detalhes da Movimentação</h1>
           <p className="text-muted-foreground">
-            Credor: {debt.creditorName || debt.creditorEmail || 'Não informado'}
+            Credor: <span className="font-medium">{debt.creditorName || debt.creditorEmail || 'Não informado'}</span>
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-card text-card-foreground rounded-lg border p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <DollarSign className="text-primary" size={24} />
-              <h3 className="font-semibold">Valor Total</h3>
-            </div>
-            <p className="text-2xl font-bold">{formatCurrency(debt.totalAmount)}</p>
-          </div>
+        {/* Resumo Financeiro */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Valor Total</p>
+                  <p className="text-xl font-bold">{formatCurrency(debt.totalAmount)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-card text-card-foreground rounded-lg border p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <DollarSign className="text-green-600" size={24} />
-              <h3 className="font-semibold">Valor Pago</h3>
-            </div>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(debt.paidAmount)}</p>
-          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <Check className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Valor Pago</p>
+                  <p className="text-xl font-bold text-green-600">{formatCurrency(debt.paidAmount)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-card text-card-foreground rounded-lg border p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <FileText size={24} />
-              <h3 className="font-semibold">Status</h3>
-            </div>
-            <span className={`badge ${getStatusColor(debt.status)}`}>
-              {getStatusLabel(debt.status)}
-            </span>
-          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Restante</p>
+                  <p className="text-xl font-bold text-orange-600">{formatCurrency(remainingAmount)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
+        {/* Descrição */}
         {debt.description && (
-          <div className="bg-card text-card-foreground rounded-lg border p-6 mb-6">
-            <h3 className="font-semibold mb-2">Descrição</h3>
-            <p className="text-muted-foreground">{debt.description}</p>
-          </div>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Descrição
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">{debt.description}</p>
+            </CardContent>
+          </Card>
         )}
 
         {/* Chave PIX */}
         {debt.pixKey && !debt.useGateway && (
-          <Card className="mb-6">
+          <Card className="mb-6 border-primary/20">
             <CardHeader>
-              <CardTitle>Chave PIX para Pagamento</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="h-5 w-5" />
+                Chave PIX para Pagamento
+              </CardTitle>
+              <CardDescription>Use esta chave para realizar o pagamento no seu banco</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="bg-muted p-4 rounded-lg flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {debt.pixKey.keyType}: <span className="font-mono font-bold text-lg">{debt.pixKey.keyValue}</span>
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => handleCopyPixKey(debt.pixKey!.keyValue)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copiar
-                </Button>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 p-4 rounded-lg border-2 border-dashed">
+                <p className="text-xs text-muted-foreground mb-1">Tipo: {debt.pixKey.keyType}</p>
+                <p className="font-mono font-bold text-lg break-all">{debt.pixKey.keyValue}</p>
               </div>
-              <p className="text-sm text-muted-foreground mt-3">
-                Use esta chave PIX para realizar o pagamento. Após o pagamento, você pode marcar a(s) parcela(s) como paga(s) abaixo.
-              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => handleCopyPixKey(debt.pixKey!.keyValue)}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar Chave PIX
+              </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Parcela Atual (Destaque) */}
+        {/* Parcela Atual - Destaque */}
         {currentCharge && (
-          <Card className="mb-6 border-2 border-primary bg-primary/5">
+          <Card className="mb-6 border-2 border-primary bg-primary/5 shadow-lg">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    Parcela Atual
-                    <Badge className="bg-primary text-primary-foreground">
+                  <CardTitle className="text-xl md:text-2xl mb-2">Parcela Atual</CardTitle>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="text-sm">
                       {currentCharge.installmentNumber
                         ? `Parcela ${currentCharge.installmentNumber}/${currentCharge.totalInstallments}`
                         : 'Cobrança única'}
                     </Badge>
-                  </CardTitle>
+                    <Badge className={cn(getStatusColor(currentCharge.status))}>
+                      {getStatusLabel(currentCharge.status)}
+                    </Badge>
+                  </div>
                 </div>
-                <Badge className={getStatusColor(currentCharge.status)}>
-                  {getStatusLabel(currentCharge.status)}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-2xl font-bold mb-2">{formatCurrency(currentCharge.amount)}</p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Vencimento: {formatDateShort(currentCharge.dueDate)}
+                <div className="text-right">
+                  <p className="text-3xl md:text-4xl font-bold text-primary">{formatCurrency(currentCharge.amount)}</p>
+                  <p className="text-sm text-muted-foreground flex items-center justify-end gap-1 mt-1">
+                    <Calendar className="h-3 w-3" />
+                    Vence em {formatDateShort(currentCharge.dueDate)}
                   </p>
                 </div>
-                {!debt.useGateway && (
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePayCharge(currentCharge.id);
-                    }}
-                    className="ml-4"
-                  >
-                    <Check className="mr-2 h-4 w-4" />
-                    Pagar Esta
-                  </Button>
-                  )}
-                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!debt.useGateway && (
+                <Button
+                  onClick={() => handlePayCharge(currentCharge.id)}
+                  size="lg"
+                  className="w-full"
+                >
+                  <Check className="mr-2 h-5 w-5" />
+                  Confirmar Pagamento
+                </Button>
+              )}
 
-                {/* Mercado Pago - Botão e QR Code */}
-                {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
-                  <div className="space-y-4 pt-4 border-t">
-                    {currentCharge.mercadoPagoQrCode && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold flex items-center gap-2">
-                            <QrCode className="h-5 w-5" />
-                            QR Code PIX
-                          </h4>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyQrCode(currentCharge.mercadoPagoQrCode!)}
-                          >
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copiar QR Code
-                          </Button>
-                        </div>
-                        <div className="bg-white p-4 rounded-lg border-2 border-dashed border-primary/20 flex justify-center">
-                          <img
-                            src={`data:image/png;base64,${currentCharge.mercadoPagoQrCode}`}
-                            alt="QR Code PIX"
-                            className="max-w-[250px] w-full"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground text-center">
-                          Escaneie o QR Code com o app do seu banco para pagar
-                        </p>
-                      </div>
-                    )}
-                    {currentCharge.mercadoPagoPaymentLink && (
-                      <div className="flex gap-2">
+              {/* Mercado Pago */}
+              {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
+                <div className="space-y-4">
+                  {currentCharge.mercadoPagoQrCode && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold flex items-center gap-2">
+                          <QrCode className="h-5 w-5" />
+                          QR Code PIX
+                        </h4>
                         <Button
-                          onClick={() => handleOpenPaymentLink(currentCharge.mercadoPagoPaymentLink!)}
-                          className="flex-1"
-                          size="lg"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyQrCode(currentCharge.mercadoPagoQrCode!)}
                         >
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Pagar via Mercado Pago
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copiar
                         </Button>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                      <div className="bg-white dark:bg-gray-900 p-6 rounded-lg border-2 border-dashed flex justify-center">
+                        <img
+                          src={`data:image/png;base64,${currentCharge.mercadoPagoQrCode}`}
+                          alt="QR Code PIX"
+                          className="max-w-[250px] w-full"
+                        />
+                      </div>
+                      <p className="text-xs text-center text-muted-foreground">
+                        Escaneie o QR Code com o app do seu banco
+                      </p>
+                    </div>
+                  )}
+                  {currentCharge.mercadoPagoPaymentLink && (
+                    <Button
+                      onClick={() => handleOpenPaymentLink(currentCharge.mercadoPagoPaymentLink!)}
+                      size="lg"
+                      className="w-full"
+                    >
+                      <ExternalLink className="mr-2 h-5 w-5" />
+                      Pagar via Mercado Pago
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {/* Outras Cobranças Pendentes */}
+        {/* Outras Parcelas */}
         {otherPendingCharges.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <CardTitle>Outras Parcelas Pendentes</CardTitle>
                 {selectedCharges.size > 0 && (
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground">
-                      {selectedCharges.size} selecionada(s) - Total: {formatCurrency(totalSelected)}
-                    </span>
-                    <Button onClick={handlePaySelected} size="sm">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="text-sm text-muted-foreground text-center sm:text-left">
+                      {selectedCharges.size} selecionada(s) - {formatCurrency(totalSelected)}
+                    </div>
+                    <Button onClick={handlePaySelected} size="sm" className="w-full sm:w-auto">
                       <Check className="mr-2 h-4 w-4" />
                       Pagar Selecionadas
                     </Button>
@@ -296,75 +332,77 @@ export default function DebtorView() {
                 {otherPendingCharges.map((charge) => (
                   <div
                     key={charge.id}
-                    className="flex items-center gap-3 p-4 bg-muted rounded-lg border"
+                    className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg border hover:bg-muted transition-colors"
                   >
                     <Checkbox
                       id={`charge-${charge.id}`}
                       checked={selectedCharges.has(charge.id)}
                       onCheckedChange={() => handleToggleCharge(charge.id)}
+                      className="mt-1"
                     />
                     <Label htmlFor={`charge-${charge.id}`} className="flex-1 cursor-pointer">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge variant="outline">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <Badge variant="outline" className="text-xs">
                               {charge.installmentNumber
                                 ? `Parcela ${charge.installmentNumber}/${charge.totalInstallments}`
                                 : 'Cobrança única'}
                             </Badge>
-                            <Badge className={getStatusColor(charge.status)}>
+                            <Badge className={cn('text-xs', getStatusColor(charge.status))}>
                               {getStatusLabel(charge.status)}
                             </Badge>
                           </div>
                           <p className="text-lg font-bold mb-1">{formatCurrency(charge.amount)}</p>
-                          <p className="text-sm text-muted-foreground">
-                            <Calendar className="inline" size={14} />{' '}
-                            Vencimento: {formatDateShort(charge.dueDate)}
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Vence em {formatDateShort(charge.dueDate)}
                           </p>
                         </div>
-                        {!debt.useGateway && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePayCharge(charge.id);
-                            }}
-                          >
-                            <Check className="mr-2 h-4 w-4" />
-                            Pagar Esta
-                          </Button>
-                        )}
-                        {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
-                          <div className="flex flex-col gap-2">
-                            {charge.mercadoPagoPaymentLink && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenPaymentLink(charge.mercadoPagoPaymentLink!);
-                                }}
-                              >
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Pagar
-                              </Button>
-                            )}
-                            {charge.mercadoPagoQrCode && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopyQrCode(charge.mercadoPagoQrCode!);
-                                }}
-                              >
-                                <Copy className="mr-2 h-4 w-4" />
-                                Copiar QR
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex gap-2">
+                          {!debt.useGateway && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePayCharge(charge.id);
+                              }}
+                            >
+                              <Check className="mr-2 h-4 w-4" />
+                              Pagar
+                            </Button>
+                          )}
+                          {debt.useGateway && debt.preferredGateway === 'MERCADOPAGO' && (
+                            <>
+                              {charge.mercadoPagoPaymentLink && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenPaymentLink(charge.mercadoPagoPaymentLink!);
+                                  }}
+                                >
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                  Pagar
+                                </Button>
+                              )}
+                              {charge.mercadoPagoQrCode && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyQrCode(charge.mercadoPagoQrCode!);
+                                  }}
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </Label>
                   </div>
@@ -374,32 +412,35 @@ export default function DebtorView() {
           </Card>
         )}
 
-        {/* Cobranças Pagas */}
+        {/* Parcelas Pagas */}
         {paidCharges.length > 0 && (
-          <Card>
+          <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Cobranças Pagas</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Check className="h-5 w-5 text-green-600" />
+                Parcelas Pagas
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {paidCharges.map((charge) => (
                   <div
                     key={charge.id}
-                    className="flex items-center justify-between p-4 bg-muted rounded-lg opacity-75"
+                    className="flex items-center justify-between p-3 bg-green-500/5 rounded-lg border border-green-500/20"
                   >
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Badge variant="outline">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs">
                           {charge.installmentNumber
                             ? `Parcela ${charge.installmentNumber}/${charge.totalInstallments}`
                             : 'Cobrança única'}
                         </Badge>
-                        <Badge className="bg-green-600">Paga</Badge>
+                        <Badge className="bg-green-600 text-xs">Paga</Badge>
                       </div>
-                      <p className="text-lg font-bold mb-1">{formatCurrency(charge.amount)}</p>
+                      <p className="font-semibold">{formatCurrency(charge.amount)}</p>
                       {charge.paidAt && (
-                        <p className="text-sm text-muted-foreground">
-                          Paga em: {formatDateShort(charge.paidAt)}
+                        <p className="text-xs text-muted-foreground">
+                          Paga em {formatDateShort(charge.paidAt)}
                         </p>
                       )}
                     </div>
@@ -410,13 +451,14 @@ export default function DebtorView() {
           </Card>
         )}
 
-        {/* Botão de Cancelar Assinatura (se for recorrente) */}
+        {/* Cancelar Assinatura */}
         {debt.isRecurring && debt.recurringStatus === 'ACTIVE' && (
-          <Card className="mt-6 border-destructive/50">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <Alert className="border-destructive/50 bg-destructive/5">
+            <XCircle className="h-4 w-4 text-destructive" />
+            <AlertDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold mb-1">Assinatura Recorrente Ativa</h3>
+                  <p className="font-semibold mb-1">Assinatura Recorrente Ativa</p>
                   <p className="text-sm text-muted-foreground">
                     Esta é uma assinatura recorrente. Você pode cancelá-la a qualquer momento.
                   </p>
@@ -430,11 +472,11 @@ export default function DebtorView() {
                   Cancelar Assinatura
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </AlertDescription>
+          </Alert>
         )}
 
-        {/* Modal de Cancelamento de Assinatura */}
+        {/* Modal de Cancelamento */}
         {debt.isRecurring && (
           <CancelRecurringModal
             open={cancelDialogOpen}
@@ -443,7 +485,6 @@ export default function DebtorView() {
             debtDescription={debt.description || 'Assinatura recorrente'}
             isMercadoPago={debt.useGateway && debt.preferredGateway === 'MERCADOPAGO'}
             onSuccess={() => {
-              // Recarregar dados da dívida
               window.location.reload();
             }}
           />
@@ -452,4 +493,3 @@ export default function DebtorView() {
     </div>
   );
 }
-
