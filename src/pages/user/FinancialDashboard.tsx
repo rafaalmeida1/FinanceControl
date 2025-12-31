@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinancial } from '@/hooks/useFinancial';
-import { useWallets } from '@/hooks/useWallets';
+// Wallet system removed - no longer needed
 import { useWindowSize } from '@/hooks/useWindowSize';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -41,7 +41,8 @@ export function FinancialDashboard() {
   const navigate = useNavigate();
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
   const { monthlySummary, history, totalBalance, isLoading } = useFinancial(undefined, undefined, selectedWalletId);
-  const { wallets } = useWallets();
+  // const { wallets } = useWallets(); // Wallet system removed
+  const wallets: any[] = [];
   const { width } = useWindowSize();
   const chartHeight = width < 768 ? 200 : 280;
 

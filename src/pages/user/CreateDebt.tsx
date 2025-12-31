@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
-import { useWallets } from '@/hooks/useWallets';
+// Wallet system removed - no longer needed
 import {
   ArrowLeft,
   ArrowRight,
@@ -35,7 +35,7 @@ import { DuplicateDebtWarning, DuplicateDebt } from '@/components/debt/Duplicate
 import { debtsService } from '@/services/debts.service';
 import { paymentsService } from '@/services/payments.service';
 import { formatCurrency } from '@/lib/utils';
-import { WalletSelector } from '@/components/debt/WalletSelector';
+// import { WalletSelector } from '@/components/debt/WalletSelector'; // Wallet system removed
 import { PaymentMethodSelector } from '@/components/debt/PaymentMethodSelector';
 import { DebtTypeSelector, DebtType } from '@/components/debt/DebtTypeSelector';
 import { MercadoPagoTypeSelector, MercadoPagoPaymentType } from '@/components/debt/MercadoPagoTypeSelector';
@@ -69,7 +69,7 @@ const STEPS = [
 export default function CreateDebt() {
   const navigate = useNavigate();
   const { createDebt, isCreatingDebt } = useDebts();
-  const { wallets, isLoading: isLoadingWallets } = useWallets();
+  // const { wallets, isLoading: isLoadingWallets } = useWallets(); // Wallet system removed
   const { user } = authStore();
 
   const [currentStep, setCurrentStep] = useState(0);

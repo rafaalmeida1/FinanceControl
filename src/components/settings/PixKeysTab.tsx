@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pixKeysService, PixKey, CreatePixKeyDto } from '@/services/pixKeys.service';
-import { useWallets } from '@/hooks/useWallets';
+// Wallet system removed - no longer needed
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,8 @@ import { Switch } from '@/components/ui/switch';
 
 export function PixKeysTab() {
   const queryClient = useQueryClient();
-  const { wallets } = useWallets();
+  // const { wallets } = useWallets(); // Wallet system removed
+  const wallets: any[] = [];
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<PixKey | null>(null);
   const { register, handleSubmit, reset, watch, setValue } = useForm<CreatePixKeyDto & { walletId?: string }>({

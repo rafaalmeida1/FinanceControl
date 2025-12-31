@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { walletTransactionsService, WalletTransaction, TransactionType, TransactionSource } from '@/services/wallet-transactions.service';
-import { walletsService } from '@/services/wallets.service';
+// Wallet system removed - no longer needed
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import { ArrowUpRight, ArrowDownRight, Eye, Filter, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
