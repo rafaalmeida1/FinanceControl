@@ -63,7 +63,7 @@ export default function AdminDashboard() {
     }
   }, [initialLogs]);
 
-  // WebSocket para logs em tempo real
+  // WebSocket para logs em tempo real e atualizações de stats
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -73,10 +73,18 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
     };
 
+    const handleStatsUpdated = () => {
+      // Invalidar queries para forçar atualização dos dados
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-audit-logs'] });
+    };
+
     socket.on('admin.audit-log', handleNewLog);
+    socket.on('admin.stats-updated', handleStatsUpdated);
 
     return () => {
       socket.off('admin.audit-log', handleNewLog);
+      socket.off('admin.stats-updated', handleStatsUpdated);
     };
   }, [queryClient]);
 
