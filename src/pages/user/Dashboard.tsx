@@ -7,6 +7,7 @@ import { useWallets } from '@/hooks/useWallets';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import { getSocket } from '@/lib/socket';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
+import { QuickAddMovement } from '@/components/debt/QuickAddMovement';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import {
   ArrowUpRight,
@@ -116,6 +117,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-6">
+      {/* Card de Adição Rápida */}
+      {!isLoadingWallets && wallets && wallets.length > 0 && (
+        <QuickAddMovement />
+      )}
+
       {/* Banner de Onboarding */}
       {!isLoadingWallets && (!wallets || wallets.length === 0) && (
         <Alert className="border-primary bg-gradient-to-r from-primary/10 to-primary/5">
@@ -204,13 +210,13 @@ export default function Dashboard() {
             <div className="min-w-0">
               <p className="text-xs text-primary-foreground/70 dark:text-slate-300 mb-1 truncate">Receitas do Mês</p>
               <p className="text-lg font-semibold truncate">
-                {formatCurrency(monthlySummary?.totalIncome || 0)}
+                {balanceVisible ? formatCurrency(stats?.monthlyIncome || 0) : '••••••'}
               </p>
             </div>
             <div className="min-w-0">
               <p className="text-xs text-primary-foreground/70 dark:text-slate-300 mb-1 truncate">Despesas do Mês</p>
               <p className="text-lg font-semibold truncate">
-                {formatCurrency(monthlySummary?.totalExpenses || 0)}
+                {balanceVisible ? formatCurrency(stats?.monthlyExpenses || 0) : '••••••'}
               </p>
             </div>
           </div>
@@ -282,10 +288,10 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl md:text-3xl font-bold text-green-700 dark:text-green-100 mb-1 truncate">
-              {formatCurrency(monthlySummary?.pendingIncome || 0)}
+              {balanceVisible ? formatCurrency(monthlySummary?.pendingIncome || 0) : '••••••'}
             </div>
             <p className="text-xs text-green-600 dark:text-green-300 truncate">
-              Receitas pagas: {formatCurrency(monthlySummary?.totalIncome || 0)}
+              Receitas pagas: {balanceVisible ? formatCurrency(monthlySummary?.totalIncome || 0) : '••••••'}
             </p>
           </CardContent>
         </Card>
@@ -309,10 +315,10 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl md:text-3xl font-bold text-red-700 dark:text-red-100 mb-1 truncate">
-              {formatCurrency(monthlySummary?.pendingExpenses || 0)}
+              {balanceVisible ? formatCurrency(monthlySummary?.pendingExpenses || 0) : '••••••'}
             </div>
             <p className="text-xs text-red-600 dark:text-red-300 truncate">
-              Despesas pagas: {formatCurrency(monthlySummary?.totalExpenses || 0)}
+              Despesas pagas: {balanceVisible ? formatCurrency(monthlySummary?.totalExpenses || 0) : '••••••'}
             </p>
           </CardContent>
         </Card>
@@ -336,10 +342,10 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl md:text-3xl font-bold text-blue-700 dark:text-blue-100 mb-1 truncate">
-              {formatCurrency(monthlySummary?.projectedBalance || 0)}
+              {balanceVisible ? formatCurrency(monthlySummary?.projectedBalance || 0) : '••••••'}
             </div>
             <p className="text-xs text-blue-600 dark:text-blue-300 truncate">
-              Saldo atual: {formatCurrency(monthlySummary?.balance || 0)}
+              Saldo atual: {balanceVisible ? formatCurrency(monthlySummary?.balance || 0) : '••••••'}
             </p>
           </CardContent>
         </Card>
@@ -445,7 +451,13 @@ export default function Dashboard() {
                     <div
                       key={charge.id}
                       className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/charges/${charge.id}`)}
+                      onClick={() => {
+                        if (charge.debt?.id) {
+                          navigate(`/debts/${charge.debt.id}`);
+                        } else {
+                          navigate('/charges');
+                        }
+                      }}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className={`h-10 w-10 rounded-full flex items-center justify-center ${

@@ -29,9 +29,10 @@ export const useAuth = () => {
       // Se email não estiver verificado, não fazer login automático
       if (data.emailVerificationRequired) {
         toast.success('Conta criada com sucesso! Verifique seu email para ativar sua conta.');
-        // Redirecionar para página de verificação com email preenchido
+        // NÃO redirecionar automaticamente - o usuário deve clicar no link do email
+        // Redirecionar para login com mensagem informativa
         const emailParam = encodeURIComponent(data.user.email);
-        navigate(`/auth/verify-email/${data.verificationToken || ''}?email=${emailParam}`);
+        navigate(`/login?email=${emailParam}&verifyRequired=true`);
       } else {
         // Se email já estiver verificado (caso raro), fazer login normalmente
         if (data.accessToken && data.refreshToken) {

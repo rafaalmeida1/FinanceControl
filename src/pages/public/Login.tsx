@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 export default function Login() {
   const [searchParams] = useSearchParams();
   const emailFromUrl = searchParams.get('email');
+  const verifyRequired = searchParams.get('verifyRequired') === 'true';
   const [isRegister, setIsRegister] = useState(false);
   const [useEmailAccess, setUseEmailAccess] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -21,6 +22,16 @@ export default function Login() {
       setValue('email', emailFromUrl);
     }
   }, [emailFromUrl, setValue]);
+
+  // Mostrar mensagem de verificação necessária
+  useEffect(() => {
+    if (verifyRequired && emailFromUrl) {
+      toast.success(
+        `Email de verificação enviado para ${emailFromUrl}. Verifique sua caixa de entrada e clique no link para ativar sua conta.`,
+        { duration: 8000 }
+      );
+    }
+  }, [verifyRequired, emailFromUrl]);
 
   const onSubmit = async (data: any) => {
     if (useEmailAccess) {

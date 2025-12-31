@@ -17,6 +17,7 @@ export default function VerifyEmail() {
       return;
     }
 
+    // Verificar email apenas se o token estiver presente (vindo do link do email)
     const verify = async () => {
       try {
         await authService.verifyEmail(token);
@@ -35,7 +36,12 @@ export default function VerifyEmail() {
       }
     };
 
-    verify();
+    // Só verificar se tiver token válido (vindo do email)
+    if (token && token.length > 10) {
+      verify();
+    } else {
+      setStatus('error');
+    }
   }, [token, navigate, emailFromUrl]);
 
   return (

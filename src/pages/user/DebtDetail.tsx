@@ -2,8 +2,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import { chargesService } from '@/services/charges.service';
+import { filesService } from '@/services/files.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode, XCircle, Send, Mail } from 'lucide-react';
+import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode, XCircle, Send, Mail, Download, File } from 'lucide-react';
 import { useDebts } from '@/hooks/useDebts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,6 +79,41 @@ export default function DebtDetail() {
 
   const handleOpenPaymentLink = (link: string) => {
     window.open(link, '_blank');
+  };
+
+  const handleDownloadProof = async (proofPath: string, chargeId: string) => {
+    try {
+      const blob = await filesService.getProof(proofPath);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Determinar extensão do arquivo
+      const extension = proofPath.endsWith('.pdf') ? '.pdf' : 
+                       proofPath.endsWith('.png') ? '.png' : 
+                       proofPath.endsWith('.jpg') || proofPath.endsWith('.jpeg') ? '.jpg' : '';
+      
+      link.download = `comprovante_${chargeId}${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Comprovante baixado com sucesso!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao baixar comprovante');
+    }
+  };
+
+  const handleViewProof = async (proofPath: string) => {
+    try {
+      const blob = await filesService.getProof(proofPath);
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Não revogar imediatamente para permitir visualização
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao visualizar comprovante');
+    }
   };
 
   const handlePayCharge = (charge: Charge) => {
@@ -164,13 +200,13 @@ export default function DebtDetail() {
             {isPersonalDebtFromUserPerspective && (
               <Badge variant="outline">Pessoal</Badge>
             )}
-            {(debt as any).isRecurring && (debt as any).recurringStatus === 'ACTIVE' && (
+            {debt.isRecurring && debt.recurringStatus === 'ACTIVE' && (
               <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
                 Assinatura Ativa
               </Badge>
             )}
           </div>
-          {(debt as any).isRecurring && (debt as any).recurringStatus === 'ACTIVE' && (
+          {debt.isRecurring && debt.recurringStatus === 'ACTIVE' && (
             <Button
               variant="destructive"
               size="sm"
@@ -572,6 +608,32 @@ export default function DebtDetail() {
                               Paga em: {formatDateShort(charge.paidAt)}
                             </p>
                           )}
+                          {charge.proofDocumentPath && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                <File className="h-3 w-3" />
+                                Comprovante disponível
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => handleViewProof(charge.proofDocumentPath!)}
+                              >
+                                <File className="h-3 w-3 mr-1" />
+                                Ver
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => handleDownloadProof(charge.proofDocumentPath!, charge.id)}
+                              >
+                                <Download className="h-3 w-3 mr-1" />
+                                Baixar
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -647,7 +709,7 @@ export default function DebtDetail() {
         </Dialog>
 
         {/* Modal de Cancelamento de Assinatura */}
-        {(debt as any).isRecurring && (
+        {debt.isRecurring && debt.recurringStatus === 'ACTIVE' && (
           <CancelRecurringModal
             open={cancelDialogOpen}
             onOpenChange={setCancelDialogOpen}

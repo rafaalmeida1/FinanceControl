@@ -240,7 +240,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     }
   }, [paymentMethod, mercadoPagoPaymentType]);
 
-  // Preencher dados quando "Eu devo para mim mesmo"
+  // Preencher dados automaticamente com dados do usuário logado
   useEffect(() => {
     if (isPersonalDebt === 'i-owe-myself' && user?.email) {
       setValue('debtorEmail', user.email);
@@ -248,8 +248,13 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
       setValue('creditorEmail', user.email);
       setValue('creditorName', user.name || '');
     } else if (isPersonalDebt === 'i-owe-other' && user?.email) {
+      // Quando "Eu devo para outra pessoa", usar automaticamente os dados do usuário logado
       setValue('debtorEmail', user.email);
       setValue('debtorName', user.name || '');
+    } else if (isPersonalDebt === 'other-owes-me') {
+      // Quando "Outra pessoa me deve", limpar campos do devedor para o usuário preencher
+      setValue('debtorEmail', '');
+      setValue('debtorName', '');
     }
   }, [isPersonalDebt, user, setValue]);
 
@@ -267,26 +272,40 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
         toast.error('Selecione um método de pagamento');
         return;
       }
+      // Não validar tipo de pagamento do Mercado Pago aqui, será validado no step 2
+    } else if (currentStep === 2) {
+      // Validar tipo de pagamento do Mercado Pago apenas se o método for Mercado Pago
       if (paymentMethod === 'mercadopago' && !mercadoPagoPaymentType) {
         toast.error('Selecione o tipo de pagamento do Mercado Pago');
         return;
       }
-    } else if (currentStep === 2) {
-      if (!debtType) {
+      // Para PIX manual, validar tipo de movimentação
+      if (paymentMethod === 'pix' && !debtType) {
         toast.error('Selecione o tipo de movimentação');
         return;
       }
     } else if (currentStep === 3) {
-      isValid = await trigger(['description', 'debtorEmail']);
-      if (isPersonalDebt === 'i-owe-other' && !creditorEmail) {
-        isValid = false;
-        toast.error('Email do credor é obrigatório');
+      // Validar campos baseado no tipo de movimentação
+      if (isPersonalDebt === 'other-owes-me') {
+        isValid = await trigger(['description', 'debtorEmail']);
+      } else if (isPersonalDebt === 'i-owe-other') {
+        isValid = await trigger(['description', 'creditorEmail']);
+        if (!creditorEmail) {
+          isValid = false;
+          toast.error('Email do credor é obrigatório');
+        }
+      } else {
+        isValid = await trigger(['description']);
       }
       if (!isValid) return;
     } else if (currentStep === 4) {
-      isValid = await trigger(['totalAmount', 'dueDate']);
-      if (debtType === 'installment') {
-        isValid = isValid && await trigger('installments');
+      isValid = await trigger(['totalAmount']);
+      // Para dívidas recorrentes, não validar dueDate nem installments
+      if (debtType !== 'recurring') {
+        isValid = isValid && await trigger('dueDate');
+        if (debtType === 'installment') {
+          isValid = isValid && await trigger('installments');
+        }
       }
       if (paymentMethod === 'pix' && !selectedPixKeyId) {
         isValid = false;
@@ -310,6 +329,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     // Verificar duplicatas
     try {
       const duplicateCheck = await debtsService.checkDuplicates({
+        walletId: data.walletId,
         debtorEmail: data.debtorEmail,
         creditorEmail: isPersonalDebt === 'other-owes-me' ? user?.email : data.creditorEmail,
         totalAmount: Number(data.totalAmount),
@@ -333,7 +353,24 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     try {
       // Converter data
       let dueDateISO: string | undefined = undefined;
-      if (data.dueDate) {
+      
+      // Para dívidas recorrentes, calcular a data baseado no dia do mês
+      if (debtType === 'recurring') {
+        const now = new Date();
+        const day = recurringDay || now.getDate();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+        
+        // Criar data com o dia do mês especificado
+        let calculatedDate = new Date(year, month, day);
+        
+        // Se o dia já passou neste mês, usar o próximo mês
+        if (calculatedDate < now) {
+          calculatedDate = new Date(year, month + 1, day);
+        }
+        
+        dueDateISO = calculatedDate.toISOString();
+      } else if (data.dueDate) {
         const [year, month, day] = String(data.dueDate).split('-');
         const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59));
         dueDateISO = date.toISOString();
@@ -408,9 +445,30 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
       await createDebt(payload, {
         onSuccess: () => {
           toast.success('Movimentação criada com sucesso!');
+          // Limpar progresso e resetar para o passo 1 (após criação completa)
           clearProgress();
           reset();
-          onOpenChange(false);
+          setCurrentStep(0);
+          setPaymentMethod(null);
+          setDebtType(null);
+          setMercadoPagoPaymentType(null);
+          setIsPersonalDebt('other-owes-me');
+          setSelectedPixKeyId(null);
+          setInputMode('total');
+          setInstallmentAmount('');
+          setIsInProgress(false);
+          setPaidInstallments(0);
+          setRecurringInterval('MONTHLY');
+          setRecurringDay(new Date().getDate());
+          setSubscriptionName('');
+          setDurationMonths(null);
+          setDuplicates([]);
+          setShowDuplicateWarning(false);
+          setPendingSubmitData(null);
+          // Fechar drawer após um pequeno delay para mostrar o toast
+          setTimeout(() => {
+            onOpenChange(false);
+          }, 500);
         },
         onError: (error: any) => {
           toast.error(error?.response?.data?.message || 'Erro ao criar movimentação');
@@ -585,11 +643,11 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
                 )}
               </div>
 
-              {isPersonalDebt !== 'i-owe-myself' && (
+              {isPersonalDebt === 'other-owes-me' && (
                 <>
                   <EmailAutocomplete
                     id="debtorEmail"
-                    label={isPersonalDebt === 'other-owes-me' ? 'Email do Devedor' : 'Seu Email'}
+                    label="Email do Devedor"
                     value={debtorEmail || ''}
                     onChange={(value) => setValue('debtorEmail', value)}
                     error={errors.debtorEmail?.message}
@@ -597,7 +655,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
                   />
 
                   <div>
-                    <Label htmlFor="debtorName">Nome {isPersonalDebt === 'other-owes-me' ? 'do Devedor' : ''}</Label>
+                    <Label htmlFor="debtorName">Nome do Devedor</Label>
                     <Input
                       id="debtorName"
                       {...register('debtorName')}
@@ -698,23 +756,26 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
               debtType={debtType || undefined}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="dueDate">
-                  Data de Vencimento <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  {...register('dueDate', { required: 'Data de vencimento é obrigatória' })}
-                  className="mt-2"
-                  min={new Date().toISOString().split('T')[0]}
-                />
-                {errors.dueDate && (
-                  <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>
-                )}
+            {/* Data de Vencimento - Ocultar se for recorrente */}
+            {debtType !== 'recurring' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="dueDate">
+                    Data de Vencimento <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    {...register('dueDate', { required: 'Data de vencimento é obrigatória' })}
+                    className="mt-2"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  {errors.dueDate && (
+                    <p className="text-sm text-destructive mt-1">{errors.dueDate.message}</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {debtType === 'recurring' && (
               <Card>
@@ -816,10 +877,18 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
                       {debtType === 'recurring' ? 'Recorrente' : debtType === 'installment' ? 'Parcelada' : 'Única'}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Vencimento</p>
-                    <p className="font-medium">{dueDate ? new Date(dueDate).toLocaleDateString('pt-BR') : '-'}</p>
-                  </div>
+                  {debtType !== 'recurring' && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Vencimento</p>
+                      <p className="font-medium">{dueDate ? new Date(dueDate).toLocaleDateString('pt-BR') : '-'}</p>
+                    </div>
+                  )}
+                  {debtType === 'recurring' && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Dia do Mês</p>
+                      <p className="font-medium">Dia {recurringDay}</p>
+                    </div>
+                  )}
                   {debtType === 'installment' && (
                     <div>
                       <p className="text-sm text-muted-foreground">Parcelas</p>

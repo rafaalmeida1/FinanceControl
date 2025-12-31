@@ -94,6 +94,9 @@ export interface Charge {
   // Mercado Pago fields
   mercadoPagoPaymentLink?: string;
   mercadoPagoQrCode?: string;
+  // Payment proof fields
+  proofDocumentPath?: string;
+  proofDocumentMimeType?: string;
   debt?: Partial<Debt>;
   account?: Partial<Account>;
   payments?: Payment[];
@@ -130,6 +133,8 @@ export interface UserStats {
   pendingDebtsCount: number;
   upcomingCharges: Charge[];
   recentPayments: Payment[];
+  monthlyIncome: number; // Receitas do mês (charges pagas)
+  monthlyExpenses: number; // Despesas do mês (charges pagas)
 }
 
 // Admin types

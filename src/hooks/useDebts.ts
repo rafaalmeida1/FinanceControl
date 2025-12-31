@@ -2,14 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtsService } from '@/services/debts.service';
 import toast from 'react-hot-toast';
 
-export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: boolean) => {
+export const useDebts = (type?: 'personal' | 'third-party' | 'all', archived?: boolean, status?: string) => {
   const queryClient = useQueryClient();
 
   const { data: debts, isLoading } = useQuery({
-    queryKey: ['debts', type, archived],
+    queryKey: ['debts', type, archived, status],
     queryFn: () => debtsService.getAll({ 
       ...(type ? { type } : {}),
       ...(archived !== undefined ? { archived } : {}),
+      ...(status ? { status } : {}),
     }),
   });
 

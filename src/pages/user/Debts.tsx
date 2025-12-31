@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { useDebts } from '@/hooks/useDebts';
 import { debtsService } from '@/services/debts.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
-import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Mail, Edit, XCircle, TrendingDown, TrendingUp, Check, Loader2, Trash2, Search, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,10 +67,15 @@ export default function Debts() {
   // Inicializar WebSocket para atualizações em tempo real
   useSocket();
   const { setOpen } = useCreateMovement();
-  const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party' | 'archived'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party' | 'archived' | 'paid'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterMonth, setFilterMonth] = useState<number | undefined>(undefined);
+  const [filterYear, setFilterYear] = useState<number | undefined>(undefined);
+  
   const debtType = activeTab === 'all' ? undefined : activeTab === 'personal' ? 'personal' : activeTab === 'third-party' ? 'third-party' : undefined;
   const archived = activeTab === 'archived' ? true : false;
-  const { debts, isLoading, sendLink, cancelDebt, deleteDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isDeletingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived);
+  const status = activeTab === 'paid' ? 'PAID' : undefined;
+  const { debts, isLoading, sendLink, cancelDebt, deleteDebt, updateDebt, markAsPaid, isSendingLink, isCancelingDebt, isDeletingDebt, isUpdatingDebt, isMarkingAsPaid } = useDebts(debtType, archived, status);
   const [deletingDebtId, setDeletingDebtId] = useState<string | null>(null);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -100,11 +105,15 @@ export default function Debts() {
   const helpSteps: HelpStep[] = [
     {
       title: 'Lista de Movimentações',
-      content: 'Aqui você vê todas as suas movimentações organizadas por abas:\n\n• Todas: todas as movimentações\n• Pessoais: movimentações que você deve\n• Terceiros: movimentações que outros devem para você\n• Arquivadas: movimentações finalizadas',
+      content: 'Aqui você vê todas as suas movimentações organizadas por abas:\n\n• Todas: todas as movimentações\n• Pessoais: movimentações que você deve\n• Terceiros: movimentações que outros devem para você\n• Pagas: movimentações já pagas\n• Arquivadas: movimentações finalizadas',
+    },
+    {
+      title: 'Filtros e Busca',
+      content: 'Use os filtros para encontrar movimentações específicas:\n\n• Busca: digite para buscar por descrição, nome ou email\n• Mês/Ano: filtre por período de vencimento\n• Limpar: remove todos os filtros aplicados',
     },
     {
       title: 'Ações Disponíveis',
-      content: 'Para cada movimentação você pode:\n\n• Editar: modificar informações da movimentação\n• Enviar Link: reenviar o link de acesso para o devedor\n• Quitar: marcar a movimentação como paga\n• Cancelar: cancelar a movimentação\n\nClique em uma movimentação para ver mais detalhes.',
+      content: 'Para cada movimentação você pode:\n\n• Editar: modificar informações da movimentação\n• Enviar Link: reenviar o link de acesso para o devedor\n• Quitar: marcar a movimentação como paga\n• Cancelar: cancelar a movimentação\n• Deletar: remover movimentações pagas ou canceladas\n\nClique em uma movimentação para ver mais detalhes.',
     },
   ];
 
@@ -274,6 +283,41 @@ export default function Debts() {
     return <div className="text-center py-12">Carregando...</div>;
   }
 
+  // Filtrar dívidas localmente por busca, mês e ano
+  const filteredDebts = debts?.filter((debt) => {
+    // Filtro de busca
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        debt.description?.toLowerCase().includes(searchLower) ||
+        debt.debtorName?.toLowerCase().includes(searchLower) ||
+        debt.debtorEmail?.toLowerCase().includes(searchLower) ||
+        debt.creditorName?.toLowerCase().includes(searchLower) ||
+        debt.creditorEmail?.toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
+    }
+
+    // Filtro de mês/ano
+    if (filterMonth || filterYear) {
+      if (debt.dueDate) {
+        const dueDate = new Date(debt.dueDate);
+        const month = dueDate.getMonth() + 1;
+        const year = dueDate.getFullYear();
+        if (filterMonth && month !== filterMonth) return false;
+        if (filterYear && year !== filterYear) return false;
+      } else {
+        // Se não tem data de vencimento, usar data de criação
+        const createdDate = new Date(debt.createdAt);
+        const month = createdDate.getMonth() + 1;
+        const year = createdDate.getFullYear();
+        if (filterMonth && month !== filterMonth) return false;
+        if (filterYear && year !== filterYear) return false;
+      }
+    }
+
+    return true;
+  });
+
   const renderDebtList = (debtsList: Debt[] | undefined) => {
     if (!debtsList || debtsList.length === 0) {
       return (
@@ -283,12 +327,21 @@ export default function Debts() {
               ? 'Nenhuma movimentação pessoal cadastrada' 
               : activeTab === 'third-party'
               ? 'Nenhuma movimentação de terceiro cadastrada'
+              : activeTab === 'paid'
+              ? 'Nenhuma movimentação paga encontrada'
+              : activeTab === 'archived'
+              ? 'Nenhuma movimentação arquivada encontrada'
               : 'Nenhuma movimentação cadastrada'}
           </p>
-          <Link to="/debts/new" className="btn-primary inline-flex items-center gap-2">
-            <Plus size={20} />
-            Criar primeira movimentação
-          </Link>
+          {activeTab !== 'paid' && activeTab !== 'archived' && (
+            <Button
+              onClick={() => setOpen(true)}
+              className="inline-flex items-center gap-2"
+            >
+              <Plus size={20} />
+              Criar primeira movimentação
+            </Button>
+          )}
         </div>
       );
     }
@@ -525,8 +578,77 @@ export default function Debts() {
         </div>
       </div>
 
-      {/* Toggle para Visualização Compilada */}
-      <div className="flex items-center justify-between gap-4">
+      {/* Filtros e Toggle para Visualização Compilada */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Filtros de Busca e Data */}
+        <div className="flex flex-col sm:flex-row gap-2 flex-1 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar movimentações..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Select
+              value={filterMonth?.toString() || ''}
+              onValueChange={(value) => setFilterMonth(value ? parseInt(value) : undefined)}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Mês" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todos os meses</SelectItem>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                  <SelectItem key={month} value={month.toString()}>
+                    {new Date(2000, month - 1).toLocaleDateString('pt-BR', { month: 'long' })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterYear?.toString() || ''}
+              onValueChange={(value) => setFilterYear(value ? parseInt(value) : undefined)}
+            >
+              <SelectTrigger className="w-28">
+                <SelectValue placeholder="Ano" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todos os anos</SelectItem>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(filterMonth || filterYear || searchTerm) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFilterMonth(undefined);
+                  setFilterYear(undefined);
+                  setSearchTerm('');
+                }}
+                className="flex items-center gap-1"
+              >
+                <X className="h-4 w-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <Switch
             id="compiled-view"
@@ -613,7 +735,7 @@ export default function Debts() {
         </div>
       ) : (
         /* Visualização Normal */
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party' | 'archived')}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'personal' | 'third-party' | 'archived' | 'paid')}>
           {/* Mobile: Horizontal Scrollable Tabs */}
           <div className="md:hidden overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
             <TabsList className="inline-flex w-max min-w-full">
@@ -626,13 +748,17 @@ export default function Debts() {
                 <TrendingUp className="h-3.5 w-3.5" />
                 Me devem
               </TabsTrigger>
+              <TabsTrigger value="paid" className="whitespace-nowrap flex items-center gap-1.5 flex-shrink-0">
+                <Check className="h-3.5 w-3.5" />
+                Pagas
+              </TabsTrigger>
               <TabsTrigger value="archived" className="whitespace-nowrap flex-shrink-0">Arquivadas</TabsTrigger>
             </TabsList>
           </div>
           
           {/* Desktop: Grid Tabs */}
           <div className="hidden md:block">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="all">Todas</TabsTrigger>
               <TabsTrigger value="personal" className="flex items-center gap-2">
                 <TrendingDown className="h-4 w-4" />
@@ -642,6 +768,10 @@ export default function Debts() {
                 <TrendingUp className="h-4 w-4" />
                 Alguém me deve
               </TabsTrigger>
+              <TabsTrigger value="paid" className="flex items-center gap-2">
+                <Check className="h-4 w-4" />
+                Pagas
+              </TabsTrigger>
               <TabsTrigger value="archived">Arquivadas</TabsTrigger>
             </TabsList>
           </div>
@@ -650,7 +780,7 @@ export default function Debts() {
             {isLoading ? (
               <div className="text-center py-12">Carregando...</div>
             ) : (
-              renderDebtList(debts)
+              renderDebtList(filteredDebts)
             )}
           </TabsContent>
 
@@ -658,7 +788,7 @@ export default function Debts() {
             {isLoading ? (
               <div className="text-center py-12">Carregando...</div>
             ) : (
-              renderDebtList(debts)
+              renderDebtList(filteredDebts)
             )}
           </TabsContent>
 
@@ -666,7 +796,15 @@ export default function Debts() {
             {isLoading ? (
               <div className="text-center py-12">Carregando...</div>
             ) : (
-              renderDebtList(debts)
+              renderDebtList(filteredDebts)
+            )}
+          </TabsContent>
+
+          <TabsContent value="paid" className="mt-6">
+            {isLoading ? (
+              <div className="text-center py-12">Carregando...</div>
+            ) : (
+              renderDebtList(filteredDebts)
             )}
           </TabsContent>
 
@@ -674,7 +812,7 @@ export default function Debts() {
             {isLoading ? (
               <div className="text-center py-12">Carregando...</div>
             ) : (
-              renderDebtList(debts)
+              renderDebtList(filteredDebts)
             )}
           </TabsContent>
         </Tabs>

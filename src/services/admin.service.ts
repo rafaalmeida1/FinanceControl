@@ -17,6 +17,20 @@ export const adminService = {
     return response.data;
   },
 
+  getAuditLogs: async (filters?: {
+    userId?: string;
+    action?: string;
+    resourceType?: string;
+    resourceId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const response = await api.get('/audit-logs', { params: filters });
+    return response.data;
+  },
+
   getQueueStatus: async () => {
     const response = await api.get('/admin/queue-status');
     return response.data;
