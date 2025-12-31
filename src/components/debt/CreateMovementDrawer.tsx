@@ -370,7 +370,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     try {
       const { authUrl } = await paymentsService.getMercadoPagoAuthUrl();
       // Salvar o estado atual no localStorage para restaurar após conexão
-      const formValues = watch();
+      // const formValues = watch(); // Not used
       localStorage.setItem('createDebtState', JSON.stringify({
         currentStep,
         paymentMethod,

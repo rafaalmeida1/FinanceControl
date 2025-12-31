@@ -8,8 +8,6 @@ import {
   XCircle,
   Loader2,
   Info,
-  Check,
-  X,
 } from 'lucide-react';
 import {
   Dialog,

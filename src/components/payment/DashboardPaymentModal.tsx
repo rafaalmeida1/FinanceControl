@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtorAccessService } from '@/services/debtor-access.service';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
-import { Calendar, Copy, DollarSign, Loader2, CheckCircle2, XCircle, X } from 'lucide-react';
+import { Calendar, Copy, DollarSign, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

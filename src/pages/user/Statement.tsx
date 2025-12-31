@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { walletTransactionsService, WalletTransaction, TransactionType, TransactionSource } from '@/services/wallet-transactions.service';
-// Wallet system removed - no longer needed
+// Wallet transactions removed - using Transaction model now
+type WalletTransaction = any;
+const TransactionType = { INCOME: 'INCOME', EXPENSE: 'EXPENSE' };
+const TransactionSource = { 
+  SALARY: 'SALARY', 
+  DEBT_PAYMENT: 'DEBT_PAYMENT', 
+  DEBT_RECEIVED: 'DEBT_RECEIVED',
+  CHARGE_PAID: 'CHARGE_PAID',
+  CHARGE_CREATED: 'CHARGE_CREATED',
+  DEBT_CREATED: 'DEBT_CREATED',
+  MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT',
+  RECURRING_CHARGE: 'RECURRING_CHARGE',
+};
 import { formatCurrency, formatDateShort } from '@/lib/utils';
 import { ArrowUpRight, ArrowDownRight, Eye, Filter, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +32,7 @@ import { StatementDetailModal } from '@/components/statement/StatementDetailModa
 
 export default function Statement() {
   const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(undefined);
-  const [selectedType, setSelectedType] = useState<TransactionType | undefined>(undefined);
+  const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedTransaction, setSelectedTransaction] = useState<WalletTransaction | null>(null);
@@ -29,10 +40,8 @@ export default function Statement() {
   const limit = 50;
 
   // Buscar carteiras
-  const { data: wallets } = useQuery({
-    queryKey: ['wallets'],
-    queryFn: () => walletsService.getAll(),
-  });
+  // Wallet system removed
+  const wallets: any[] = [];
 
   // Buscar extrato
   const { data: statement, isLoading: isLoadingStatement } = useQuery({
@@ -49,15 +58,15 @@ export default function Statement() {
     enabled: true,
   });
 
-  const getTransactionIcon = (type: TransactionType) => {
+  const getTransactionIcon = (type: string) => {
     if (type === TransactionType.INCOME) {
       return <ArrowDownRight className="h-5 w-5 text-green-600" />;
     }
     return <ArrowUpRight className="h-5 w-5 text-red-600" />;
   };
 
-  const getSourceLabel = (source: TransactionSource) => {
-    const labels: Record<TransactionSource, string> = {
+  const getSourceLabel = (source: string) => {
+    const labels: Record<string, string> = {
       [TransactionSource.CHARGE_PAID]: 'Cobrança Paga',
       [TransactionSource.CHARGE_CREATED]: 'Cobrança Criada',
       [TransactionSource.DEBT_CREATED]: 'Dívida Criada',
@@ -68,12 +77,12 @@ export default function Statement() {
   };
 
   const totalIncome = statement?.transactions
-    .filter((t) => t.type === TransactionType.INCOME)
-    .reduce((sum, t) => sum + t.amount, 0) || 0;
+    .filter((t: any) => t.type === TransactionType.INCOME)
+    .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
 
   const totalExpense = statement?.transactions
-    .filter((t) => t.type === TransactionType.EXPENSE)
-    .reduce((sum, t) => sum + t.amount, 0) || 0;
+    .filter((t: any) => t.type === TransactionType.EXPENSE)
+    .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
 
   const balance = totalIncome - totalExpense;
 
@@ -110,7 +119,7 @@ export default function Statement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as carteiras</SelectItem>
-                  {wallets?.map((wallet) => (
+                  {wallets?.map((wallet: any) => (
                     <SelectItem key={wallet.id} value={wallet.id}>
                       <div className="flex items-center gap-2">
                         {wallet.icon && <span>{wallet.icon}</span>}
@@ -219,7 +228,7 @@ export default function Statement() {
             </div>
           ) : (
             <div className="space-y-2">
-              {statement?.transactions.map((transaction) => (
+              {statement?.transactions.map((transaction: any) => (
                 <div
                   key={transaction.id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"

@@ -19,7 +19,6 @@ import {
   Plus,
   Calendar,
   DollarSign,
-  ArrowRight,
   Eye,
   EyeOff,
   ChevronRight,
@@ -33,10 +32,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import {
   LineChart,
   Line,
@@ -55,7 +51,7 @@ export default function Dashboard() {
   const [searchParams] = useSearchParams();
   const { setOpen } = useCreateMovement();
   const { data: stats, isLoading: isLoadingStats } = useStats();
-  const { monthlySummary, history, totalBalance, isLoading: isLoadingFinancial } = useFinancial();
+  const { history, isLoading: isLoadingFinancial } = useFinancial();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const { width } = useWindowSize();
   const chartHeight = width < 768 ? 200 : 280;
@@ -77,7 +73,7 @@ export default function Dashboard() {
 
   // Escutar eventos WebSocket específicos para invalidar queries do dashboard
   useEffect(() => {
-    const handleDataUpdated = (data?: { type: string }) => {
+    const handleDataUpdated = (_data?: { type: string }) => {
       // Invalidar TODAS as queries relevantes quando dados forem atualizados
       // Usar queryKey prefix para invalidar todas as variações
       queryClient.invalidateQueries({ queryKey: ['stats'] }); // Invalida ['stats'] e ['stats', walletId]
@@ -88,21 +84,18 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['disputes'] });
       
       // Se for atualização específica, invalidar também
-      if (data?.type === 'debts' || data?.type === 'all') {
+      if (_data?.type === 'debts' || _data?.type === 'all') {
         queryClient.invalidateQueries({ queryKey: ['debts'] });
       }
-      if (data?.type === 'charges' || data?.type === 'all') {
+      if (_data?.type === 'charges' || _data?.type === 'all') {
         queryClient.invalidateQueries({ queryKey: ['charges'] });
       }
-      if (data?.type === 'salary-confirmation') {
+      if (_data?.type === 'salary-confirmation') {
         queryClient.invalidateQueries({ queryKey: ['salary-status'] });
       }
     };
 
-    const handleDisputeCreated = (data: { disputeId: string; debtId: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['disputes'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-    };
+    // Removed - not used
 
     // O useSocket já registra os listeners básicos, mas adicionamos listeners específicos aqui
     // para garantir que o dashboard seja atualizado imediatamente

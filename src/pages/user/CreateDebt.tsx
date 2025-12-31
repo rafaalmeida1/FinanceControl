@@ -420,26 +420,14 @@ export default function CreateDebt() {
   const renderStep = () => {
     switch (currentStep) {
       case 0:
+        // Wallet selection step removed - wallet system no longer used
         return (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">Selecione a Carteira</h2>
+            <div className="text-center py-12">
               <p className="text-muted-foreground">
-                Escolha a carteira para associar esta dívida
+                Sistema de carteiras removido. Continue para o próximo passo.
               </p>
             </div>
-            {isLoadingWallets ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : (
-              <WalletSelector
-                wallets={wallets || []}
-                selectedWalletId={walletId || null}
-                onSelect={(id) => setValue('walletId', id)}
-                error={errors.walletId?.message}
-              />
-            )}
           </div>
         );
 

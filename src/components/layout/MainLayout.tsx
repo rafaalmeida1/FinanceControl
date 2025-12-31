@@ -6,7 +6,6 @@ import {
   Home, 
   FileText, 
   Receipt, 
-  Wallet, 
   Settings, 
   Moon, 
   Sun, 

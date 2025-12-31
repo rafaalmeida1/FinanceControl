@@ -1,6 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { walletTransactionsService } from '@/services/wallet-transactions.service';
-import { WalletTransaction } from '@/services/wallet-transactions.service';
+// Wallet transactions removed - using Transaction model now
+type WalletTransaction = any;
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
@@ -16,13 +15,9 @@ interface StatementDetailModalProps {
 }
 
 export function StatementDetailModal({ transaction, open, onOpenChange }: StatementDetailModalProps) {
-  const { data: fullTransaction, isLoading } = useQuery({
-    queryKey: ['wallet-transaction', transaction.id],
-    queryFn: () => walletTransactionsService.getOne(transaction.id),
-    enabled: open,
-  });
-
-  const data = fullTransaction || transaction;
+  // Wallet transactions removed - using transaction data directly
+  const data = transaction;
+  const isLoading = false;
 
   const getTransactionIcon = (type: string) => {
     if (type === 'INCOME') {

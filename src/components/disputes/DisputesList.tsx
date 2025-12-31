@@ -1,16 +1,18 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { disputesService } from '@/services/disputes.service';
-import { formatCurrency, formatDateShort } from '@/lib/utils';
+import { formatDateShort } from '@/lib/utils';
 import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DisputeModal } from './DisputeModal';
-import { useState } from 'react';
 
 export function DisputesList() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: disputes, isLoading } = useQuery({
     queryKey: ['disputes', 'pending'],
