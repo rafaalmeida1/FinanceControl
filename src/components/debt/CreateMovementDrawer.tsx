@@ -50,6 +50,8 @@ import { MercadoPagoTypeSelector, MercadoPagoPaymentType } from '@/components/de
 import { InstallmentCalculator } from '@/components/debt/InstallmentCalculator';
 import { CreatePixKeyModal } from '@/components/debt/CreatePixKeyModal';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { paymentsService } from '@/services/payments.service';
 
 interface DebtFormData {
   walletId: string;
@@ -107,6 +109,8 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
   const [recurringDay, setRecurringDay] = useState<number>(new Date().getDate());
   const [subscriptionName, setSubscriptionName] = useState<string>('');
   const [durationMonths, setDurationMonths] = useState<number | null>(null);
+  const [mercadoPagoConnected, setMercadoPagoConnected] = useState<boolean | null>(null);
+  const [checkingMercadoPago, setCheckingMercadoPago] = useState(false);
 
   const { register, handleSubmit, watch, setValue, trigger, reset, formState: { errors } } = useForm<DebtFormData>({
     defaultValues: {
@@ -137,6 +141,8 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
 
   // Salvar progresso no localStorage
   const saveProgress = useCallback(() => {
+    if (!open) return; // Só salvar se o drawer estiver aberto
+    
     const formValues = watch();
     const progress = {
       currentStep,
@@ -153,6 +159,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
       recurringDay,
       subscriptionName,
       durationMonths,
+      mercadoPagoConnected,
       formData: {
         walletId: formValues.walletId,
         description: formValues.description,
@@ -166,8 +173,30 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
         pixKeyId: formValues.pixKeyId,
       },
     };
-    localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
-  }, [currentStep, paymentMethod, debtType, mercadoPagoPaymentType, isPersonalDebt, selectedPixKeyId, inputMode, installmentAmount, isInProgress, paidInstallments, recurringInterval, recurringDay, subscriptionName, durationMonths, watch]);
+    try {
+      localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+    } catch (error) {
+      console.error('Erro ao salvar progresso:', error);
+    }
+  }, [
+    open,
+    currentStep,
+    paymentMethod,
+    debtType,
+    mercadoPagoPaymentType,
+    isPersonalDebt,
+    selectedPixKeyId,
+    inputMode,
+    installmentAmount,
+    isInProgress,
+    paidInstallments,
+    recurringInterval,
+    recurringDay,
+    subscriptionName,
+    durationMonths,
+    mercadoPagoConnected,
+    watch,
+  ]);
 
   // Restaurar progresso do localStorage
   const restoreProgress = () => {
@@ -197,6 +226,17 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
             }
           });
         }
+
+        // Verificar conexão do Mercado Pago se necessário
+        if (progress.paymentMethod === 'mercadopago') {
+          paymentsService.getMercadoPagoConnectionStatus()
+            .then((status) => {
+              setMercadoPagoConnected(status.connected);
+            })
+            .catch(() => {
+              setMercadoPagoConnected(false);
+            });
+        }
       }
     } catch (error) {
       console.error('Erro ao restaurar progresso:', error);
@@ -208,28 +248,100 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     localStorage.removeItem(PROGRESS_STORAGE_KEY);
   };
 
-  // Salvar progresso sempre que houver mudanças
+  // Verificar conexão do Mercado Pago quando selecionar esse método
+  useEffect(() => {
+    if (paymentMethod === 'mercadopago') {
+      setCheckingMercadoPago(true);
+      paymentsService.getMercadoPagoConnectionStatus()
+        .then((status) => {
+          setMercadoPagoConnected(status.connected);
+        })
+        .catch(() => {
+          setMercadoPagoConnected(false);
+        })
+        .finally(() => {
+          setCheckingMercadoPago(false);
+        });
+    } else {
+      setMercadoPagoConnected(null);
+    }
+  }, [paymentMethod]);
+
+  // Salvar progresso sempre que houver mudanças (debounce para evitar muitas escritas)
   useEffect(() => {
     if (open) {
-      saveProgress();
+      const timeoutId = setTimeout(() => {
+        saveProgress();
+      }, 300); // Debounce de 300ms
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [open, saveProgress]);
+  }, [
+    open,
+    currentStep,
+    paymentMethod,
+    debtType,
+    mercadoPagoPaymentType,
+    isPersonalDebt,
+    selectedPixKeyId,
+    inputMode,
+    installmentAmount,
+    isInProgress,
+    paidInstallments,
+    recurringInterval,
+    recurringDay,
+    subscriptionName,
+    durationMonths,
+    mercadoPagoConnected,
+    walletId,
+    description,
+    totalAmount,
+    installments,
+    dueDate,
+    debtorEmail,
+    creditorEmail,
+    saveProgress,
+  ]);
 
   // Restaurar progresso ao abrir
   useEffect(() => {
     if (open) {
       restoreProgress();
-    } else {
-      // Limpar ao fechar se completou
-      if (currentStep === STEPS.length - 1) {
-        clearProgress();
-      }
     }
   }, [open]);
 
+  // Restaurar estado após conexão do Mercado Pago
+  useEffect(() => {
+    const savedState = localStorage.getItem('createDebtState');
+    if (savedState) {
+      try {
+        const state = JSON.parse(savedState);
+        // Verificar se voltou da conexão
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('connected') === 'true' || urlParams.get('tab') === 'pagamentos') {
+          // Recarregar status de conexão
+          paymentsService.getMercadoPagoConnectionStatus()
+            .then((status) => {
+              setMercadoPagoConnected(status.connected);
+              if (status.connected) {
+                toast.success('Mercado Pago conectado com sucesso!');
+              }
+              // Limpar localStorage
+              localStorage.removeItem('createDebtState');
+              // Limpar URL params
+              window.history.replaceState({}, '', window.location.pathname);
+            });
+        }
+      } catch (error) {
+        console.error('Erro ao restaurar estado:', error);
+        localStorage.removeItem('createDebtState');
+      }
+    }
+  }, []);
+
   // Ajustar tipo de dívida baseado no método de pagamento
   useEffect(() => {
-    if (paymentMethod === 'mercadopago') {
+    if (paymentMethod === 'mercadopago' && mercadoPagoConnected) {
       if (mercadoPagoPaymentType === 'RECURRING_CARD') {
         setDebtType('recurring');
       } else if (mercadoPagoPaymentType === 'INSTALLMENT') {
@@ -238,7 +350,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
         setDebtType('single');
       }
     }
-  }, [paymentMethod, mercadoPagoPaymentType]);
+  }, [paymentMethod, mercadoPagoPaymentType, mercadoPagoConnected]);
 
   // Preencher dados automaticamente com dados do usuário logado
   useEffect(() => {
@@ -258,6 +370,23 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
     }
   }, [isPersonalDebt, user, setValue]);
 
+  const connectMercadoPago = async () => {
+    try {
+      const { authUrl } = await paymentsService.getMercadoPagoAuthUrl();
+      // Salvar o estado atual no localStorage para restaurar após conexão
+      const formValues = watch();
+      localStorage.setItem('createDebtState', JSON.stringify({
+        currentStep,
+        paymentMethod,
+        walletId: formValues.walletId,
+      }));
+      // Redirecionar para conexão
+      window.location.href = authUrl;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao conectar Mercado Pago. Verifique se MERCADOPAGO_CLIENT_ID está configurado.');
+    }
+  };
+
   const nextStep = async () => {
     let isValid = true;
 
@@ -272,8 +401,17 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
         toast.error('Selecione um método de pagamento');
         return;
       }
-      // Não validar tipo de pagamento do Mercado Pago aqui, será validado no step 2
+      // Verificar se Mercado Pago está conectado
+      if (paymentMethod === 'mercadopago' && !mercadoPagoConnected) {
+        toast.error('Você precisa conectar sua conta do Mercado Pago primeiro');
+        return;
+      }
     } else if (currentStep === 2) {
+      // Verificar novamente se Mercado Pago está conectado
+      if (paymentMethod === 'mercadopago' && !mercadoPagoConnected) {
+        toast.error('Você precisa conectar sua conta do Mercado Pago primeiro');
+        return;
+      }
       // Validar tipo de pagamento do Mercado Pago apenas se o método for Mercado Pago
       if (paymentMethod === 'mercadopago' && !mercadoPagoPaymentType) {
         toast.error('Selecione o tipo de pagamento do Mercado Pago');
@@ -445,7 +583,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
       await createDebt(payload, {
         onSuccess: () => {
           toast.success('Movimentação criada com sucesso!');
-          // Limpar progresso e resetar para o passo 1 (após criação completa)
+          // Limpar progresso e resetar para o passo inicial (após criação completa)
           clearProgress();
           reset();
           setCurrentStep(0);
@@ -462,6 +600,7 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
           setRecurringDay(new Date().getDate());
           setSubscriptionName('');
           setDurationMonths(null);
+          setMercadoPagoConnected(null);
           setDuplicates([]);
           setShowDuplicateWarning(false);
           setPendingSubmitData(null);
@@ -488,6 +627,8 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
   };
 
   const handleClose = () => {
+    // Salvar progresso antes de fechar (para manter dados se o usuário voltar)
+    saveProgress();
     onOpenChange(false);
   };
 
@@ -531,10 +672,75 @@ export function CreateMovementDrawer({ open, onOpenChange }: CreateMovementDrawe
               selectedMethod={paymentMethod}
               onSelect={setPaymentMethod}
             />
+            {paymentMethod === 'mercadopago' && (
+              <>
+                {checkingMercadoPago ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Verificando conexão...</span>
+                  </div>
+                ) : mercadoPagoConnected === false ? (
+                  <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50">
+                    <CreditCard className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertTitle className="text-amber-800 dark:text-amber-200">
+                      Mercado Pago não conectado
+                    </AlertTitle>
+                    <AlertDescription className="text-amber-700 dark:text-amber-300 mt-2">
+                      <p className="mb-3">
+                        Para usar o Mercado Pago, você precisa conectar sua conta primeiro.
+                      </p>
+                      <Button
+                        onClick={connectMercadoPago}
+                        className="w-full sm:w-auto"
+                      >
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Conectar Mercado Pago
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : mercadoPagoConnected === true ? (
+                  <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/50">
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <AlertTitle className="text-green-800 dark:text-green-200">
+                      Mercado Pago conectado
+                    </AlertTitle>
+                    <AlertDescription className="text-green-700 dark:text-green-300">
+                      Sua conta do Mercado Pago está conectada e pronta para uso.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+              </>
+            )}
           </div>
         );
 
       case 2:
+        // Não permitir avançar se Mercado Pago não estiver conectado
+        if (paymentMethod === 'mercadopago' && !mercadoPagoConnected) {
+          return (
+            <div className="space-y-6">
+              <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50">
+                <CreditCard className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertTitle className="text-amber-800 dark:text-amber-200">
+                  Mercado Pago não conectado
+                </AlertTitle>
+                <AlertDescription className="text-amber-700 dark:text-amber-300 mt-2">
+                  <p className="mb-3">
+                    Para usar o Mercado Pago, você precisa conectar sua conta primeiro.
+                  </p>
+                  <Button
+                    onClick={connectMercadoPago}
+                    className="w-full sm:w-auto"
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Conectar Mercado Pago
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-6">
             {paymentMethod === 'mercadopago' ? (

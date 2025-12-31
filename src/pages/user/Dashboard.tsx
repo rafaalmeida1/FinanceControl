@@ -345,7 +345,7 @@ export default function Dashboard() {
               {balanceVisible ? formatCurrency(monthlySummary?.projectedBalance || 0) : '••••••'}
             </div>
             <p className="text-xs text-blue-600 dark:text-blue-300 truncate">
-              Saldo atual: {balanceVisible ? formatCurrency(monthlySummary?.balance || 0) : '••••••'}
+              Saldo atual: {balanceVisible ? formatCurrency(totalBalance || 0) : '••••••'}
             </p>
           </CardContent>
         </Card>

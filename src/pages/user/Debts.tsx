@@ -601,14 +601,14 @@ export default function Debts() {
           </div>
           <div className="flex gap-2">
             <Select
-              value={filterMonth?.toString() || ''}
-              onValueChange={(value) => setFilterMonth(value ? parseInt(value) : undefined)}
+              value={filterMonth?.toString() || 'all'}
+              onValueChange={(value) => setFilterMonth(value === 'all' ? undefined : parseInt(value))}
             >
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Mês" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os meses</SelectItem>
+                <SelectItem value="all">Todos os meses</SelectItem>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
                   <SelectItem key={month} value={month.toString()}>
                     {new Date(2000, month - 1).toLocaleDateString('pt-BR', { month: 'long' })}
@@ -617,14 +617,14 @@ export default function Debts() {
               </SelectContent>
             </Select>
             <Select
-              value={filterYear?.toString() || ''}
-              onValueChange={(value) => setFilterYear(value ? parseInt(value) : undefined)}
+              value={filterYear?.toString() || 'all'}
+              onValueChange={(value) => setFilterYear(value === 'all' ? undefined : parseInt(value))}
             >
               <SelectTrigger className="w-28">
                 <SelectValue placeholder="Ano" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os anos</SelectItem>
+                <SelectItem value="all">Todos os anos</SelectItem>
                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
                   <SelectItem key={year} value={year.toString()}>
                     {year}
