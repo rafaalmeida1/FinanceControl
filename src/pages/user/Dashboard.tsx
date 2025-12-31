@@ -5,6 +5,7 @@ import { useStats } from '@/hooks/useStats';
 import { useFinancial } from '@/hooks/useFinancial';
 import { useWallets } from '@/hooks/useWallets';
 import { useWindowSize } from '@/hooks/useWindowSize';
+import { useSocket } from '@/hooks/useSocket';
 import { getSocket } from '@/lib/socket';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
 import { QuickAddMovement } from '@/components/debt/QuickAddMovement';
@@ -63,19 +64,36 @@ export default function Dashboard() {
 
   const isLoading = isLoadingStats || isLoadingFinancial || isLoadingWallets;
 
-  // Escutar eventos WebSocket para atualizar dados em tempo real
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+  // Inicializar WebSocket para atualizações em tempo real
+  useSocket();
 
-    const handleDataUpdated = () => {
+  // Escutar eventos WebSocket específicos para invalidar queries do dashboard
+  useEffect(() => {
+    const handleDataUpdated = (data?: { type: string }) => {
       // Invalidar queries relevantes quando dados forem atualizados
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       queryClient.invalidateQueries({ queryKey: ['financial'] });
       queryClient.invalidateQueries({ queryKey: ['wallets'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['charges'] });
+      queryClient.invalidateQueries({ queryKey: ['compiled-debts'] });
+      
+      // Se for atualização específica, invalidar também
+      if (data?.type === 'debts' || data?.type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['debts'] });
+      }
+      if (data?.type === 'charges' || data?.type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['charges'] });
+      }
+      if (data?.type === 'wallets' || data?.type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['wallets'] });
+      }
     };
+
+    // O useSocket já registra os listeners básicos, mas adicionamos listeners específicos aqui
+    // para garantir que o dashboard seja atualizado imediatamente
+    const socket = getSocket();
+    if (!socket) return;
 
     socket.on('data.updated', handleDataUpdated);
     socket.on('debt.created', handleDataUpdated);

@@ -15,6 +15,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from '@/components/ui/input-otp';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -31,19 +36,7 @@ const profileSchema = z.object({
   phone: z.string().optional(),
 });
 
-const passwordSchema = z
-  .object({
-    currentPassword: z.string().min(1, 'Senha atual é obrigatória'),
-    newPassword: z.string().min(6, 'Nova senha deve ter pelo menos 6 caracteres'),
-    confirmPassword: z.string().min(1, 'Confirmação é obrigatória'),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'As senhas não coincidem',
-    path: ['confirmPassword'],
-  });
-
 type ProfileFormData = z.infer<typeof profileSchema>;
-type PasswordFormData = z.infer<typeof passwordSchema>;
 
 
 export default function Settings() {
@@ -52,6 +45,11 @@ export default function Settings() {
   const [mercadoPagoConnected, setMercadoPagoConnected] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
+  
+  // Estados para senha OTP
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const {
     register: registerProfile,
@@ -64,15 +62,6 @@ export default function Settings() {
       email: user?.email || '',
       phone: '',
     },
-  });
-
-  const {
-    register: registerPassword,
-    handleSubmit: handleSubmitPassword,
-    formState: { errors: passwordErrors },
-    reset: resetPassword,
-  } = useForm<PasswordFormData>({
-    resolver: zodResolver(passwordSchema),
   });
 
 
@@ -137,14 +126,41 @@ export default function Settings() {
     }
   };
 
-  const onSubmitPassword = async (data: PasswordFormData) => {
+  const onSubmitPassword = async () => {
+    // Validações
+    if (currentPassword.length !== 6) {
+      toast.error('Senha atual deve ter 6 dígitos');
+      return;
+    }
+    if (newPassword.length !== 6) {
+      toast.error('Nova senha deve ter 6 dígitos');
+      return;
+    }
+    if (confirmPassword.length !== 6) {
+      toast.error('Confirmação deve ter 6 dígitos');
+      return;
+    }
+    if (!/^\d+$/.test(currentPassword) || !/^\d+$/.test(newPassword) || !/^\d+$/.test(confirmPassword)) {
+      toast.error('As senhas devem conter apenas números');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('As senhas não coincidem');
+      return;
+    }
+
     setLoadingPassword(true);
     try {
-      await authService.changePassword(data.currentPassword, data.newPassword);
+      await authService.changePassword(currentPassword, newPassword, confirmPassword);
       toast.success('Senha atualizada com sucesso!');
-      resetPassword();
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao atualizar senha');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } finally {
       setLoadingPassword(false);
     }
@@ -251,46 +267,71 @@ export default function Settings() {
               <CardTitle>Alterar Senha</CardTitle>
               <CardDescription>Mantenha sua conta segura</CardDescription>
             </CardHeader>
-            <form onSubmit={handleSubmitPassword(onSubmitPassword)}>
-              <CardContent className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); onSubmitPassword(); }}>
+              <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="currentPassword">Senha Atual</Label>
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    {...registerPassword('currentPassword')}
-                  />
-                  {passwordErrors.currentPassword && (
-                    <p className="text-sm text-destructive">
-                      {passwordErrors.currentPassword.message}
-                    </p>
-                  )}
+                  <Label className="text-center block">Senha Atual (OTP)</Label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={currentPassword}
+                      onChange={setCurrentPassword}
+                      disabled={loadingPassword}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">Nova Senha</Label>
-                  <Input id="newPassword" type="password" {...registerPassword('newPassword')} />
-                  {passwordErrors.newPassword && (
-                    <p className="text-sm text-destructive">
-                      {passwordErrors.newPassword.message}
-                    </p>
-                  )}
+                  <Label className="text-center block">Nova Senha (OTP)</Label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={newPassword}
+                      onChange={setNewPassword}
+                      disabled={loadingPassword}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    {...registerPassword('confirmPassword')}
-                  />
-                  {passwordErrors.confirmPassword && (
-                    <p className="text-sm text-destructive">
-                      {passwordErrors.confirmPassword.message}
-                    </p>
-                  )}
+                  <Label className="text-center block">Confirmar Nova Senha (OTP)</Label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                      disabled={loadingPassword}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit" disabled={loadingPassword}>
+                <Button type="submit" disabled={loadingPassword || currentPassword.length !== 6 || newPassword.length !== 6 || confirmPassword.length !== 6}>
                   {loadingPassword ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

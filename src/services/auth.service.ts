@@ -32,8 +32,8 @@ export const authService = {
     return data;
   },
 
-  resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
-    const { data } = await api.post('/auth/reset-password', { token, newPassword });
+  resetPassword: async (token: string, newPassword: string, confirmPassword: string): Promise<{ message: string }> => {
+    const { data } = await api.post('/auth/reset-password', { token, newPassword, confirmPassword });
     return data;
   },
 
@@ -47,8 +47,8 @@ export const authService = {
     return data;
   },
 
-  changePassword: async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
-    const { data } = await api.post('/auth/change-password', { currentPassword, newPassword });
+  changePassword: async (currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ message: string }> => {
+    const { data } = await api.post('/auth/change-password', { currentPassword, newPassword, confirmPassword });
     return data;
   },
 
@@ -62,25 +62,25 @@ export const authService = {
     return data;
   },
 
-  // Registro com OTP (2 etapas)
-  registerStep1: async (email: string, name?: string): Promise<{ sessionToken: string; otp?: string }> => {
+  // Registro com senha OTP (2 etapas)
+  registerStep1: async (email: string, name?: string): Promise<{ sessionToken: string; email: string }> => {
     const { data } = await api.post('/auth/register/step1', { email, name });
     return data;
   },
 
-  registerStep2: async (email: string, otp: string, sessionToken: string): Promise<LoginResponse> => {
-    const { data } = await api.post('/auth/register/step2', { email, otp, sessionToken });
+  registerStep2: async (email: string, password: string, confirmPassword: string, sessionToken: string): Promise<LoginResponse> => {
+    const { data } = await api.post('/auth/register/step2', { email, password, confirmPassword, sessionToken });
     return data;
   },
 
-  // Login com OTP (2 etapas)
-  loginStep1: async (email: string): Promise<{ sessionToken: string; otp?: string }> => {
+  // Login com senha OTP (2 etapas)
+  loginStep1: async (email: string): Promise<{ email: string }> => {
     const { data } = await api.post('/auth/login/step1', { email });
     return data;
   },
 
-  loginStep2: async (email: string, otp: string, sessionToken: string): Promise<LoginResponse> => {
-    const { data } = await api.post('/auth/login/step2', { email, otp, sessionToken });
+  loginStep2: async (email: string, password: string): Promise<LoginResponse> => {
+    const { data } = await api.post('/auth/login/step2', { email, password });
     return data;
   },
 };

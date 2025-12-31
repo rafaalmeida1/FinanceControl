@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '@/services/admin.service';
 import { formatCurrency, formatDateShort } from '@/lib/utils';
-import { getSocket } from '@/lib/socket';
+import { getSocket, connectSocket } from '@/lib/socket';
+import { useSocket } from '@/hooks/useSocket';
 import { Users, FileText, CreditCard, DollarSign, Activity, Eye, EyeOff, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,9 @@ export default function AdminDashboard() {
   const [filterLevel, setFilterLevel] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Garantir que o socket está conectado
+  useSocket();
+
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: adminService.getStats,
@@ -65,7 +69,12 @@ export default function AdminDashboard() {
 
   // WebSocket para logs em tempo real e atualizações de stats
   useEffect(() => {
-    const socket = getSocket();
+    // Garantir que o socket está conectado
+    let socket = getSocket();
+    if (!socket || !socket.connected) {
+      socket = connectSocket();
+    }
+    
     if (!socket) return;
 
     const handleNewLog = (log: AuditLog) => {
@@ -73,18 +82,57 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
     };
 
-    const handleStatsUpdated = () => {
+    const handleStatsUpdated = (data?: any) => {
       // Invalidar queries para forçar atualização dos dados
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       queryClient.invalidateQueries({ queryKey: ['admin-audit-logs'] });
+      
+      // Se houver dados sobre o que foi criado, adicionar um log temporário
+      if (data && data.type) {
+        const logEntry: AuditLog = {
+          id: `temp-${Date.now()}`,
+          userId: data.userId,
+          userEmail: data.userEmail,
+          userName: data.userName,
+          action: data.type === 'debt-created' ? 'DEBT_CREATED' : data.type === 'charge-created' ? 'CHARGE_CREATED' : 'SYSTEM_EVENT',
+          level: 'INFO',
+          resourceType: data.type === 'debt-created' ? 'debt' : data.type === 'charge-created' ? 'charge' : undefined,
+          resourceId: data.debtId || data.chargeId,
+          description: data.type === 'debt-created' 
+            ? `Nova dívida criada: ${data.description || 'Sem descrição'} - ${data.debtorName || data.debtorEmail} - R$ ${data.totalAmount?.toFixed(2) || '0.00'}`
+            : data.type === 'charge-created'
+            ? `Nova cobrança criada: ${data.description || 'Sem descrição'} - R$ ${data.amount?.toFixed(2) || '0.00'}`
+            : 'Atualização de estatísticas',
+          timestamp: data.timestamp || new Date().toISOString(),
+          createdAt: data.timestamp || new Date().toISOString(),
+        };
+        setAuditLogs((prev) => [logEntry, ...prev].slice(0, 500));
+      }
     };
 
-    socket.on('admin.audit-log', handleNewLog);
-    socket.on('admin.stats-updated', handleStatsUpdated);
+    // Aguardar conexão antes de registrar listeners
+    const setupListeners = () => {
+      if (socket && socket.connected) {
+        socket.on('admin.audit-log', handleNewLog);
+        socket.on('admin.stats-updated', handleStatsUpdated);
+      } else {
+        // Se não estiver conectado, aguardar conexão
+        socket?.once('connect', () => {
+          if (socket) {
+            socket.on('admin.audit-log', handleNewLog);
+            socket.on('admin.stats-updated', handleStatsUpdated);
+          }
+        });
+      }
+    };
+
+    setupListeners();
 
     return () => {
-      socket.off('admin.audit-log', handleNewLog);
-      socket.off('admin.stats-updated', handleStatsUpdated);
+      if (socket) {
+        socket.off('admin.audit-log', handleNewLog);
+        socket.off('admin.stats-updated', handleStatsUpdated);
+      }
     };
   }, [queryClient]);
 

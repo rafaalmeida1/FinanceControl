@@ -46,7 +46,10 @@ import { HelpDialog, HelpStep } from '@/components/help/HelpDialog';
 import { HelpIconButton } from '@/components/help/HelpIconButton';
 import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
 import { useSocket } from '@/hooks/useSocket';
+import { getSocket } from '@/lib/socket';
 import { useCreateMovement } from '@/contexts/CreateMovementContext';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface EditDebtFormData {
   debtorName?: string;
@@ -64,8 +67,11 @@ interface EditDebtFormData {
 
 export default function Debts() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
   // Inicializar WebSocket para atualizações em tempo real
   useSocket();
+  
   const { setOpen } = useCreateMovement();
   const [activeTab, setActiveTab] = useState<'all' | 'personal' | 'third-party' | 'archived' | 'paid'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -87,6 +93,51 @@ export default function Debts() {
     queryFn: () => debtsService.getCompiledByPix(),
     enabled: showCompiled,
   });
+
+  // Escutar eventos WebSocket específicos para invalidar queries quando necessário
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleDataUpdated = (data?: { type: string }) => {
+      // Invalidar queries relevantes quando dados forem atualizados
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['charges'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['compiled-debts'] });
+      
+      // Se for atualização específica, invalidar também
+      if (data?.type === 'debts' || data?.type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['debts'] });
+      }
+      if (data?.type === 'charges' || data?.type === 'all') {
+        queryClient.invalidateQueries({ queryKey: ['charges'] });
+      }
+    };
+
+    const handleDebtCreated = () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['compiled-debts'] });
+    };
+
+    const handlePaymentReceived = () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['charges'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    };
+
+    // O useSocket já registra listeners básicos, mas adicionamos listeners específicos aqui
+    socket.on('data.updated', handleDataUpdated);
+    socket.on('debt.created', handleDebtCreated);
+    socket.on('payment.received', handlePaymentReceived);
+
+    return () => {
+      socket.off('data.updated', handleDataUpdated);
+      socket.off('debt.created', handleDebtCreated);
+      socket.off('payment.received', handlePaymentReceived);
+    };
+  }, [queryClient]);
 
   // Função helper para determinar a perspectiva da dívida do ponto de vista do usuário atual
   const getDebtPerspective = (debt: Debt): boolean => {

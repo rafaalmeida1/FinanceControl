@@ -22,7 +22,8 @@ export default function Login() {
   const [registerStep, setRegisterStep] = useState<'step1' | 'step2'>('step1');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [sessionToken, setSessionToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -36,54 +37,53 @@ export default function Login() {
     }
   }, []);
 
-  // Login - Etapa 1: Solicitar OTP
+  // Login - Etapa 1: Verificar email
   const handleLoginStep1 = async (emailValue: string) => {
     setIsLoading(true);
     try {
-      const response = await authService.loginStep1(emailValue);
+      await authService.loginStep1(emailValue);
       setEmail(emailValue);
-      setSessionToken(response.sessionToken);
       setStep('otp');
       localStorage.setItem(LAST_EMAIL_KEY, emailValue);
-      
-      if (response.otp && import.meta.env.DEV) {
-        toast.success(`OTP (dev): ${response.otp}`, { duration: 10000 });
-      } else {
-        toast.success('Código OTP enviado para seu email!');
-      }
+      toast.success('Email encontrado. Digite sua senha OTP.');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao solicitar código OTP');
+      toast.error(error.response?.data?.message || 'Email não encontrado');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Login - Etapa 2: Validar OTP
+  // Login - Etapa 2: Validar senha OTP
   const handleLoginStep2 = async () => {
-    if (otp.length !== 6) {
-      toast.error('Digite o código OTP completo');
+    if (password.length !== 6) {
+      toast.error('Digite sua senha OTP completa (6 dígitos)');
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await authService.loginStep2(email, otp, sessionToken);
+      const response = await authService.loginStep2(email, password);
       setUser(response.user);
       setTokens(response.accessToken, response.refreshToken);
       toast.success('Login realizado com sucesso!');
       navigate(response.user.role === 'ADMIN' ? '/admin' : '/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Código OTP inválido');
-      setOtp('');
+      toast.error(error.response?.data?.message || 'Senha inválida');
+      setPassword('');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Registro - Etapa 1: Solicitar OTP
+  // Registro - Etapa 1: Validar email
   const handleRegisterStep1 = async () => {
     if (!acceptedTerms) {
       toast.error('Você deve aceitar os termos de uso e política de privacidade');
+      return;
+    }
+
+    if (!name || name.trim().length === 0) {
+      toast.error('Digite seu nome');
       return;
     }
 
@@ -93,36 +93,44 @@ export default function Login() {
       setSessionToken(response.sessionToken);
       setRegisterStep('step2');
       localStorage.setItem(LAST_EMAIL_KEY, email);
-      
-      if (response.otp && import.meta.env.DEV) {
-        toast.success(`OTP (dev): ${response.otp}`, { duration: 10000 });
-      } else {
-        toast.success('Código OTP enviado para seu email!');
-      }
+      toast.success('Email válido. Defina sua senha OTP.');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao solicitar código OTP');
+      toast.error(error.response?.data?.message || 'Erro ao validar email');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Registro - Etapa 2: Validar OTP e criar conta
+  // Registro - Etapa 2: Criar conta com senha OTP
   const handleRegisterStep2 = async () => {
-    if (otp.length !== 6) {
-      toast.error('Digite o código OTP completo');
+    if (password.length !== 6) {
+      toast.error('Digite sua senha OTP completa (6 dígitos)');
+      return;
+    }
+
+    if (confirmPassword.length !== 6) {
+      toast.error('Digite a confirmação da senha OTP completa (6 dígitos)');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error('As senhas não coincidem');
+      setPassword('');
+      setConfirmPassword('');
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await authService.registerStep2(email, otp, sessionToken);
+      const response = await authService.registerStep2(email, password, confirmPassword, sessionToken);
       setUser(response.user);
       setTokens(response.accessToken, response.refreshToken);
       toast.success('Conta criada com sucesso!');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Código OTP inválido');
-      setOtp('');
+      toast.error(error.response?.data?.message || 'Erro ao criar conta');
+      setPassword('');
+      setConfirmPassword('');
     } finally {
       setIsLoading(false);
     }
@@ -132,15 +140,17 @@ export default function Login() {
   const handleBack = () => {
     if (isRegister && registerStep === 'step2') {
       setRegisterStep('step1');
-      setOtp('');
+      setPassword('');
+      setConfirmPassword('');
     } else if (step === 'otp' && !isRegister) {
       setStep('email');
-      setOtp('');
+      setPassword('');
     } else {
       setIsRegister(false);
       setRegisterStep('step1');
       setStep('email');
-      setOtp('');
+      setPassword('');
+      setConfirmPassword('');
     }
   };
 
@@ -155,7 +165,7 @@ export default function Login() {
             <p className="text-gray-600 dark:text-gray-400">
               {isRegister 
                 ? (registerStep === 'step1' ? 'Criar nova conta' : 'Verificar código')
-                : (step === 'email' ? 'Entre na sua conta' : 'Digite o código OTP')}
+                : (step === 'email' ? 'Entre na sua conta' : 'Digite sua senha OTP')}
             </p>
           </div>
 
@@ -194,16 +204,16 @@ export default function Login() {
             </div>
           )}
 
-          {/* Login - Etapa OTP */}
+          {/* Login - Etapa Senha OTP */}
           {!isRegister && step === 'otp' && (
             <div className="space-y-6">
               <div className="text-center">
                 <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                   <Mail className="h-8 w-8 text-primary" />
                 </div>
-                <h2 className="text-xl font-bold mb-2">Código enviado!</h2>
+                <h2 className="text-xl font-bold mb-2">Digite sua senha</h2>
                 <p className="text-muted-foreground text-sm">
-                  Digite o código de 6 dígitos enviado para
+                  Digite sua senha OTP de 6 dígitos
                   <br />
                   <strong className="text-foreground">{email}</strong>
                 </p>
@@ -212,9 +222,9 @@ export default function Login() {
               <div className="flex justify-center">
                 <InputOTP
                   maxLength={6}
-                  value={otp}
+                  value={password}
                   onChange={(value) => {
-                    setOtp(value);
+                    setPassword(value);
                     // Auto-submit quando completar 6 dígitos
                     if (value.length === 6 && !isLoading) {
                       setTimeout(() => handleLoginStep2(), 100);
@@ -235,7 +245,7 @@ export default function Login() {
 
               <button
                 onClick={handleLoginStep2}
-                disabled={isLoading || otp.length !== 6}
+                disabled={isLoading || password.length !== 6}
                 className="btn-primary w-full flex items-center justify-center gap-2"
               >
                 {isLoading && <Loader2 className="animate-spin" size={20} />}
@@ -249,13 +259,6 @@ export default function Login() {
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Voltar
-                </button>
-                <button
-                  onClick={() => handleLoginStep1(email)}
-                  disabled={isLoading}
-                  className="text-primary-600 hover:underline"
-                >
-                  Reenviar código
                 </button>
               </div>
             </div>
@@ -335,41 +338,61 @@ export default function Login() {
                 <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                   <Mail className="h-8 w-8 text-primary" />
                 </div>
-                <h2 className="text-xl font-bold mb-2">Código enviado!</h2>
+                <h2 className="text-xl font-bold mb-2">Defina sua senha</h2>
                 <p className="text-muted-foreground text-sm">
-                  Digite o código de 6 dígitos enviado para
+                  Escolha uma senha OTP de 6 dígitos
                   <br />
                   <strong className="text-foreground">{email}</strong>
                 </p>
               </div>
 
-              <div className="flex justify-center">
-                <InputOTP
-                  maxLength={6}
-                  value={otp}
-                  onChange={(value) => {
-                    setOtp(value);
-                    // Auto-submit quando completar 6 dígitos
-                    if (value.length === 6 && !isLoading) {
-                      setTimeout(() => handleRegisterStep2(), 100);
-                    }
-                  }}
-                  disabled={isLoading}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+              <div className="space-y-4">
+                <div>
+                  <label className="label mb-2">Senha OTP</label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={password}
+                      onChange={setPassword}
+                      disabled={isLoading}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label mb-2">Confirmar Senha OTP</label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                      disabled={isLoading}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                </div>
               </div>
 
               <button
                 onClick={handleRegisterStep2}
-                disabled={isLoading || otp.length !== 6}
+                disabled={isLoading || password.length !== 6 || confirmPassword.length !== 6}
                 className="btn-primary w-full flex items-center justify-center gap-2"
               >
                 {isLoading && <Loader2 className="animate-spin" size={20} />}
@@ -383,13 +406,6 @@ export default function Login() {
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Voltar
-                </button>
-                <button
-                  onClick={handleRegisterStep1}
-                  disabled={isLoading}
-                  className="text-primary-600 hover:underline"
-                >
-                  Reenviar código
                 </button>
               </div>
             </div>

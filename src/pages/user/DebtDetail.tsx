@@ -6,6 +6,7 @@ import { filesService } from '@/services/files.service';
 import { formatCurrency, formatDateShort, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { ArrowLeft, Check, Copy, DollarSign, Calendar, FileText, User, CreditCard, AlertCircle, Loader2, ExternalLink, QrCode, XCircle, Send, Mail, Download, File } from 'lucide-react';
 import { useDebts } from '@/hooks/useDebts';
+import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,10 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Charge, Debt } from '@/types/api.types';
 import { CancelRecurringModal } from '@/components/debt/CancelRecurringModal';
+import { getSocket } from '@/lib/socket';
 
 export default function DebtDetail() {
   const { id } = useParams<{ id: string }>();
@@ -31,11 +33,55 @@ export default function DebtDetail() {
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; charge?: Charge; allCharges?: boolean }>({ open: false });
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
+  // Inicializar WebSocket para atualizações em tempo real
+  useSocket();
+
   const { data: debt, isLoading } = useQuery({
     queryKey: ['debt', id],
     queryFn: () => debtsService.getOne(id!),
     enabled: !!id,
   });
+
+  // Escutar eventos WebSocket para atualizar detalhes da dívida em tempo real
+  useEffect(() => {
+    if (!id) return;
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleDataUpdated = (data?: { type: string }) => {
+      // Invalidar query da dívida específica quando houver atualizações
+      if (data?.type === 'all' || data?.type === 'debts' || data?.type === 'charges') {
+        queryClient.invalidateQueries({ queryKey: ['debt', id] });
+        queryClient.invalidateQueries({ queryKey: ['charges'] });
+        queryClient.invalidateQueries({ queryKey: ['stats'] });
+      }
+    };
+
+    const handleDebtCreated = (data: { debtId: string }) => {
+      if (data.debtId === id) {
+        queryClient.invalidateQueries({ queryKey: ['debt', id] });
+      }
+    };
+
+    const handlePaymentReceived = (data: { debtId: string }) => {
+      if (data.debtId === id) {
+        queryClient.invalidateQueries({ queryKey: ['debt', id] });
+        queryClient.invalidateQueries({ queryKey: ['charges'] });
+        queryClient.invalidateQueries({ queryKey: ['stats'] });
+      }
+    };
+
+    socket.on('data.updated', handleDataUpdated);
+    socket.on('debt.created', handleDebtCreated);
+    socket.on('payment.received', handlePaymentReceived);
+
+    return () => {
+      socket.off('data.updated', handleDataUpdated);
+      socket.off('debt.created', handleDebtCreated);
+      socket.off('payment.received', handlePaymentReceived);
+    };
+  }, [id, queryClient]);
 
   const markChargePaidMutation = useMutation({
     mutationFn: ({ chargeId, notes }: { chargeId: string; notes?: string }) =>
